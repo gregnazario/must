@@ -329,3 +329,110 @@ script = "cp input.txt output.txt"
     let output_content = std::fs::read_to_string(root.join("output.txt")).unwrap();
     assert_eq!(output_content.trim(), "version 2", "output should reflect new content after rebuild");
 }
+
+#[test]
+fn test_go_bin_recipe() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    // Skip if Go is not installed
+    let go_available = std::process::Command::new("go")
+        .arg("version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !go_available {
+        eprintln!("skipping test_go_bin_recipe: go not installed");
+        return;
+    }
+
+    // Write a minimal main.go
+    std::fs::write(
+        root.join("main.go"),
+        r#"package main
+import "fmt"
+func main() { fmt.Println("hello from go") }
+"#,
+    )
+    .unwrap();
+
+    // Write go.mod
+    std::fs::write(
+        root.join("go.mod"),
+        r#"module example.com/hello
+go 1.21
+"#,
+    )
+    .unwrap();
+
+    // Write Mustfile.toml
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"[project]
+name = "gotest"
+
+[recipe.build]
+type = "go-bin"
+package = "."
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let status = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "go-bin build should succeed");
+}
+
+#[test]
+fn test_multi_target_expansion() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    // Write Mustfile.toml with a [targets] section and a shell recipe
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"[project]
+name = "multitarget"
+
+[targets]
+release = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+[recipe.build]
+type = "shell"
+script = "echo building for target"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+            "--target",
+            "release",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "multi-target build should succeed\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("[target: x86_64-unknown-linux-gnu]"),
+        "expected x86_64 target header in output\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("[target: aarch64-unknown-linux-gnu]"),
+        "expected aarch64 target header in output\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
