@@ -1,0 +1,54 @@
+# Simple shell-recipe example.
+# Demonstrates: deps, inputs/outputs with mtime caching, phony targets,
+# and hash caching opt-in for code-generation.
+
+[project]
+name = "simple"
+version = "0.1.0"
+
+[env]
+BUILD_DIR = "dist"
+
+# ── Recipes ───────────────────────────────────────────────────────────────────
+
+# Code-generation: hash-cached so branch switches don't cause spurious rebuilds.
+[recipe.codegen]
+type    = "shell"
+inputs  = ["proto/*.proto"]
+outputs = ["src/generated.rs"]
+cache   = "hash"
+script  = """
+mkdir -p src
+protoc --rust_out=src proto/*.proto
+"""
+
+# Compile: depends on codegen, mtime-cached by default.
+[recipe.build]
+type    = "shell"
+deps    = ["codegen"]
+inputs  = ["src/**/*.c", "src/generated.rs"]
+outputs = ["dist/myapp"]
+script  = """
+mkdir -p dist
+cc -O2 -o dist/myapp src/*.c
+"""
+
+# Test: always runs (phony — no outputs to cache against).
+[recipe.test]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "./dist/myapp --self-test"
+
+# Package: depends on a clean build passing tests.
+[recipe.package]
+type    = "shell"
+deps    = ["test"]
+outputs = ["dist/myapp.tar.gz"]
+script  = "tar czf dist/myapp.tar.gz -C dist myapp"
+
+# Clean: phony, no caching.
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf dist/ src/generated.rs"

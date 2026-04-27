@@ -1,0 +1,73 @@
+# Rust application example.
+# Demonstrates: rust-bin / rust-test first-class recipes, profile-scoped env,
+# multi-target cross-compilation, and --explain-friendly hash caching.
+
+[project]
+name = "myapp"
+version = "0.1.0"
+
+# ── Environment ───────────────────────────────────────────────────────────────
+
+[env]
+RUST_LOG        = "info"
+RUST_BACKTRACE  = "1"
+
+# Override for --profile release
+[env.release]
+RUST_LOG       = "warn"
+RUST_BACKTRACE = "0"
+
+# ── Cross-compile targets ─────────────────────────────────────────────────────
+
+[targets]
+default = ["x86_64-unknown-linux-gnu"]
+release = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+
+# ── Recipes ───────────────────────────────────────────────────────────────────
+
+# Build the binary. Cargo handles incremental compilation internally;
+# must wraps it for consistent cross-target invocation.
+[recipe.build]
+type     = "rust-bin"
+package  = "myapp"
+features = ["cli"]
+
+# Cross-compile aarch64 Linux via a container (cross-rs image).
+[recipe.build.cross]
+"aarch64-unknown-linux-gnu" = { linker = "aarch64-linux-gnu-gcc", cross = "container" }
+
+# Run the test suite.
+[recipe.test]
+type    = "rust-test"
+package = "myapp"
+deps    = []
+
+# Run clippy as part of CI.
+[recipe.lint]
+type   = "shell"
+phony  = true
+script = "cargo clippy --workspace -- -D warnings"
+
+# Build docs.
+[recipe.docs]
+type   = "shell"
+phony  = true
+script = "cargo doc --workspace --no-deps"
+
+# Full release: lint, test, then build for all targets.
+[recipe.release]
+type   = "shell"
+deps   = ["lint", "test", "build"]
+phony  = true
+script = "echo Release build complete"
+
+# Clean everything including Cargo's target dir.
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean"

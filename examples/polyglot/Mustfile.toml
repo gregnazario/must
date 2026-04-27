@@ -1,0 +1,130 @@
+# Polyglot example: Rust CLI + Go API server + C shared library + shell glue.
+# Demonstrates how must unifies build verbs across multiple languages.
+#
+# Project layout assumed:
+#   cmd/server/        Go API server
+#   crates/cli/        Rust CLI binary
+#   lib/               C shared library (libcore.so)
+#   proto/             Protobuf definitions
+#   scripts/           Shell utilities
+
+[project]
+name    = "platform"
+version = "0.2.0"
+
+# ── Environment ───────────────────────────────────────────────────────────────
+
+[env]
+LOG_LEVEL = "info"
+GOFLAGS   = "-trimpath"
+
+[env.release]
+LOG_LEVEL = "warn"
+GOFLAGS   = "-trimpath"
+
+# ── Targets ───────────────────────────────────────────────────────────────────
+
+[targets]
+default = ["x86_64-unknown-linux-gnu"]
+release = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+]
+
+# ── Code generation (shared by Rust and Go) ───────────────────────────────────
+
+[recipe.codegen]
+type    = "shell"
+inputs  = ["proto/**/*.proto"]
+outputs = ["crates/cli/src/proto/mod.rs", "cmd/server/proto/service.pb.go"]
+cache   = "hash"
+script  = """
+protoc \
+  --rust_out=crates/cli/src/proto \
+  --go_out=cmd/server/proto \
+  proto/*.proto
+"""
+
+# ── C shared library ──────────────────────────────────────────────────────────
+
+[recipe.libcore]
+type      = "c-lib"
+sources   = ["lib/core.c", "lib/hash.c", "lib/compress.c"]
+includes  = ["lib/include/"]
+link_libs = ["z"]                           # zlib
+
+[recipe.libcore.cross]
+"aarch64-unknown-linux-gnu" = { linker = "aarch64-linux-gnu-gcc" }
+
+# ── Rust CLI (links against the C library) ────────────────────────────────────
+
+[recipe.cli]
+type    = "rust-bin"
+package = "cli"
+deps    = ["codegen", "libcore"]
+features = ["proto", "native-core"]
+
+[recipe.cli.cross]
+"aarch64-unknown-linux-gnu" = { linker = "aarch64-linux-gnu-gcc", cross = "container" }
+
+# ── Go API server ─────────────────────────────────────────────────────────────
+
+[recipe.server]
+type    = "go-bin"
+package = "./cmd/server"
+deps    = ["codegen"]
+ldflags = "-s -w -X main.version=$(git describe --tags --always)"
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+
+[recipe.test-rust]
+type    = "rust-test"
+package = "cli"
+deps    = ["libcore"]
+
+[recipe.test-go]
+type    = "go-test"
+package = "./..."
+deps    = ["codegen"]
+
+[recipe.test]
+type  = "shell"
+deps  = ["test-rust", "test-go"]
+phony = true
+script = "echo All tests passed"
+
+# ── Integration test (shell) ──────────────────────────────────────────────────
+
+[recipe.integration]
+type  = "shell"
+deps  = ["cli", "server"]
+phony = true
+script = """
+./scripts/integration-test.sh
+"""
+
+# ── Release bundle ────────────────────────────────────────────────────────────
+
+[recipe.release]
+type    = "shell"
+deps    = ["test", "cli", "server"]
+outputs = ["dist/platform.tar.gz"]
+script  = """
+mkdir -p dist
+tar czf dist/platform.tar.gz \
+    target/release/cli \
+    bin/server \
+    README.md
+"""
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean && go clean ./... && rm -rf dist/"
+
+[recipe.graph]
+type   = "shell"
+phony  = true
+script = "must graph --format dot | dot -Tsvg -o docs/build-graph.svg"
