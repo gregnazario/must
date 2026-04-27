@@ -8,6 +8,7 @@ members = [
     "crates/must-cache",
     "crates/must-recipe-shell",
     "crates/must-recipe-rust",
+    "crates/must-recipe-go",
     "crates/must-core",
     "crates/must-toolchain",
 ]

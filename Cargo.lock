@@ -479,6 +479,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-recipe-go"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "must-toolchain",
+]
+
+[[package]]
 name = "must-recipe-rust"
 version = "0.1.0"
 dependencies = [
