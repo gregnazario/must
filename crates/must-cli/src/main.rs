@@ -65,6 +65,11 @@ enum Commands {
         #[arg(long)]
         cache: bool,
     },
+    /// Show why a recipe will or won't rebuild
+    Explain {
+        /// Recipe name to explain
+        recipe: String,
+    },
 }
 
 #[tokio::main]
@@ -162,6 +167,9 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 target_recipes,
             )
             .await?;
+        }
+        Commands::Explain { recipe } => {
+            explain_recipe(&config, &mustfile_path, &cli.profile, &recipe)?;
         }
     }
 
@@ -293,6 +301,115 @@ async fn execute_recipes(
     }
 
     info!("all recipes succeeded");
+    Ok(())
+}
+
+fn explain_recipe(
+    config: &must_config::schema::Config,
+    mustfile_path: &std::path::Path,
+    profile: &str,
+    recipe_name: &str,
+) -> must_core::Result<()> {
+    use must_cache::hash::{compute_hash, hash_file};
+    use must_config::schema::RecipeType;
+    use std::collections::BTreeMap;
+
+    let recipe = config.recipe.get(recipe_name).ok_or_else(|| {
+        must_core::Error::UnknownRecipe { name: recipe_name.to_string() }
+    })?;
+
+    let project_root = mustfile_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+
+    println!("Recipe:   {recipe_name}");
+    println!("Type:     {:?}", recipe.recipe_type);
+    println!("Strategy: {}", match &recipe.cache {
+        Some(must_config::schema::CacheMode::Hash) => "hash",
+        Some(must_config::schema::CacheMode::Mtime) => "mtime",
+        Some(must_config::schema::CacheMode::None) => "none",
+        None => match recipe.recipe_type {
+            RecipeType::Shell => "mtime (default)",
+            _ => "hash (default)",
+        },
+    });
+
+    if !recipe.deps.is_empty() {
+        println!("Deps:     {}", recipe.deps.join(", "));
+    }
+
+    // Expand and show input files with their hashes
+    let env = must_engine::compose_env(config, recipe_name, profile, &std::collections::HashMap::new());
+
+    if !recipe.inputs.is_empty() {
+        println!("\nInputs:");
+        for pattern in &recipe.inputs {
+            let full = project_root.join(pattern).to_string_lossy().into_owned();
+            match glob::glob(&full) {
+                Ok(paths) => {
+                    for entry in paths.flatten() {
+                        let h = hash_file(&entry);
+                        println!("  {} — {}", entry.display(), &h[..12]);
+                    }
+                }
+                Err(_) => println!("  {pattern} (invalid glob)"),
+            }
+        }
+    } else {
+        println!("\nInputs:   (none declared — cargo tracks internally)");
+    }
+
+    // Show env vars affecting the key (all non-PATH vars)
+    let relevant_env: BTreeMap<&str, &str> = env.iter()
+        .filter(|(k, _)| !matches!(k.as_str(), "PATH" | "HOME" | "USER" | "SHELL" | "TERM" | "COLORTERM" | "TMPDIR"))
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+
+    if !relevant_env.is_empty() {
+        println!("\nEnv (affects hash):");
+        for (k, v) in &relevant_env {
+            let display = if v.len() > 60 { format!("{}...", &v[..60]) } else { v.to_string() };
+            println!("  {k} = {display}");
+        }
+    }
+
+    // Compute cache key
+    let recipe_type_str = match recipe.recipe_type {
+        RecipeType::Shell => "shell",
+        RecipeType::RustBin => "rust-bin",
+        RecipeType::RustLib => "rust-lib",
+        RecipeType::RustTest => "rust-test",
+        RecipeType::GoBin => "go-bin",
+        RecipeType::GoTest => "go-test",
+        RecipeType::CBin => "c-bin",
+        RecipeType::CLib => "c-lib",
+    };
+    let env_btree: BTreeMap<String, String> = relevant_env.iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    let hash = compute_hash(recipe_name, recipe_type_str, &[], &env_btree, "", &BTreeMap::new());
+
+    println!("\nCache key: {hash}");
+
+    // Check if it's a cache hit
+    let cache_dir = project_root.join(".mustfile").join("cache");
+    let key = must_core::CacheKey {
+        recipe: recipe_name.to_string(),
+        target: "host".to_string(),
+        profile: profile.to_string(),
+        hash: hash.clone(),
+    };
+    if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
+        use must_core::Cache;
+        match cache.lookup(&key) {
+            Ok(must_core::CacheLookup::Hit)   => println!("Status:    HIT — would skip"),
+            Ok(must_core::CacheLookup::Stale) => println!("Status:    STALE — would rebuild"),
+            _                                  => println!("Status:    MISS — would build"),
+        }
+    } else {
+        println!("Status:    MISS — no cache yet");
+    }
+
     Ok(())
 }
 

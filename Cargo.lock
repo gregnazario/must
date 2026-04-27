@@ -428,6 +428,7 @@ name = "must-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "glob",
  "must-cache",
  "must-config",
  "must-core",
@@ -473,6 +474,14 @@ dependencies = [
 name = "must-graph"
 version = "0.1.0"
 dependencies = [
+ "must-core",
+]
+
+[[package]]
+name = "must-recipe-rust"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
  "must-core",
 ]
 
