@@ -147,12 +147,14 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             execute_recipes(
                 &config,
                 &mustfile_path,
-                &cli.profile,
-                cli.parallelism,
-                cli.dry_run,
-                cli.fail_fast,
-                target_recipes,
-                &targets,
+                RunOpts {
+                    profile: &cli.profile,
+                    parallelism: cli.parallelism,
+                    dry_run: cli.dry_run,
+                    fail_fast: cli.fail_fast,
+                    target_recipes,
+                    targets: &targets,
+                },
             )
             .await?;
         }
@@ -165,12 +167,14 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             execute_recipes(
                 &config,
                 &mustfile_path,
-                &cli.profile,
-                cli.parallelism,
-                cli.dry_run,
-                cli.fail_fast,
-                target_recipes,
-                &targets,
+                RunOpts {
+                    profile: &cli.profile,
+                    parallelism: cli.parallelism,
+                    dry_run: cli.dry_run,
+                    fail_fast: cli.fail_fast,
+                    target_recipes,
+                    targets: &targets,
+                },
             )
             .await?;
         }
@@ -182,16 +186,21 @@ async fn run(cli: Cli) -> must_core::Result<()> {
     Ok(())
 }
 
-async fn execute_recipes(
-    config: &Config,
-    mustfile_path: &Path,
-    profile: &str,
+struct RunOpts<'a> {
+    profile: &'a str,
     parallelism: Option<usize>,
     dry_run: bool,
     fail_fast: bool,
     target_recipes: Vec<String>,
-    targets: &[String],
+    targets: &'a [String],
+}
+
+async fn execute_recipes(
+    config: &Config,
+    mustfile_path: &Path,
+    opts: RunOpts<'_>,
 ) -> must_core::Result<()> {
+    let RunOpts { profile, parallelism, dry_run, fail_fast, target_recipes, targets } = opts;
     let mustfile_abs = mustfile_path
         .canonicalize()
         .unwrap_or_else(|_| mustfile_path.to_owned());

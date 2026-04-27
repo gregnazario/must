@@ -469,6 +469,7 @@ dependencies = [
  "must-core",
  "must-graph",
  "tokio",
+ "toml",
  "tracing",
 ]
 

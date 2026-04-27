@@ -227,3 +227,84 @@ impl Recipe for ShellRecipe {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use must_core::Recipe;
+    use std::path::PathBuf;
+
+    fn ctx() -> BuildContext {
+        BuildContext {
+            project_root: PathBuf::from("/tmp"),
+            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        }
+    }
+
+    #[test]
+    fn default_cache_strategy_is_mtime() {
+        let r = ShellRecipe::new("build", "echo hi");
+        assert_eq!(r.cache_strategy(), CacheStrategy::Mtime);
+    }
+
+    #[test]
+    fn hash_cache_strategy_when_set() {
+        let mut r = ShellRecipe::new("codegen", "echo gen");
+        r.cache = CacheStrategy::Hash;
+        assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+    }
+
+    #[test]
+    fn name_and_script_roundtrip() {
+        let r = ShellRecipe::new("lint", "cargo clippy");
+        assert_eq!(r.name(), "lint");
+        assert_eq!(r.script, "cargo clippy");
+    }
+
+    #[test]
+    fn deps_empty_by_default() {
+        let r = ShellRecipe::new("build", "make");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn inputs_empty_when_no_globs() {
+        let r = ShellRecipe::new("build", "echo");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn outputs_empty_when_no_patterns() {
+        let r = ShellRecipe::new("build", "echo");
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn dry_run_skips_execution() {
+        let r = ShellRecipe::new("build", "exit 99");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert_eq!(out.duration_ms, 0);
+        assert!(out.stdout.contains("dry-run"));
+    }
+
+    #[test]
+    fn execute_runs_script_and_captures_stdout() {
+        let r = ShellRecipe::new("greet", "echo hello");
+        let out = r.execute(&ctx()).unwrap();
+        assert!(out.stdout.contains("hello"));
+    }
+
+    #[test]
+    fn execute_fails_on_nonzero_exit() {
+        let r = ShellRecipe::new("bad", "exit 1");
+        let result = r.execute(&ctx());
+        assert!(result.is_err());
+    }
+}

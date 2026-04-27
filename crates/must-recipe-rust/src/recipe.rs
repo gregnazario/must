@@ -349,3 +349,102 @@ impl Recipe for RustTestRecipe {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use must_core::Recipe;
+    use std::path::PathBuf;
+
+    fn ctx() -> BuildContext {
+        BuildContext {
+            project_root: PathBuf::from("/tmp"),
+            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        }
+    }
+
+    // ── RustBinRecipe ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn rust_bin_cache_strategy_is_hash() {
+        let r = RustBinRecipe::new("build", "myapp");
+        assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+    }
+
+    #[test]
+    fn rust_bin_name_and_package() {
+        let r = RustBinRecipe::new("build", "myapp");
+        assert_eq!(r.name(), "build");
+        assert_eq!(r.package, "myapp");
+    }
+
+    #[test]
+    fn rust_bin_deps_empty_by_default() {
+        let r = RustBinRecipe::new("build", "myapp");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn rust_bin_inputs_always_empty() {
+        let r = RustBinRecipe::new("build", "myapp");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn rust_bin_output_path_debug() {
+        let r = RustBinRecipe::new("build", "myapp");
+        let outputs = r.outputs(&ctx()).unwrap();
+        assert_eq!(outputs, vec![PathBuf::from("/tmp/target/debug/myapp")]);
+    }
+
+    #[test]
+    fn rust_bin_output_path_release() {
+        let mut r = RustBinRecipe::new("build", "myapp");
+        r.release = true;
+        let outputs = r.outputs(&ctx()).unwrap();
+        assert_eq!(outputs, vec![PathBuf::from("/tmp/target/release/myapp")]);
+    }
+
+    // ── RustLibRecipe ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn rust_lib_cache_strategy_is_hash() {
+        let r = RustLibRecipe::new("lib", "mylib");
+        assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+    }
+
+    #[test]
+    fn rust_lib_inputs_empty() {
+        let r = RustLibRecipe::new("lib", "mylib");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    // ── RustTestRecipe ────────────────────────────────────────────────────────
+
+    #[test]
+    fn rust_test_cache_strategy_is_never() {
+        let r = RustTestRecipe::new("test", "myapp");
+        assert_eq!(r.cache_strategy(), CacheStrategy::Never);
+    }
+
+    #[test]
+    fn rust_test_outputs_always_empty() {
+        let r = RustTestRecipe::new("test", "myapp");
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn rust_test_dry_run_returns_without_spawning() {
+        let mut r = RustTestRecipe::new("test", "myapp");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert_eq!(out.duration_ms, 0);
+    }
+}

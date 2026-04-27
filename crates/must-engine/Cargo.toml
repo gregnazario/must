@@ -11,3 +11,6 @@ must-cache = { path = "../must-cache" }
 must-config = { path = "../must-config" }
 tokio.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
