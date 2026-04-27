@@ -4,6 +4,7 @@ use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{compose_env, Engine};
 use must_graph::Dag;
+use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -185,7 +186,10 @@ async fn execute_recipes(
     fail_fast: bool,
     target_recipes: Vec<String>,
 ) -> must_core::Result<()> {
-    let project_root = mustfile_path
+    let mustfile_abs = mustfile_path
+        .canonicalize()
+        .unwrap_or_else(|_| mustfile_path.to_owned());
+    let project_root = mustfile_abs
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .to_owned();
@@ -231,13 +235,43 @@ async fn execute_recipes(
                 }
                 recipe_map.insert(name.clone(), Arc::new(shell));
             }
-            _ => {
-                // Other recipe types deferred to later milestones — insert a no-op placeholder
-                let placeholder_script = format!(
-                    "echo 'recipe type {:?} not yet implemented'",
-                    recipe_cfg.recipe_type
+            RecipeType::RustBin => {
+                let mut r = RustBinRecipe::new(
+                    name.clone(),
+                    recipe_cfg.package.clone().unwrap_or_else(|| name.clone()),
                 );
-                let mut shell = ShellRecipe::new(name.clone(), placeholder_script);
+                r.deps = recipe_cfg.deps.clone();
+                r.features = recipe_cfg.features.clone();
+                r.release = profile == "release";
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::RustLib => {
+                let mut r = RustLibRecipe::new(
+                    name.clone(),
+                    recipe_cfg.package.clone().unwrap_or_else(|| name.clone()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.features = recipe_cfg.features.clone();
+                r.release = profile == "release";
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::RustTest => {
+                let mut r = RustTestRecipe::new(
+                    name.clone(),
+                    recipe_cfg.package.clone().unwrap_or_else(|| name.clone()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            _ => {
+                // Other recipe types (Go, C) deferred to later milestones
+                let mut shell = ShellRecipe::new(
+                    name.clone(),
+                    format!("echo 'recipe type {:?} not yet implemented'", recipe_cfg.recipe_type),
+                );
                 shell.deps = recipe_cfg.deps.clone();
                 shell.env = env;
                 recipe_map.insert(name.clone(), Arc::new(shell));
