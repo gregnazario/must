@@ -316,7 +316,7 @@ impl Recipe for RustTestRecipe {
         Ok(vec![])
     }
     fn cache_strategy(&self) -> CacheStrategy {
-        CacheStrategy::Hash
+        CacheStrategy::Never
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {

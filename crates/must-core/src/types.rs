@@ -8,6 +8,8 @@ pub enum CacheStrategy {
     Hash,
     /// Compare max(input mtime) vs min(output mtime). Faster but not branch-safe.
     Mtime,
+    /// Always execute; skip cache lookup entirely.
+    Never,
 }
 
 /// Opaque cache key for a recipe execution.
