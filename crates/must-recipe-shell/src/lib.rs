@@ -1,1 +1,2 @@
-// Stub — implementation in M1
+mod recipe;
+pub use recipe::ShellRecipe;

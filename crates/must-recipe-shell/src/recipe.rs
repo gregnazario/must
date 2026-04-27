@@ -1,0 +1,152 @@
+use glob::glob;
+use must_cache::mtime::check_mtime;
+use must_core::{
+    BuildContext, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::Instant;
+
+pub struct ShellRecipe {
+    pub name: String,
+    pub deps: Vec<String>,
+    pub inputs: Vec<String>,  // glob patterns
+    pub outputs: Vec<String>, // glob patterns
+    pub script: String,
+    pub cache: CacheStrategy,
+    pub env: HashMap<String, String>,
+}
+
+impl ShellRecipe {
+    pub fn new(name: impl Into<String>, script: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            deps: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            script: script.into(),
+            cache: CacheStrategy::Mtime,
+            env: HashMap::new(),
+        }
+    }
+}
+
+fn expand_globs(patterns: &[String], root: &std::path::Path) -> Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    for pattern in patterns {
+        let full_pattern = root.join(pattern).to_string_lossy().into_owned();
+        for entry in glob(&full_pattern).map_err(|e| Error::Config {
+            path: root.to_owned(),
+            message: format!("invalid glob pattern '{pattern}': {e}"),
+        })? {
+            let path = entry.map_err(|e| Error::Io(e.into_error()))?;
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    Ok(paths)
+}
+
+impl Recipe for ShellRecipe {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn deps(&self) -> &[String] {
+        &self.deps
+    }
+
+    fn inputs(&self, ctx: &BuildContext) -> Result<Vec<PathBuf>> {
+        expand_globs(&self.inputs, &ctx.project_root)
+    }
+
+    fn outputs(&self, ctx: &BuildContext) -> Result<Vec<PathBuf>> {
+        expand_globs(&self.outputs, &ctx.project_root)
+    }
+
+    fn cache_strategy(&self) -> CacheStrategy {
+        self.cache.clone()
+    }
+
+    fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
+        // For mtime strategy, we just use a stable hash of the recipe identity.
+        // For hash strategy, we'd hash the input contents too (M2 feature).
+        let key_str = format!("{}:{}:{}", self.name, ctx.target, ctx.profile);
+        let hash = must_cache::store::hash_string(&key_str);
+        Ok(CacheKey {
+            recipe: self.name.clone(),
+            target: ctx.target.clone(),
+            profile: ctx.profile.clone(),
+            hash,
+        })
+    }
+
+    fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
+        if ctx.dry_run {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: false,
+                outputs: Vec::new(),
+                stdout: format!("[dry-run] would run: sh -c '{}'", self.script),
+                stderr: String::new(),
+                duration_ms: 0,
+            });
+        }
+
+        // Check mtime cache for Mtime strategy
+        if self.cache == CacheStrategy::Mtime {
+            let inputs = self.inputs(ctx)?;
+            let outputs = self.outputs(ctx)?;
+            let input_refs: Vec<&std::path::Path> = inputs.iter().map(|p| p.as_path()).collect();
+            let output_refs: Vec<&std::path::Path> = outputs.iter().map(|p| p.as_path()).collect();
+            if let CacheLookup::Hit = check_mtime(&input_refs, &output_refs)? {
+                return Ok(RecipeOutput {
+                    recipe_name: self.name.clone(),
+                    from_cache: true,
+                    outputs,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    duration_ms: 0,
+                });
+            }
+        }
+
+        let start = Instant::now();
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&self.script);
+        cmd.current_dir(&ctx.project_root);
+
+        // Compose env: inherit from ctx, then recipe-level overrides
+        cmd.env_clear();
+        for (k, v) in &ctx.env {
+            cmd.env(k, v);
+        }
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
+
+        let output = cmd.output().map_err(Error::Io)?;
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
+        if !output.status.success() {
+            return Err(Error::RecipeFailed {
+                name: self.name.clone(),
+                code: output.status.code().unwrap_or(-1),
+                stderr: stderr.clone(),
+            });
+        }
+
+        Ok(RecipeOutput {
+            recipe_name: self.name.clone(),
+            from_cache: false,
+            outputs: self.outputs(ctx)?,
+            stdout,
+            stderr,
+            duration_ms,
+        })
+    }
+}
