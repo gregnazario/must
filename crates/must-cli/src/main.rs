@@ -1,3 +1,310 @@
-fn main() {
-    println!("must — not yet implemented");
+use clap::{Parser, Subcommand};
+use must_config::load_config;
+use must_config::schema::{CacheMode, Config, RecipeType};
+use must_core::{BuildContext, CacheStrategy, Error};
+use must_engine::{compose_env, Engine};
+use must_graph::Dag;
+use must_recipe_shell::ShellRecipe;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tracing::info;
+
+#[derive(Parser)]
+#[command(name = "must", about = "Polyglot build orchestrator", version)]
+struct Cli {
+    /// Path to Mustfile.toml (default: search upward from cwd)
+    #[arg(long, global = true)]
+    file: Option<PathBuf>,
+
+    /// Cross-compile target triple
+    #[arg(long, global = true)]
+    target: Option<String>,
+
+    /// Apply [env.<profile>] overrides
+    #[arg(long, global = true, default_value = "default")]
+    profile: String,
+
+    /// Parallelism (default = num_cpus)
+    #[arg(short = 'j', global = true)]
+    parallelism: Option<usize>,
+
+    /// Plan without executing
+    #[arg(long, global = true)]
+    dry_run: bool,
+
+    /// Cancel in-flight recipes on first failure
+    #[arg(long, global = true)]
+    fail_fast: bool,
+
+    /// Verbosity (-v, -vv, -vvv)
+    #[arg(short = 'v', action = clap::ArgAction::Count, global = true)]
+    verbose: u8,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Build the default 'build' recipe
+    Build {
+        /// Specific recipes to build (default: "build")
+        recipes: Vec<String>,
+    },
+    /// Run the default 'test' recipe
+    Test {
+        /// Specific recipes to test (default: "test")
+        recipes: Vec<String>,
+    },
+    /// List all recipes
+    List,
+    /// Clean outputs
+    Clean {
+        /// Also clean the cache
+        #[arg(long)]
+        cache: bool,
+    },
+}
+
+#[tokio::main]
+async fn main() {
+    let cli = Cli::parse();
+
+    // Set up tracing
+    let level = match cli.verbose {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level)),
+        )
+        .init();
+
+    if let Err(e) = run(cli).await {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+}
+
+async fn run(cli: Cli) -> must_core::Result<()> {
+    // Find and load Mustfile.toml
+    let mustfile_path = cli
+        .file
+        .unwrap_or_else(|| find_mustfile().unwrap_or_else(|| PathBuf::from("Mustfile.toml")));
+
+    let config = load_config(&mustfile_path)?;
+
+    match cli.command {
+        Commands::List => {
+            println!("{:<20} {:<12} DEPS", "NAME", "TYPE");
+            println!("{}", "-".repeat(60));
+            let mut names: Vec<&String> = config.recipe.keys().collect();
+            names.sort();
+            for name in names {
+                let recipe = &config.recipe[name];
+                let type_str = format!("{:?}", recipe.recipe_type).to_lowercase();
+                let deps = if recipe.deps.is_empty() {
+                    String::new()
+                } else {
+                    recipe.deps.join(", ")
+                };
+                println!("{:<20} {:<12} {}", name, type_str, deps);
+            }
+        }
+        Commands::Clean { cache } => {
+            if cache {
+                let cache_dir = mustfile_path
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .join(".mustfile")
+                    .join("cache");
+                if cache_dir.exists() {
+                    std::fs::remove_dir_all(&cache_dir).map_err(must_core::Error::Io)?;
+                    println!("cleaned cache at {}", cache_dir.display());
+                }
+            }
+        }
+        Commands::Build { recipes } => {
+            let target_recipes = if recipes.is_empty() {
+                vec!["build".to_string()]
+            } else {
+                recipes
+            };
+            execute_recipes(
+                &config,
+                &mustfile_path,
+                &cli.profile,
+                cli.parallelism,
+                cli.dry_run,
+                cli.fail_fast,
+                target_recipes,
+            )
+            .await?;
+        }
+        Commands::Test { recipes } => {
+            let target_recipes = if recipes.is_empty() {
+                vec!["test".to_string()]
+            } else {
+                recipes
+            };
+            execute_recipes(
+                &config,
+                &mustfile_path,
+                &cli.profile,
+                cli.parallelism,
+                cli.dry_run,
+                cli.fail_fast,
+                target_recipes,
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn execute_recipes(
+    config: &Config,
+    mustfile_path: &Path,
+    profile: &str,
+    parallelism: Option<usize>,
+    dry_run: bool,
+    fail_fast: bool,
+    target_recipes: Vec<String>,
+) -> must_core::Result<()> {
+    let project_root = mustfile_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_owned();
+
+    // Build the full DAG from all recipes
+    let dep_map: HashMap<String, Vec<String>> = config
+        .recipe
+        .iter()
+        .map(|(name, r)| (name.clone(), r.deps.clone()))
+        .collect();
+    let dag = Dag::new(dep_map);
+
+    // Determine the reachable set from requested target recipes
+    let mut reachable: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for target in &target_recipes {
+        if !config.recipe.contains_key(target.as_str()) {
+            return Err(Error::UnknownRecipe {
+                name: target.clone(),
+            });
+        }
+        for name in dag.reachable_from(target)? {
+            reachable.insert(name);
+        }
+    }
+
+    // Compose env for each recipe and build recipe objects
+    let mut recipe_map: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
+    for (name, recipe_cfg) in &config.recipe {
+        if !reachable.contains(name) {
+            continue;
+        }
+        let env = compose_env(config, name, profile, &HashMap::new());
+        match recipe_cfg.recipe_type {
+            RecipeType::Shell => {
+                let mut shell =
+                    ShellRecipe::new(name.clone(), recipe_cfg.script.clone().unwrap_or_default());
+                shell.deps = recipe_cfg.deps.clone();
+                shell.inputs = recipe_cfg.inputs.clone();
+                shell.outputs = recipe_cfg.outputs.clone();
+                shell.env = env;
+                if let Some(CacheMode::Hash) = &recipe_cfg.cache {
+                    shell.cache = CacheStrategy::Hash;
+                }
+                recipe_map.insert(name.clone(), Arc::new(shell));
+            }
+            _ => {
+                // Other recipe types deferred to later milestones — insert a no-op placeholder
+                let placeholder_script = format!(
+                    "echo 'recipe type {:?} not yet implemented'",
+                    recipe_cfg.recipe_type
+                );
+                let mut shell = ShellRecipe::new(name.clone(), placeholder_script);
+                shell.deps = recipe_cfg.deps.clone();
+                shell.env = env;
+                recipe_map.insert(name.clone(), Arc::new(shell));
+            }
+        }
+    }
+
+    // Restrict DAG to the reachable subset
+    let sub_dep_map: HashMap<String, Vec<String>> = config
+        .recipe
+        .iter()
+        .filter(|(name, _)| reachable.contains(*name))
+        .map(|(name, r)| {
+            let filtered_deps: Vec<String> = r
+                .deps
+                .iter()
+                .filter(|d| reachable.contains(*d))
+                .cloned()
+                .collect();
+            (name.clone(), filtered_deps)
+        })
+        .collect();
+    let sub_dag = Dag::new(sub_dep_map);
+
+    // Build context
+    let j = parallelism.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+    });
+    let mut ctx = BuildContext::new(project_root);
+    ctx.profile = profile.to_string();
+    ctx.dry_run = dry_run;
+    ctx.parallelism = j;
+
+    let engine = Engine::new(j, fail_fast);
+    let report = engine.execute(&sub_dag, &recipe_map, &ctx).await?;
+
+    // Print summary
+    println!(
+        "\n{} built, {} cached, {} failed — {}ms",
+        report.built(),
+        report.cached(),
+        report.failed(),
+        report.total_duration_ms
+    );
+
+    if !report.success {
+        for result in &report.results {
+            if !result.success {
+                if let Some(err) = &result.error {
+                    eprintln!("  FAILED {}: {}", result.recipe_name, err);
+                }
+            }
+        }
+        return Err(Error::RecipeFailed {
+            name: "build".to_string(),
+            code: 1,
+            stderr: "one or more recipes failed".to_string(),
+        });
+    }
+
+    info!("all recipes succeeded");
+    Ok(())
+}
+
+fn find_mustfile() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join("Mustfile.toml");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
 }

@@ -9,3 +9,13 @@ name = "must"
 path = "src/main.rs"
 
 [dependencies]
+must-core = { path = "../must-core" }
+must-config = { path = "../must-config" }
+must-graph = { path = "../must-graph" }
+must-engine = { path = "../must-engine" }
+must-recipe-shell = { path = "../must-recipe-shell" }
+must-cache = { path = "../must-cache" }
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
