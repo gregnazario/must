@@ -17,4 +17,4 @@ license = "MIT"
 authors = ["Greg"]
 
 [workspace.dependencies]
-# leave empty for now
+thiserror = "2"
