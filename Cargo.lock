@@ -434,6 +434,7 @@ dependencies = [
  "must-engine",
  "must-graph",
  "must-recipe-shell",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -445,6 +446,7 @@ version = "0.1.0"
 dependencies = [
  "must-core",
  "serde",
+ "tempfile",
  "toml",
 ]
 
