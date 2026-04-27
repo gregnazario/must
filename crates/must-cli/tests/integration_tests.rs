@@ -207,3 +207,125 @@ script = "sleep 0.2"
         t1
     );
 }
+
+#[test]
+fn test_rust_bin_recipe() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    // Create a minimal Cargo workspace with one binary crate
+    std::fs::write(root.join("Cargo.toml"), r#"
+[workspace]
+resolver = "2"
+members = ["hello"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+"#).unwrap();
+
+    std::fs::create_dir(root.join("hello")).unwrap();
+    std::fs::write(root.join("hello").join("Cargo.toml"), r#"
+[package]
+name = "hello"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "hello"
+path = "src/main.rs"
+"#).unwrap();
+
+    std::fs::create_dir(root.join("hello").join("src")).unwrap();
+    std::fs::write(root.join("hello").join("src").join("main.rs"),
+        r#"fn main() { println!("hello from must"); }"#
+    ).unwrap();
+
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "rust-bin"
+package = "hello"
+"#).unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+
+    // First run: binary doesn't exist → should build
+    let output = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "first build should succeed\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr));
+
+    // The built binary should exist
+    let built = root.join("target").join("debug").join("hello");
+    assert!(built.exists(), "hello binary should be built at {}", built.display());
+
+    // Second run: hash cache should prevent rebuild (0 built, 1 cached)
+    let output2 = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output2.status.success(), "second build should succeed");
+    let stdout2 = String::from_utf8_lossy(&output2.stdout);
+    assert!(
+        stdout2.contains("1 cached") || stdout2.contains("0 built"),
+        "second run should use cache: {stdout2}"
+    );
+}
+
+#[test]
+fn test_shell_hash_cache_content_sensitive() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(root.join("input.txt"), "version 1").unwrap();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.process]
+type = "shell"
+inputs = ["input.txt"]
+outputs = ["output.txt"]
+cache = "hash"
+script = "cp input.txt output.txt"
+"#).unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+
+    // First run: cache miss → execute
+    let s1 = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "process"])
+        .current_dir(root)
+        .status().unwrap();
+    assert!(s1.success());
+    assert!(root.join("output.txt").exists());
+
+    // Second run: same content → cache hit (output unchanged)
+    let out_mtime1 = root.join("output.txt").metadata().unwrap().modified().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let s2 = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "process"])
+        .current_dir(root)
+        .status().unwrap();
+    assert!(s2.success());
+    let out_mtime2 = root.join("output.txt").metadata().unwrap().modified().unwrap();
+    assert_eq!(out_mtime1, out_mtime2, "hash cache: unchanged content should not rerun");
+
+    // Change file content → should rebuild
+    std::fs::write(root.join("input.txt"), "version 2").unwrap();
+    let s3 = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "process"])
+        .current_dir(root)
+        .status().unwrap();
+    assert!(s3.success());
+    let output_content = std::fs::read_to_string(root.join("output.txt")).unwrap();
+    assert_eq!(output_content.trim(), "version 2", "output should reflect new content after rebuild");
+}

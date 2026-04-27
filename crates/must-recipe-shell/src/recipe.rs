@@ -182,10 +182,45 @@ impl Recipe for ShellRecipe {
             });
         }
 
+        let outputs = self.outputs(ctx)?;
+
+        // Store hash cache entry after a successful run
+        if self.cache == CacheStrategy::Hash {
+            use must_cache::hash::compute_hash;
+            use std::collections::BTreeMap;
+
+            let inputs = self.inputs(ctx)?;
+            let input_refs: Vec<&std::path::Path> = inputs.iter().map(|p| p.as_path()).collect();
+            let env_btree: BTreeMap<String, String> = ctx
+                .env
+                .iter()
+                .chain(self.env.iter())
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            let hash = compute_hash(
+                &self.name,
+                "shell",
+                &input_refs,
+                &env_btree,
+                "",
+                &BTreeMap::new(),
+            );
+            if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+                let key = CacheKey {
+                    recipe: self.name.clone(),
+                    target: ctx.target.clone(),
+                    profile: ctx.profile.clone(),
+                    hash,
+                };
+                use must_core::Cache;
+                let _ = cache.store(&key, &outputs);
+            }
+        }
+
         Ok(RecipeOutput {
             recipe_name: self.name.clone(),
             from_cache: false,
-            outputs: self.outputs(ctx)?,
+            outputs,
             stdout,
             stderr,
             duration_ms,
