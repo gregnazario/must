@@ -1,0 +1,5 @@
+.worktrees/
+/target/
+.mustfile/
+*.swp
+.DS_Store
