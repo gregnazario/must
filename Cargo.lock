@@ -434,6 +434,7 @@ dependencies = [
  "must-core",
  "must-engine",
  "must-graph",
+ "must-recipe-go",
  "must-recipe-rust",
  "must-recipe-shell",
  "tempfile",

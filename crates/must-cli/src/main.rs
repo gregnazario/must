@@ -4,6 +4,7 @@ use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{compose_env, Engine};
 use must_graph::Dag;
+use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
 use std::collections::HashMap;
@@ -18,9 +19,9 @@ struct Cli {
     #[arg(long, global = true)]
     file: Option<PathBuf>,
 
-    /// Cross-compile target triple
+    /// Cross-compile targets (can specify multiple, or a [targets] group name)
     #[arg(long, global = true)]
-    target: Option<String>,
+    target: Vec<String>,
 
     /// Apply [env.<profile>] overrides
     #[arg(long, global = true, default_value = "default")]
@@ -105,6 +106,8 @@ async fn run(cli: Cli) -> must_core::Result<()> {
 
     let config = load_config(&mustfile_path)?;
 
+    let targets = resolve_targets(&cli.target, &config);
+
     match cli.command {
         Commands::List => {
             println!("{:<20} {:<12} DEPS", "NAME", "TYPE");
@@ -149,6 +152,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 cli.dry_run,
                 cli.fail_fast,
                 target_recipes,
+                &targets,
             )
             .await?;
         }
@@ -166,6 +170,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 cli.dry_run,
                 cli.fail_fast,
                 target_recipes,
+                &targets,
             )
             .await?;
         }
@@ -185,6 +190,7 @@ async fn execute_recipes(
     dry_run: bool,
     fail_fast: bool,
     target_recipes: Vec<String>,
+    targets: &[String],
 ) -> must_core::Result<()> {
     let mustfile_abs = mustfile_path
         .canonicalize()
@@ -266,8 +272,28 @@ async fn execute_recipes(
                 r.env = env;
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
+            RecipeType::GoBin => {
+                let r = GoBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    ldflags: recipe_cfg.ldflags.clone(),
+                    build_tags: Vec::new(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::GoTest => {
+                let r = GoTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| "./...".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
             _ => {
-                // Other recipe types (Go, C) deferred to later milestones
+                // Other recipe types (C) deferred to later milestones
                 let mut shell = ShellRecipe::new(
                     name.clone(),
                     format!("echo 'recipe type {:?} not yet implemented'", recipe_cfg.recipe_type),
@@ -296,45 +322,54 @@ async fn execute_recipes(
         .collect();
     let sub_dag = Dag::new(sub_dep_map);
 
-    // Build context
     let j = parallelism.unwrap_or_else(|| {
         std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1)
     });
-    let mut ctx = BuildContext::new(project_root);
-    ctx.profile = profile.to_string();
-    ctx.dry_run = dry_run;
-    ctx.parallelism = j;
 
-    let engine = Engine::new(j, fail_fast);
-    let report = engine.execute(&sub_dag, &recipe_map, &ctx).await?;
+    // Execute once per target
+    for target in targets {
+        if targets.len() > 1 {
+            println!("\n[target: {target}]");
+        }
 
-    // Print summary
-    println!(
-        "\n{} built, {} cached, {} failed — {}ms",
-        report.built(),
-        report.cached(),
-        report.failed(),
-        report.total_duration_ms
-    );
+        let mut ctx = BuildContext::new(project_root.clone());
+        ctx.profile = profile.to_string();
+        ctx.target = target.clone();
+        ctx.dry_run = dry_run;
+        ctx.parallelism = j;
 
-    if !report.success {
-        for result in &report.results {
-            if !result.success {
-                if let Some(err) = &result.error {
-                    eprintln!("  FAILED {}: {}", result.recipe_name, err);
+        let engine = Engine::new(j, fail_fast);
+        let report = engine.execute(&sub_dag, &recipe_map, &ctx).await?;
+
+        // Print summary
+        println!(
+            "\n{} built, {} cached, {} failed — {}ms",
+            report.built(),
+            report.cached(),
+            report.failed(),
+            report.total_duration_ms
+        );
+
+        if !report.success {
+            for result in &report.results {
+                if !result.success {
+                    if let Some(err) = &result.error {
+                        eprintln!("  FAILED {}: {}", result.recipe_name, err);
+                    }
                 }
             }
+            return Err(Error::RecipeFailed {
+                name: "build".to_string(),
+                code: 1,
+                stderr: "one or more recipes failed".to_string(),
+            });
         }
-        return Err(Error::RecipeFailed {
-            name: "build".to_string(),
-            code: 1,
-            stderr: "one or more recipes failed".to_string(),
-        });
+
+        info!("all recipes succeeded for target {target}");
     }
 
-    info!("all recipes succeeded");
     Ok(())
 }
 
@@ -445,6 +480,24 @@ fn explain_recipe(
     }
 
     Ok(())
+}
+
+fn resolve_targets(raw_targets: &[String], config: &Config) -> Vec<String> {
+    if raw_targets.is_empty() {
+        return vec!["host".to_string()];
+    }
+    let mut resolved = Vec::new();
+    for t in raw_targets {
+        if let Some(triples) = config.targets.get(t) {
+            resolved.extend(triples.iter().cloned());
+        } else {
+            resolved.push(t.clone());
+        }
+    }
+    // deduplicate preserving order
+    let mut seen = std::collections::HashSet::new();
+    resolved.retain(|t| seen.insert(t.clone()));
+    resolved
 }
 
 fn find_mustfile() -> Option<PathBuf> {
