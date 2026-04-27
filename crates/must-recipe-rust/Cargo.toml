@@ -1,0 +1,9 @@
+[package]
+name = "must-recipe-rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+must-core = { path = "../must-core" }
+must-cache = { path = "../must-cache" }
