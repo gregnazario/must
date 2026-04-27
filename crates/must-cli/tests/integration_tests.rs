@@ -68,7 +68,10 @@ script = "cp input.txt output.txt"
         .unwrap()
         .modified()
         .unwrap();
-    assert_eq!(mtime1, mtime2, "output should not be rewritten on cache hit");
+    assert_eq!(
+        mtime1, mtime2,
+        "output should not be rewritten on cache hit"
+    );
 }
 
 #[test]
@@ -114,11 +117,7 @@ script = "printf 'release\n' >> order.log"
 
     let log = std::fs::read_to_string(root.join("order.log")).unwrap();
     let lines: Vec<&str> = log.trim().lines().collect();
-    assert_eq!(
-        lines.len(),
-        3,
-        "all three recipes should have run: {log}"
-    );
+    assert_eq!(lines.len(), 3, "all three recipes should have run: {log}");
 
     let codegen_pos = lines.iter().position(|&l| l == "codegen").unwrap();
     let build_pos = lines.iter().position(|&l| l == "build").unwrap();

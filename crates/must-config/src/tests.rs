@@ -155,7 +155,9 @@ DATABASE_URL = "postgres://localhost/mydb"
     );
     let global = &cfg.env.global;
     assert!(matches!(&global["RUST_LOG"], EnvValue::Scalar(s) if s == "info"));
-    assert!(matches!(&global["DATABASE_URL"], EnvValue::Scalar(s) if s == "postgres://localhost/mydb"));
+    assert!(
+        matches!(&global["DATABASE_URL"], EnvValue::Scalar(s) if s == "postgres://localhost/mydb")
+    );
 }
 
 #[test]
@@ -382,7 +384,11 @@ cache = "none"
     assert_eq!(cfg.recipe["hashed"].cache, Some(CacheMode::Hash));
     assert_eq!(cfg.recipe["mtimed"].cache, Some(CacheMode::Mtime));
     assert_eq!(cfg.recipe["uncached"].cache, Some(CacheMode::None));
-    assert!(cfg.recipe.get("hashed").map(|r| r.cache.is_some()).unwrap_or(false));
+    assert!(cfg
+        .recipe
+        .get("hashed")
+        .map(|r| r.cache.is_some())
+        .unwrap_or(false));
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -424,7 +430,10 @@ script = "echo build"
     let result = validate(&cfg, Path::new("Mustfile.toml"));
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("nonexistent"), "error should name the missing dep: {msg}");
+    assert!(
+        msg.contains("nonexistent"),
+        "error should name the missing dep: {msg}"
+    );
 }
 
 #[test]
@@ -482,7 +491,10 @@ fn test_load_config_missing_file() {
     let result = load_config(Path::new("/no/such/Mustfile.toml"));
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("could not read file"), "expected read error, got: {msg}");
+    assert!(
+        msg.contains("could not read file"),
+        "expected read error, got: {msg}"
+    );
 }
 
 #[test]
@@ -514,7 +526,10 @@ script = "echo build"
     let result = load_config(f.path());
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("ghost"), "should name missing dep in error: {msg}");
+    assert!(
+        msg.contains("ghost"),
+        "should name missing dep in error: {msg}"
+    );
 }
 
 // ── Parse errors ─────────────────────────────────────────────────────────────
