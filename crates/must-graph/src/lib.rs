@@ -1,1 +1,2 @@
-// Stub — implementation in M1
+pub mod dag;
+pub use dag::{Dag, Wave};
