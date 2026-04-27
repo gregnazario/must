@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/must-cli",
+    "crates/must-config",
+    "crates/must-graph",
+    "crates/must-engine",
+    "crates/must-cache",
+    "crates/must-recipe-shell",
+    "crates/must-core",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Greg"]
+
+[workspace.dependencies]
+# leave empty for now
