@@ -9,6 +9,7 @@ members = [
     "crates/must-recipe-shell",
     "crates/must-recipe-rust",
     "crates/must-core",
+    "crates/must-toolchain",
 ]
 
 [workspace.package]
