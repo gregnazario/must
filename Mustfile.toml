@@ -1,0 +1,76 @@
+# Mustfile builds itself.
+# Run `cargo run -p must-cli -- build` to bootstrap,
+# then `must build` once the binary is in PATH.
+
+[project]
+name    = "mustfile"
+version = "0.1.0"
+
+[env]
+RUST_LOG = "warn"
+
+[env.dev]
+RUST_LOG = "info"
+
+# ── Targets ───────────────────────────────────────────────────────────────────
+
+[targets]
+default = ["x86_64-unknown-linux-gnu"]
+release = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+
+# ── Recipes ───────────────────────────────────────────────────────────────────
+
+# Build the must binary (debug).
+[recipe.build]
+type    = "rust-bin"
+package = "must-cli"
+
+# Build release binary.
+[recipe.build-release]
+type    = "rust-bin"
+package = "must-cli"
+
+[recipe.build-release.env]
+CARGO_PROFILE = "release"
+
+# Run the full test suite.
+[recipe.test]
+type    = "rust-test"
+package = "must-cli"
+
+# Lint the workspace.
+[recipe.lint]
+type   = "shell"
+phony  = true
+script = "cargo clippy --workspace -- -D warnings"
+
+# Format check.
+[recipe.fmt]
+type   = "shell"
+phony  = true
+script = "cargo fmt --check"
+
+# CI: everything that must pass before merge.
+[recipe.ci]
+type   = "shell"
+deps   = ["fmt", "lint", "test"]
+phony  = true
+script = "echo CI passed"
+
+# Full release: lint + test + release build.
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "build-release"]
+phony  = true
+script = "echo Release build complete"
+
+# Clean.
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean"
