@@ -1,0 +1,12 @@
+[package]
+name = "must-recipe-cc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+must-core = { path = "../must-core" }
+must-cache = { path = "../must-cache" }
+must-toolchain = { path = "../must-toolchain" }
+must-config = { path = "../must-config" }
+glob.workspace = true

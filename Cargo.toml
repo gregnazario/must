@@ -11,6 +11,7 @@ members = [
     "crates/must-recipe-go",
     "crates/must-core",
     "crates/must-toolchain",
+    "crates/must-recipe-cc",
 ]
 
 [workspace.package]

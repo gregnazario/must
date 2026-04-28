@@ -481,6 +481,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-recipe-cc"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "must-cache",
+ "must-config",
+ "must-core",
+ "must-toolchain",
+]
+
+[[package]]
 name = "must-recipe-go"
 version = "0.1.0"
 dependencies = [
