@@ -1,5 +1,6 @@
 use crate::triple::{Arch, Os, Triple};
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Produce the environment variables needed to cross-compile Rust for `triple`.
 ///
@@ -58,6 +59,93 @@ pub fn go_cross_env(triple: &Triple) -> HashMap<String, String> {
 
     env.insert("GOARCH".to_string(), goarch.to_string());
     env.insert("GOOS".to_string(), goos.to_string());
+
+    env
+}
+
+/// Produce CC, CXX, AR, LD env vars for C cross-compilation.
+///
+/// For the host triple (or when compiler is None), returns standard host tool names.
+/// For cross triples, uses the provided compiler path to derive the full toolchain.
+///
+/// Derivation rules for cross compilers:
+/// - `CXX`: replace `-gcc` → `-g++`, `-clang` → `-clang++` in the filename
+/// - `AR`: replace the compiler binary name's suffix with `-ar`; fall back to `ar`
+/// - `LD`: replace the compiler binary name's suffix with `-ld`; fall back to `ld`
+pub fn c_cross_env(triple: &Triple, compiler: Option<&Path>) -> HashMap<String, String> {
+    let mut env = HashMap::new();
+
+    if let Some(cc_path) = compiler {
+        let cc_str = cc_path.to_string_lossy().to_string();
+
+        // Derive CXX from CC filename
+        let file_name = cc_path
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let cxx_name = if file_name.ends_with("-gcc") {
+            file_name.trim_end_matches("-gcc").to_string() + "-g++"
+        } else if file_name.ends_with("-clang") {
+            file_name.trim_end_matches("-clang").to_string() + "-clang++"
+        } else {
+            // append ++ to the stem
+            let stem = cc_path
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| file_name.clone());
+            stem + "++"
+        };
+
+        let cxx_path = cc_path.with_file_name(&cxx_name);
+        env.insert("CXX".to_string(), cxx_path.to_string_lossy().to_string());
+
+        // Derive AR: replace the gcc/clang suffix with -ar
+        let ar_name = if file_name.ends_with("-gcc") {
+            file_name.trim_end_matches("-gcc").to_string() + "-ar"
+        } else if file_name.ends_with("-clang") {
+            file_name.trim_end_matches("-clang").to_string() + "-ar"
+        } else {
+            "ar".to_string()
+        };
+        let ar_candidate = cc_path.with_file_name(&ar_name);
+        let ar_val = if ar_candidate.exists() {
+            ar_candidate.to_string_lossy().to_string()
+        } else {
+            ar_name
+        };
+        env.insert("AR".to_string(), ar_val);
+
+        // Derive LD: replace the gcc/clang suffix with -ld
+        let ld_name = if file_name.ends_with("-gcc") {
+            file_name.trim_end_matches("-gcc").to_string() + "-ld"
+        } else if file_name.ends_with("-clang") {
+            file_name.trim_end_matches("-clang").to_string() + "-ld"
+        } else {
+            "ld".to_string()
+        };
+        let ld_candidate = cc_path.with_file_name(&ld_name);
+        let ld_val = if ld_candidate.exists() {
+            ld_candidate.to_string_lossy().to_string()
+        } else {
+            ld_name
+        };
+        env.insert("LD".to_string(), ld_val);
+
+        env.insert("CC".to_string(), cc_str);
+    } else {
+        // Host defaults
+        env.insert("CC".to_string(), "cc".to_string());
+        env.insert("CXX".to_string(), "c++".to_string());
+        env.insert("AR".to_string(), "ar".to_string());
+        env.insert("LD".to_string(), "ld".to_string());
+    }
+
+    // CFLAGS: empty by default, let caller override
+    // For cross Linux targets, no sysroot by default (linker handles it)
+    env.insert("CFLAGS".to_string(), "".to_string());
+
+    let _ = triple; // triple is available for future use (e.g., target-specific flags)
 
     env
 }
@@ -136,5 +224,31 @@ mod tests {
         let triple = Triple::host();
         let env = go_cross_env(&triple);
         assert!(env.is_empty());
+    }
+
+    #[test]
+    fn test_c_cross_env_none_compiler_host_defaults() {
+        let triple = Triple::host();
+        let env = c_cross_env(&triple, None);
+        assert_eq!(env.get("CC").map(String::as_str), Some("cc"));
+        assert_eq!(env.get("AR").map(String::as_str), Some("ar"));
+    }
+
+    #[test]
+    fn test_c_cross_env_with_compiler_path() {
+        let triple = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
+        let compiler = Path::new("/usr/bin/aarch64-linux-gnu-gcc");
+        let env = c_cross_env(&triple, Some(compiler));
+        assert_eq!(
+            env.get("CC").map(String::as_str),
+            Some("/usr/bin/aarch64-linux-gnu-gcc")
+        );
+        let cxx = env.get("CXX").expect("CXX should be set");
+        assert!(
+            cxx.contains("g++") || cxx.contains("clang++"),
+            "expected CXX to contain g++ or clang++, got: {}",
+            cxx
+        );
+        assert!(env.contains_key("AR"), "AR should be set");
     }
 }
