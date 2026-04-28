@@ -1,0 +1,51 @@
+[build]
+rustflags = []
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=mold",
+]
+
+[target.aarch64-apple-darwin]
+linker = "clang"
+rustflags = []
+
+[target.aarch64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=mold",
+]
+
+[target.x86_64-unknown-linux-musl]
+linker = "clang"
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=mold",
+]
+[target.aarch64-unknown-linux-musl]
+linker = "clang"
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=mold",
+]
+
+[env]
+CC_x86_64_unknown_linux_gnu = "clang"
+CXX_x86_64_unknown_linux_gnu = "clang++"
+
+# Windows
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = [
+  "-C",
+  "link-arg=/STACK:8000000" # Set stack to 8 MB
+]
+[target.aarch64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = [
+  "-C",
+  "link-arg=/STACK:8000000" # Set stack to 8 MB
+]
