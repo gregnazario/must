@@ -1,7 +1,9 @@
+pub mod container;
 pub mod discover;
 pub mod local_toolchain;
 pub mod triple;
 
+pub use container::{container_available, detect_runtime, image_for, ContainerRuntime, ContainerToolchain};
 pub use discover::{
     c_compiler_available, c_install_hint, discover_c_compiler, go_install_hint, go_installed,
     rust_install_hint, rust_target_installed,
