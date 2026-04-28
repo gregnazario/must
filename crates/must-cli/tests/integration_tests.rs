@@ -436,3 +436,101 @@ script = "echo building for target"
         "expected aarch64 target header in output\nstdout: {stdout}\nstderr: {stderr}"
     );
 }
+
+#[test]
+fn test_c_bin_recipe_local() {
+    // Skip if no C compiler available on host
+    let cc_available = std::process::Command::new("cc")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+        || std::process::Command::new("gcc")
+            .arg("--version")
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+    if !cc_available {
+        eprintln!("skipping test_c_bin_recipe_local: no C compiler found");
+        return;
+    }
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    // Write a minimal C program
+    std::fs::write(root.join("hello.c"), r#"
+#include <stdio.h>
+int main(void) { puts("hello from c"); return 0; }
+"#).unwrap();
+
+    // Write Mustfile.toml
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "ctest"
+
+[recipe.build]
+type = "c-bin"
+sources = ["hello.c"]
+"#).unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let status = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy()])
+        .arg("build")
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "c-bin build should succeed");
+    assert!(root.join("build").join("build").exists() || root.join("build").exists(),
+        "build output directory should exist");
+}
+
+#[test]
+fn test_c_bin_recipe_container() {
+    // Skip if docker/podman not available
+    let docker_available = std::process::Command::new("docker")
+        .arg("info")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || std::process::Command::new("podman")
+            .arg("info")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+    if !docker_available {
+        eprintln!("skipping test_c_bin_recipe_container: no container runtime found");
+        return;
+    }
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(root.join("hello.c"), r#"
+#include <stdio.h>
+int main(void) { puts("hello from container"); return 0; }
+"#).unwrap();
+
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "ctest"
+
+[recipe.build]
+type = "c-bin"
+sources = ["hello.c"]
+
+[recipe.build.cross]
+"x86_64-unknown-linux-gnu" = { cross = "container" }
+"#).unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let status = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy()])
+        .args(["--target", "x86_64-unknown-linux-gnu"])
+        .arg("build")
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "c-bin container build should succeed");
+}

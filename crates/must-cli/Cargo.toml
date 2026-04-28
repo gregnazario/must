@@ -16,6 +16,7 @@ must-engine = { path = "../must-engine" }
 must-recipe-shell = { path = "../must-recipe-shell" }
 must-recipe-rust = { path = "../must-recipe-rust" }
 must-recipe-go = { path = "../must-recipe-go" }
+must-recipe-cc = { path = "../must-recipe-cc" }
 must-cache = { path = "../must-cache" }
 clap.workspace = true
 glob.workspace = true

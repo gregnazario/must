@@ -4,6 +4,7 @@ use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{compose_env, Engine};
 use must_graph::Dag;
+use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
@@ -301,15 +302,32 @@ async fn execute_recipes(
                 };
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
-            _ => {
-                // Other recipe types (C) deferred to later milestones
-                let mut shell = ShellRecipe::new(
-                    name.clone(),
-                    format!("echo 'recipe type {:?} not yet implemented'", recipe_cfg.recipe_type),
-                );
-                shell.deps = recipe_cfg.deps.clone();
-                shell.env = env;
-                recipe_map.insert(name.clone(), Arc::new(shell));
+            RecipeType::CBin => {
+                let r = CBinRecipe {
+                    name: name.clone(),
+                    deps: recipe_cfg.deps.clone(),
+                    sources: recipe_cfg.sources.clone(),
+                    includes: recipe_cfg.includes.clone(),
+                    link_libs: recipe_cfg.link_libs.clone(),
+                    cflags: Vec::new(),
+                    env,
+                    cross: recipe_cfg.cross.clone(),
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::CLib => {
+                let r = CLibRecipe {
+                    name: name.clone(),
+                    deps: recipe_cfg.deps.clone(),
+                    sources: recipe_cfg.sources.clone(),
+                    includes: recipe_cfg.includes.clone(),
+                    link_libs: recipe_cfg.link_libs.clone(),
+                    cflags: Vec::new(),
+                    env,
+                    cross: recipe_cfg.cross.clone(),
+                    static_lib: true, // default to static; could be from config in future
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
             }
         }
     }
