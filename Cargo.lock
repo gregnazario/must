@@ -434,6 +434,7 @@ dependencies = [
  "must-core",
  "must-engine",
  "must-graph",
+ "must-recipe-cc",
  "must-recipe-go",
  "must-recipe-rust",
  "must-recipe-shell",
@@ -506,6 +507,7 @@ version = "0.1.0"
 dependencies = [
  "must-cache",
  "must-core",
+ "tempfile",
 ]
 
 [[package]]
