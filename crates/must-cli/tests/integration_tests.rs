@@ -534,3 +534,202 @@ sources = ["hello.c"]
         .unwrap();
     assert!(status.success(), "c-bin container build should succeed");
 }
+
+#[test]
+fn test_list_command() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"[project]
+name = "listtest"
+
+[recipe.build]
+type = "shell"
+script = "echo build"
+
+[recipe.test]
+type = "shell"
+deps = ["build"]
+script = "echo test"
+
+[recipe.lint]
+type = "shell"
+script = "echo lint"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "must list should exit 0\nstdout: {stdout}\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(stdout.contains("build"), "stdout should contain 'build': {stdout}");
+    assert!(stdout.contains("test"), "stdout should contain 'test': {stdout}");
+    assert!(stdout.contains("lint"), "stdout should contain 'lint': {stdout}");
+    assert!(stdout.contains("shell"), "stdout should contain 'shell' (type column): {stdout}");
+}
+
+#[test]
+fn test_explain_command() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"[project]
+name = "explaintest"
+
+[recipe.build]
+type = "shell"
+script = "echo build"
+cache = "hash"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "explain",
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "must explain should exit 0\nstdout: {stdout}\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        stdout.contains("Cache key"),
+        "stdout should contain 'Cache key': {stdout}"
+    );
+    assert!(
+        stdout.contains("build"),
+        "stdout should contain 'build' (recipe name): {stdout}"
+    );
+    assert!(
+        stdout.contains("Strategy") || stdout.contains("hash"),
+        "stdout should contain 'Strategy' or 'hash': {stdout}"
+    );
+}
+
+#[test]
+fn test_dry_run_flag() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"[project]
+name = "dryruntest"
+
+[recipe.build]
+type = "shell"
+script = "touch sentinel_file.txt"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "--dry-run",
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "must build --dry-run should exit 0\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        !root.join("sentinel_file.txt").exists(),
+        "sentinel_file.txt should NOT exist after --dry-run"
+    );
+}
+
+#[test]
+fn test_clean_cache_command() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"[project]
+name = "cleantest"
+
+[recipe.build]
+type = "shell"
+cache = "hash"
+script = "echo cached"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+
+    // First run: populate the cache
+    let status = std::process::Command::new(binary)
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "initial build should succeed");
+
+    // Cache directory should now exist
+    let cache_dir = root.join(".mustfile").join("cache");
+    assert!(
+        cache_dir.exists(),
+        "cache directory should exist after first build: {}",
+        cache_dir.display()
+    );
+
+    // Run must clean --cache
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "clean",
+            "--cache",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "must clean --cache should exit 0\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    // Cache directory should no longer exist
+    assert!(
+        !cache_dir.exists(),
+        "cache directory should be removed after must clean --cache: {}",
+        cache_dir.display()
+    );
+}
