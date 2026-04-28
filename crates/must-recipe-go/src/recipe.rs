@@ -368,4 +368,55 @@ mod tests {
         let recipe = GoTestRecipe::new("unit-tests", "./...");
         assert_eq!(recipe.name(), "unit-tests");
     }
+
+    #[test]
+    fn test_go_bin_execute_dry_run() {
+        // dry_run is reached only when go is installed; otherwise we get ToolchainNotFound.
+        // Both outcomes are acceptable — we just verify no panic and correct branch behavior.
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let mut ctx = make_build_context();
+        ctx.dry_run = true;
+        match recipe.execute(&ctx) {
+            Ok(out) => {
+                assert!(out.stdout.contains("dry-run"));
+                assert_eq!(out.duration_ms, 0);
+            }
+            Err(Error::ToolchainNotFound { .. }) => {} // go not installed — acceptable
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_go_test_execute_dry_run() {
+        let recipe = GoTestRecipe::new("my-tests", "./...");
+        let mut ctx = make_build_context();
+        ctx.dry_run = true;
+        match recipe.execute(&ctx) {
+            Ok(out) => {
+                assert!(out.stdout.contains("dry-run"));
+                assert_eq!(out.duration_ms, 0);
+            }
+            Err(Error::ToolchainNotFound { .. }) => {} // go not installed — acceptable
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_go_bin_execute_not_installed_returns_toolchain_error() {
+        // Test the path when go is NOT installed. We can't force go to be unavailable,
+        // but we can test that if it returns a ToolchainNotFound error, it contains
+        // target and hint information. Skip if go is actually installed.
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let ctx = make_build_context();
+        if go_installed() {
+            return; // go is installed, can't test this path
+        }
+        match recipe.execute(&ctx) {
+            Err(Error::ToolchainNotFound { target, hint }) => {
+                assert_eq!(target, "host");
+                assert!(!hint.is_empty());
+            }
+            other => panic!("expected ToolchainNotFound, got: {other:?}"),
+        }
+    }
 }
