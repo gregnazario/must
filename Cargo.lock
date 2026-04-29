@@ -500,6 +500,7 @@ dependencies = [
  "must-cache",
  "must-core",
  "must-toolchain",
+ "tempfile",
 ]
 
 [[package]]

@@ -419,4 +419,114 @@ mod tests {
             other => panic!("expected ToolchainNotFound, got: {other:?}"),
         }
     }
+
+    #[test]
+    fn test_go_bin_execute_real_build() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/testbin\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let recipe = GoBinRecipe::new("my-bin", ".");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "my-bin");
+        assert!(!result.from_cache);
+    }
+
+    #[test]
+    fn test_go_test_execute_real_test() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/testpkg\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("math.go"), "package testpkg\n\nfunc Add(a, b int) int { return a + b }\n").unwrap();
+        std::fs::write(root.join("math_test.go"), "package testpkg\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\tif Add(1,2) != 3 { t.Fatal(\"wrong\") }\n}\n").unwrap();
+
+        let recipe = GoTestRecipe::new("my-tests", "./...");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "my-tests");
+    }
+
+    #[test]
+    fn test_go_bin_execute_with_ldflags() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/flagtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let mut recipe = GoBinRecipe::new("flagbin", ".");
+        recipe.ldflags = Some("-s -w".to_string());
+
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "flagbin");
+    }
+
+    #[test]
+    fn test_go_bin_execute_with_build_tags() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/tagtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let mut recipe = GoBinRecipe::new("tagbin", ".");
+        recipe.build_tags = vec!["integration".to_string()];
+
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "tagbin");
+    }
 }

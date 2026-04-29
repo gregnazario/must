@@ -733,3 +733,181 @@ script = "echo cached"
         cache_dir.display()
     );
 }
+
+#[test]
+fn test_test_subcommand() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "shell"
+script = "touch test_ran.txt"
+"#).unwrap();
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "test"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(root.join("test_ran.txt").exists());
+}
+
+#[test]
+fn test_unknown_recipe_exits_nonzero() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#).unwrap();
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "nonexistent"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(!status.success(), "should exit nonzero for unknown recipe");
+}
+
+#[test]
+fn test_resolve_targets_group_expansion() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[targets]
+mygroup = ["host"]
+
+[recipe.build]
+type = "shell"
+script = "echo building"
+"#).unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "--target", "mygroup", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "group target should expand correctly");
+}
+
+#[test]
+fn test_explain_recipe_with_inputs() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("hello.txt"), "hello").unwrap();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+inputs = ["hello.txt"]
+outputs = ["out.txt"]
+script = "cp hello.txt out.txt"
+"#).unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "explain", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Inputs:"), "should show inputs section");
+    assert!(stdout.contains("hello.txt"), "should list the input file");
+}
+
+#[test]
+fn test_explain_unknown_recipe_exits_nonzero() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#).unwrap();
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "explain", "bogus"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(!status.success(), "should exit nonzero for unknown recipe");
+}
+
+#[test]
+fn test_failing_recipe_exits_nonzero() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "exit 1"
+"#).unwrap();
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(!status.success(), "failing recipe should cause nonzero exit");
+}
+
+#[test]
+fn test_clean_when_no_cache_dir() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#).unwrap();
+    let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "clean", "--cache"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "clean --cache on nonexistent cache should succeed");
+}
+
+#[test]
+fn test_list_shows_deps() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.codegen]
+type = "shell"
+script = "echo codegen"
+
+[recipe.build]
+type = "shell"
+deps = ["codegen"]
+script = "echo build"
+"#).unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("codegen"), "should list codegen recipe");
+    assert!(stdout.contains("build"), "should list build recipe with dep");
+}
