@@ -10,3 +10,6 @@ must-cache = { path = "../must-cache" }
 must-toolchain = { path = "../must-toolchain" }
 must-config = { path = "../must-config" }
 glob.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

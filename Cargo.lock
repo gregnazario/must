@@ -490,6 +490,7 @@ dependencies = [
  "must-config",
  "must-core",
  "must-toolchain",
+ "tempfile",
 ]
 
 [[package]]
