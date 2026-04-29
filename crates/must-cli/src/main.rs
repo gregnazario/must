@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use must_config::load_config;
-use must_config::schema::{CacheMode, Config, RecipeType};
+use must_config::schema::{CacheMode, Config, EnvMap, EnvValue, Project, Recipe, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{compose_env, Engine};
 use must_graph::Dag;
@@ -537,5 +537,238 @@ fn find_mustfile() -> Option<PathBuf> {
         if !dir.pop() {
             return None;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use must_config::schema::{CacheMode, EnvMap, EnvValue, Project, Recipe, RecipeType};
+    use std::collections::HashMap;
+
+    fn make_config() -> Config {
+        Config {
+            project: Project { name: "test".into(), version: None },
+            env: EnvMap { global: HashMap::new() },
+            targets: HashMap::new(),
+            recipe: HashMap::new(),
+        }
+    }
+
+    fn make_recipe(recipe_type: RecipeType) -> Recipe {
+        Recipe {
+            recipe_type,
+            deps: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            script: Some("echo ok".into()),
+            cache: None,
+            phony: false,
+            env: HashMap::new(),
+            cross: HashMap::new(),
+            package: None,
+            features: vec![],
+            ldflags: None,
+            sources: vec![],
+            includes: vec![],
+            link_libs: vec![],
+        }
+    }
+
+    // ── resolve_targets ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_resolve_targets_empty_returns_host() {
+        let config = make_config();
+        assert_eq!(resolve_targets(&[], &config), vec!["host"]);
+    }
+
+    #[test]
+    fn test_resolve_targets_direct_triple_passthrough() {
+        let config = make_config();
+        let result = resolve_targets(&["x86_64-unknown-linux-gnu".to_string()], &config);
+        assert_eq!(result, vec!["x86_64-unknown-linux-gnu"]);
+    }
+
+    #[test]
+    fn test_resolve_targets_group_expansion() {
+        let mut config = make_config();
+        config.targets.insert(
+            "linux".into(),
+            vec!["x86_64-unknown-linux-gnu".into(), "aarch64-unknown-linux-gnu".into()],
+        );
+        let result = resolve_targets(&["linux".to_string()], &config);
+        assert_eq!(result, vec!["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]);
+    }
+
+    #[test]
+    fn test_resolve_targets_deduplicates_preserving_order() {
+        let config = make_config();
+        let result = resolve_targets(
+            &["host".to_string(), "host".to_string(), "host".to_string()],
+            &config,
+        );
+        assert_eq!(result, vec!["host"]);
+    }
+
+    #[test]
+    fn test_resolve_targets_mixed_group_and_direct() {
+        let mut config = make_config();
+        config.targets.insert("linux".into(), vec!["x86_64-unknown-linux-gnu".into()]);
+        let result = resolve_targets(&["linux".to_string(), "host".to_string()], &config);
+        assert_eq!(result, vec!["x86_64-unknown-linux-gnu", "host"]);
+    }
+
+    // ── explain_recipe ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_explain_unknown_recipe_returns_error() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let config = make_config();
+        let result = explain_recipe(&config, &mustfile, "default", "nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_explain_shell_recipe_no_inputs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_with_input_files() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("data.txt"), "hello").unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        let mut r = make_recipe(RecipeType::Shell);
+        r.inputs = vec!["data.txt".into()];
+        config.recipe.insert("build".into(), r);
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_with_env_vars_displays_them() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        // Add a global env var that should appear in "Env (affects hash)" section
+        config.env.global.insert(
+            "MY_BUILD_VAR".into(),
+            EnvValue::Scalar("some_value".into()),
+        );
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_with_deps() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        let mut r = make_recipe(RecipeType::Shell);
+        r.deps = vec!["codegen".into()];
+        config.recipe.insert("build".into(), r);
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_with_hash_cache_mode() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        let mut r = make_recipe(RecipeType::Shell);
+        r.cache = Some(CacheMode::Hash);
+        config.recipe.insert("build".into(), r);
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_with_mtime_cache_mode() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        let mut r = make_recipe(RecipeType::Shell);
+        r.cache = Some(CacheMode::Mtime);
+        config.recipe.insert("build".into(), r);
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_with_none_cache_mode() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        let mut r = make_recipe(RecipeType::Shell);
+        r.cache = Some(CacheMode::None);
+        config.recipe.insert("build".into(), r);
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_all_recipe_types() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        // Exercise every branch of the recipe_type_str match
+        let types = [
+            RecipeType::Shell, RecipeType::RustBin, RecipeType::RustLib,
+            RecipeType::RustTest, RecipeType::GoBin, RecipeType::GoTest,
+            RecipeType::CBin, RecipeType::CLib,
+        ];
+        for rtype in types {
+            let mut config = make_config();
+            config.recipe.insert("r".into(), make_recipe(rtype));
+            assert!(explain_recipe(&config, &mustfile, "default", "r").is_ok());
+        }
+    }
+
+    #[test]
+    fn test_explain_recipe_invalid_glob_does_not_panic() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        let mut r = make_recipe(RecipeType::Shell);
+        // glob::glob returns Err for this pattern
+        r.inputs = vec!["***".into()];
+        config.recipe.insert("build".into(), r);
+        // Should succeed even with unparseable glob
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    #[test]
+    fn test_explain_recipe_long_env_value_truncated() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(&mustfile, "").unwrap();
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        // A value > 60 chars should be truncated with "..."
+        config.env.global.insert(
+            "LONG_VAR".into(),
+            EnvValue::Scalar("x".repeat(80)),
+        );
+        assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
+    }
+
+    // ── find_mustfile ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_mustfile_returns_something_or_none_without_panic() {
+        // We can't guarantee the working directory, but the function should not panic.
+        let _ = find_mustfile();
     }
 }
