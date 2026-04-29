@@ -1012,6 +1012,68 @@ mod tests {
     // ── run_command helper ────────────────────────────────────────────────────
 
     #[test]
+    fn test_cbin_execute_compile_failure() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        // Intentionally broken C code
+        let src = tmp.path().join("broken.c");
+        std::fs::write(&src, "this is not valid C code at all !!!\n").unwrap();
+
+        let mut r = CBinRecipe::new("broken");
+        r.sources = vec!["broken.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx);
+        assert!(result.is_err(), "compilation of invalid C should fail");
+    }
+
+    #[test]
+    fn test_cbin_execute_with_cross_config_linker() {
+        // Test the cross config path where a linker is explicitly set.
+        // We use "cc" (which exists on macOS/Linux) as the cross "linker"
+        // but for the host target (so it actually compiles successfully).
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("main.c"), "int main(void) { return 0; }\n").unwrap();
+
+        let mut cross = HashMap::new();
+        cross.insert("host".to_string(), CrossConfig {
+            linker: Some("cc".to_string()),
+            cross: None,
+        });
+
+        let mut r = CBinRecipe::new("cross_prog");
+        r.sources = vec!["main.c".to_string()];
+        r.cross = cross;
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "cross_prog");
+    }
+
+    #[test]
     fn test_run_command_success() {
         let mut cmd = std::process::Command::new("echo");
         cmd.arg("hello from run_command");

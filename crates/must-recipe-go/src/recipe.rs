@@ -503,6 +503,55 @@ mod tests {
     }
 
     #[test]
+    fn test_go_bin_execute_invalid_package_returns_error() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/failtest\n\ngo 1.21\n").unwrap();
+        // No main.go — building "./nonexistent" should fail
+        let recipe = GoBinRecipe::new("fail-bin", "./nonexistent");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let result = recipe.execute(&ctx);
+        assert!(result.is_err(), "building nonexistent package should fail");
+    }
+
+    #[test]
+    fn test_go_bin_execute_cross_compile() {
+        // Go cross-compiles natively via GOOS/GOARCH env vars — no extra toolchain needed.
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/crosstest\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let recipe = GoBinRecipe::new("cross-bin", ".");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "aarch64-unknown-linux-gnu".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        // Go can cross-compile for linux/arm64 without extra tools
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "cross-bin");
+    }
+
+    #[test]
     fn test_go_bin_execute_with_build_tags() {
         if !go_installed() {
             return;

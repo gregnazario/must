@@ -345,6 +345,63 @@ mod tests {
         assert_eq!(report.failed(), 0);
     }
 
+    struct PanicRecipe {
+        name: String,
+    }
+    impl must_core::Recipe for PanicRecipe {
+        fn name(&self) -> &str { &self.name }
+        fn deps(&self) -> &[String] { &[] }
+        fn inputs(
+            &self,
+            _: &must_core::BuildContext,
+        ) -> must_core::Result<Vec<std::path::PathBuf>> { Ok(vec![]) }
+        fn outputs(
+            &self,
+            _: &must_core::BuildContext,
+        ) -> must_core::Result<Vec<std::path::PathBuf>> { Ok(vec![]) }
+        fn cache_strategy(&self) -> CacheStrategy { CacheStrategy::Never }
+        fn cache_key(&self, _: &must_core::BuildContext) -> must_core::Result<CacheKey> {
+            Ok(CacheKey {
+                recipe: self.name.clone(),
+                target: "host".into(),
+                profile: "default".into(),
+                hash: "xyz".into(),
+            })
+        }
+        fn execute(&self, _: &must_core::BuildContext) -> must_core::Result<RecipeOutput> {
+            panic!("deliberate panic in test")
+        }
+    }
+
+    #[tokio::test]
+    async fn test_engine_handles_panicking_recipe() {
+        let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
+        recipes.insert(
+            "panic-recipe".into(),
+            Arc::new(PanicRecipe { name: "panic-recipe".into() }),
+        );
+        let dag = must_graph::Dag::new([("panic-recipe".to_string(), vec![])].into());
+        let engine = Engine::new(1, false);
+        let report = engine.execute(&dag, &recipes, &test_ctx()).await.unwrap();
+        assert!(!report.success, "panicking recipe should mark report as failed");
+        assert_eq!(report.failed(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_engine_unknown_recipe_in_dag_returns_error() {
+        // DAG mentions "ghost" but recipe map only has "build"
+        let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
+        recipes.insert(
+            "build".into(),
+            Arc::new(SuccessRecipe { name: "build".into() }),
+        );
+        // Dag with "ghost" which is NOT in the recipes map
+        let dag = must_graph::Dag::new([("ghost".to_string(), vec![])].into());
+        let engine = Engine::new(1, false);
+        let result = engine.execute(&dag, &recipes, &test_ctx()).await;
+        assert!(result.is_err(), "unknown recipe in DAG should return Err");
+    }
+
     #[tokio::test]
     async fn test_execution_report_cached_count() {
         let report = ExecutionReport {

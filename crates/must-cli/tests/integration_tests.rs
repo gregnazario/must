@@ -911,3 +911,60 @@ script = "echo build"
     assert!(stdout.contains("codegen"), "should list codegen recipe");
     assert!(stdout.contains("build"), "should list build recipe with dep");
 }
+
+#[test]
+fn test_explain_recipe_with_env_vars() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[env.default]
+MY_BUILD_VAR = "some_value"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#).unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "explain", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // The env var MY_BUILD_VAR should appear in the "Env (affects hash):" section
+    assert!(stdout.contains("MY_BUILD_VAR"), "should show env var: {stdout}");
+}
+
+#[test]
+fn test_build_with_two_targets_shows_header() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(root.join("Mustfile.toml"), r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo building"
+"#).unwrap();
+    // Pass two distinct target strings so we get target headers in output.
+    // x86_64-unknown-linux-gnu and aarch64-unknown-linux-gnu are both shell-compatible
+    // (shell recipe doesn't care about target).
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file", &root.join("Mustfile.toml").to_string_lossy(),
+            "--target", "x86_64-unknown-linux-gnu",
+            "--target", "aarch64-unknown-linux-gnu",
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should contain "[target: ...]" headers since 2 targets
+    assert!(stdout.contains("[target:"), "expected target headers, got: {stdout}");
+}
