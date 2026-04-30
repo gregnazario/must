@@ -73,6 +73,16 @@ enum Commands {
         /// Recipe name to explain
         recipe: String,
     },
+    /// Import a Makefile and produce a Mustfile.toml
+    Import {
+        /// Path to the Makefile to import
+        #[arg(long, default_value = "Makefile")]
+        makefile: PathBuf,
+
+        /// Output path for the generated Mustfile.toml
+        #[arg(long, default_value = "Mustfile.toml")]
+        out: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -100,6 +110,28 @@ async fn main() {
 }
 
 async fn run(cli: Cli) -> must_core::Result<()> {
+    // Handle import before loading config — it doesn't need a Mustfile.toml
+    if let Commands::Import { makefile, out } = cli.command {
+        let input = std::fs::read_to_string(&makefile)
+            .map_err(must_core::Error::Io)?;
+        let result = must_import::import(&input);
+
+        std::fs::write(&out, &result.toml)
+            .map_err(must_core::Error::Io)?;
+
+        let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
+        std::fs::write(&report_path, &result.report)
+            .map_err(must_core::Error::Io)?;
+
+        println!("Imported {} → {}", makefile.display(), out.display());
+        println!(
+            "  {} translated, {} TODO, {} skipped",
+            result.translated_count, result.todo_count, result.skipped_count
+        );
+        println!("Report: {}", report_path.display());
+        return Ok(());
+    }
+
     // Find and load Mustfile.toml
     let mustfile_path = cli
         .file
@@ -181,6 +213,10 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         }
         Commands::Explain { recipe } => {
             explain_recipe(&config, &mustfile_path, &cli.profile, &recipe)?;
+        }
+        Commands::Import { .. } => {
+            // handled before config loading above
+            unreachable!()
         }
     }
 
@@ -770,5 +806,17 @@ mod tests {
     fn test_find_mustfile_returns_something_or_none_without_panic() {
         // We can't guarantee the working directory, but the function should not panic.
         let _ = find_mustfile();
+    }
+
+    #[test]
+    fn test_import_roundtrip() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mk = tmp.path().join("Makefile");
+        std::fs::write(&mk, "build:\n\tgcc -o app main.c\n").unwrap();
+        // call must_import directly (not via CLI) to keep test simple
+        let input = std::fs::read_to_string(&mk).unwrap();
+        let result = must_import::import(&input);
+        assert!(result.toml.contains("[recipe.build]") || result.toml.contains("[recipe.\"build\"]"));
+        assert_eq!(result.todo_count, 0);
     }
 }
