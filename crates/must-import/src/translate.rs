@@ -45,7 +45,9 @@ pub fn translate(ast: MakefileAst) -> ImportResult {
     for node in ast.nodes {
         match node {
             AstNode::Variable { name, value, .. } => {
-                if !value.is_empty() {
+                if value.is_empty() {
+                    output.skipped.push(format!("{name} = (empty value — skipped)"));
+                } else {
                     output.env.insert(name, value);
                 }
             }
@@ -109,6 +111,8 @@ mod tests {
             AstNode::Variable { name: "EMPTY".into(), op: AssignOp::Simple, value: "".into() }
         ]));
         assert_eq!(r.translated_count, 0);
+        assert_eq!(r.skipped_count, 1, "empty-value variable should appear in skipped_count");
+        assert!(r.report.contains("EMPTY"), "skipped variable name should appear in report");
     }
 
     #[test]

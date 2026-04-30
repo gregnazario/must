@@ -21,7 +21,10 @@ pub(crate) fn write_toml(output: &MustfileOutput) -> String {
         out.push_str(&format!("\n[recipe.\"{}\"]\n", quoted_name));
         out.push_str("type = \"shell\"\n");
         if !recipe.deps.is_empty() {
-            let deps: Vec<String> = recipe.deps.iter().map(|d| format!("\"{d}\"")).collect();
+            let deps: Vec<String> = recipe.deps.iter().map(|d| {
+                let escaped = d.replace('\\', "\\\\").replace('"', "\\\"");
+                format!("\"{}\"", escaped)
+            }).collect();
             out.push_str(&format!("deps = [{}]\n", deps.join(", ")));
         }
         if recipe.phony {
@@ -83,6 +86,20 @@ mod tests {
         });
         let toml = write_toml(&o);
         assert!(toml.contains(r#"[recipe."dist/app"]"#));
+    }
+
+    #[test]
+    fn dep_name_with_special_chars_is_escaped() {
+        let mut o = empty_output();
+        o.recipes.push(OutputRecipe {
+            name: "build".into(),
+            deps: vec!["dist/\"output\"".into(), r"C:\lib".into()],
+            script: String::new(),
+            phony: false,
+        });
+        let toml = write_toml(&o);
+        assert!(toml.contains(r#""dist/\"output\"""#), "double-quotes inside dep name must be escaped");
+        assert!(toml.contains(r#""C:\\lib""#), "backslashes inside dep name must be escaped");
     }
 
     #[test]

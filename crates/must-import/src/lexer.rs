@@ -121,6 +121,14 @@ fn try_var_assign(line: &str) -> Option<Token> {
             if name.is_empty() {
                 continue; // Not a valid variable name — keep trying.
             }
+            // A valid Makefile variable name contains only word chars, hyphens, dots
+            // (no parens, dollar signs, whitespace, or slashes).
+            // Lines like `$(eval $(call TEMPLATE,foo=bar))` contain `=` inside a
+            // macro expression; the extracted "name" will contain `$(` which makes
+            // it invalid — fall through to try_rule / Unrecognized instead.
+            if name.chars().any(|c| matches!(c, '(' | ')' | '$' | ' ' | '\t')) {
+                continue;
+            }
             let value = line[pos + op_str.len()..].trim().to_string();
             return Some(Token::VarAssign {
                 name,
@@ -416,6 +424,15 @@ mod tests {
                 deps: vec!["build".to_string()],
             }
         );
+    }
+
+    // Extra: line with `=` inside a macro expression is NOT a VarAssign
+    #[test]
+    fn macro_line_with_equals_is_unrecognized() {
+        // The `=` inside `$(call TEMPLATE,foo=bar)` must not cause the line to
+        // be classified as a variable assignment with a garbage name.
+        let t = tok("$(eval $(call TEMPLATE,foo=bar))");
+        assert_eq!(t, Token::Unrecognized("$(eval $(call TEMPLATE,foo=bar))".to_string()));
     }
 
     // Extra: trailing whitespace stripped
