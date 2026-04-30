@@ -1,3 +1,1 @@
-pub fn write_report(_output: &()) -> String {
-    todo!("implement in Task 4")
-}
+// implemented in Task 4 alongside translate.rs
