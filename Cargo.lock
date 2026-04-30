@@ -482,6 +482,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-import"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tempfile",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "must-recipe-cc"
 version = "0.1.0"
 dependencies = [
