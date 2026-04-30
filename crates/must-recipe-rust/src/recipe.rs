@@ -447,4 +447,179 @@ mod tests {
         assert!(out.stdout.contains("dry-run"));
         assert_eq!(out.duration_ms, 0);
     }
+
+    // ── Cache hit tests ───────────────────────────────────────────────────────
+
+    #[test]
+    fn rust_bin_execute_returns_from_cache_when_hit() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = RustBinRecipe::new("build", "myapp");
+        // Pre-populate cache with the exact key the recipe would compute
+        let key = r.cache_key(&ctx).unwrap();
+        let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
+        cache.store(&key, &[]).unwrap();
+        drop(cache);
+
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.from_cache, "should return from cache");
+        assert_eq!(out.recipe_name, "build");
+    }
+
+    #[test]
+    fn rust_bin_execute_dry_run_skips_cargo() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: true,
+            parallelism: 1,
+        };
+        let r = RustBinRecipe::new("build", "myapp");
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert!(!out.from_cache);
+    }
+
+    #[test]
+    fn rust_bin_execute_dry_run_with_features() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: true,
+            parallelism: 1,
+        };
+        let mut r = RustBinRecipe::new("build", "myapp");
+        r.features = vec!["feat-a".into()];
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+    }
+
+    #[test]
+    fn rust_bin_execute_dry_run_release() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: true,
+            parallelism: 1,
+        };
+        let mut r = RustBinRecipe::new("build", "myapp");
+        r.release = true;
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+    }
+
+    #[test]
+    fn rust_lib_execute_returns_from_cache_when_hit() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = RustLibRecipe::new("lib", "mylib");
+        let key = r.cache_key(&ctx).unwrap();
+        let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
+        cache.store(&key, &[]).unwrap();
+        drop(cache);
+
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.from_cache);
+    }
+
+    #[test]
+    fn rust_lib_execute_dry_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: true,
+            parallelism: 1,
+        };
+        let r = RustLibRecipe::new("lib", "mylib");
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert!(!out.from_cache);
+    }
+
+    #[test]
+    fn rust_lib_execute_dry_run_with_features_and_release() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: true,
+            parallelism: 1,
+        };
+        let mut r = RustLibRecipe::new("lib", "mylib");
+        r.features = vec!["feat".into()];
+        r.release = true;
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+    }
+
+    #[test]
+    fn rust_test_cache_key_includes_filter() {
+        let mut r = RustTestRecipe::new("test", "myapp");
+        r.test_filter = Some("my_specific_test".to_string());
+        let key = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key.recipe, "test");
+        // Verify that a key without filter differs
+        let r2 = RustTestRecipe::new("test", "myapp");
+        let key2 = r2.cache_key(&ctx()).unwrap();
+        assert_ne!(key.hash, key2.hash, "filter should affect cache key hash");
+    }
+
+    #[test]
+    fn rust_test_name_deps_inputs() {
+        let mut r = RustTestRecipe::new("mytest", "mypkg");
+        r.deps = vec!["build".to_string()];
+        assert_eq!(r.name(), "mytest");
+        assert_eq!(r.deps(), &["build"]);
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn rust_test_dry_run_with_filter() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut r = RustTestRecipe::new("mytest", "mypkg");
+        r.test_filter = Some("specific_test".to_string());
+        let mut c = ctx();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert!(!out.from_cache);
+    }
 }

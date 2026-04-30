@@ -235,6 +235,60 @@ mod tests {
     }
 
     #[test]
+    fn test_c_cross_env_with_clang_compiler() {
+        let triple = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
+        let compiler = Path::new("/usr/bin/aarch64-linux-gnu-clang");
+        let env = c_cross_env(&triple, Some(compiler));
+        assert_eq!(env.get("CC").map(String::as_str), Some("/usr/bin/aarch64-linux-gnu-clang"));
+        let cxx = env.get("CXX").expect("CXX should be set");
+        assert!(cxx.ends_with("-clang++"), "expected CXX to end with -clang++, got: {cxx}");
+        let ar = env.get("AR").expect("AR should be set");
+        assert!(ar.ends_with("-ar") || ar == "ar", "expected AR to end with -ar or be 'ar', got: {ar}");
+    }
+
+    #[test]
+    fn test_c_cross_env_with_generic_compiler_name() {
+        // Compiler with no -gcc/-clang suffix → fallback to "ar" / "<stem>++"
+        let triple = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
+        let compiler = Path::new("/usr/local/bin/mycc");
+        let env = c_cross_env(&triple, Some(compiler));
+        assert_eq!(env.get("CC").map(String::as_str), Some("/usr/local/bin/mycc"));
+        // CXX should be the stem + "++"
+        let cxx = env.get("CXX").expect("CXX");
+        assert!(cxx.contains("++"), "expected CXX to contain '++', got: {cxx}");
+        // AR should fall back to "ar"
+        assert_eq!(env.get("AR").map(String::as_str), Some("ar"));
+        assert_eq!(env.get("LD").map(String::as_str), Some("ld"));
+    }
+
+    #[test]
+    fn test_c_cross_env_cflags_always_present() {
+        let triple = Triple::host();
+        let env = c_cross_env(&triple, None);
+        assert!(env.contains_key("CFLAGS"), "CFLAGS should always be set");
+    }
+
+    #[test]
+    fn test_rust_cross_env_with_linker_produces_uppercased_key() {
+        // Verify the key format: CARGO_TARGET_<TRIPLE_UPPER>_LINKER
+        let triple = Triple::parse("x86_64-unknown-linux-musl").unwrap();
+        let env = rust_cross_env(&triple, Some("/usr/bin/musl-gcc"));
+        let key = "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER";
+        assert!(env.contains_key(key), "expected key {key}, got: {:?}", env.keys().collect::<Vec<_>>());
+        assert_eq!(env[key], "/usr/bin/musl-gcc");
+    }
+
+    #[test]
+    fn test_go_cross_env_riscv64() {
+        // riscv64 is in the parse table (Arch::Riscv64 exists in triple.rs)
+        if let Ok(triple) = Triple::parse("riscv64-unknown-linux-gnu") {
+            let env = go_cross_env(&triple);
+            assert_eq!(env.get("GOARCH").map(String::as_str), Some("riscv64"));
+            assert_eq!(env.get("GOOS").map(String::as_str), Some("linux"));
+        }
+    }
+
+    #[test]
     fn test_c_cross_env_with_compiler_path() {
         let triple = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
         let compiler = Path::new("/usr/bin/aarch64-linux-gnu-gcc");

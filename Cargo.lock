@@ -490,6 +490,7 @@ dependencies = [
  "must-config",
  "must-core",
  "must-toolchain",
+ "tempfile",
 ]
 
 [[package]]
@@ -499,6 +500,7 @@ dependencies = [
  "must-cache",
  "must-core",
  "must-toolchain",
+ "tempfile",
 ]
 
 [[package]]
@@ -507,6 +509,7 @@ version = "0.1.0"
 dependencies = [
  "must-cache",
  "must-core",
+ "tempfile",
 ]
 
 [[package]]
@@ -516,6 +519,7 @@ dependencies = [
  "glob",
  "must-cache",
  "must-core",
+ "tempfile",
 ]
 
 [[package]]

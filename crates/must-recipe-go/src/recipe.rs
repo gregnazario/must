@@ -368,4 +368,255 @@ mod tests {
         let recipe = GoTestRecipe::new("unit-tests", "./...");
         assert_eq!(recipe.name(), "unit-tests");
     }
+
+    #[test]
+    fn test_go_bin_execute_dry_run() {
+        // dry_run is reached only when go is installed; otherwise we get ToolchainNotFound.
+        // Both outcomes are acceptable — we just verify no panic and correct branch behavior.
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let mut ctx = make_build_context();
+        ctx.dry_run = true;
+        match recipe.execute(&ctx) {
+            Ok(out) => {
+                assert!(out.stdout.contains("dry-run"));
+                assert_eq!(out.duration_ms, 0);
+            }
+            Err(Error::ToolchainNotFound { .. }) => {} // go not installed — acceptable
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_go_test_execute_dry_run() {
+        let recipe = GoTestRecipe::new("my-tests", "./...");
+        let mut ctx = make_build_context();
+        ctx.dry_run = true;
+        match recipe.execute(&ctx) {
+            Ok(out) => {
+                assert!(out.stdout.contains("dry-run"));
+                assert_eq!(out.duration_ms, 0);
+            }
+            Err(Error::ToolchainNotFound { .. }) => {} // go not installed — acceptable
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_go_bin_execute_not_installed_returns_toolchain_error() {
+        // Test the path when go is NOT installed. We can't force go to be unavailable,
+        // but we can test that if it returns a ToolchainNotFound error, it contains
+        // target and hint information. Skip if go is actually installed.
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let ctx = make_build_context();
+        if go_installed() {
+            return; // go is installed, can't test this path
+        }
+        match recipe.execute(&ctx) {
+            Err(Error::ToolchainNotFound { target, hint }) => {
+                assert_eq!(target, "host");
+                assert!(!hint.is_empty());
+            }
+            other => panic!("expected ToolchainNotFound, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_go_bin_execute_real_build() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/testbin\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let recipe = GoBinRecipe::new("my-bin", ".");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "my-bin");
+        assert!(!result.from_cache);
+    }
+
+    #[test]
+    fn test_go_test_execute_real_test() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/testpkg\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("math.go"), "package testpkg\n\nfunc Add(a, b int) int { return a + b }\n").unwrap();
+        std::fs::write(root.join("math_test.go"), "package testpkg\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\tif Add(1,2) != 3 { t.Fatal(\"wrong\") }\n}\n").unwrap();
+
+        let recipe = GoTestRecipe::new("my-tests", "./...");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "my-tests");
+    }
+
+    #[test]
+    fn test_go_bin_execute_with_ldflags() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/flagtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let mut recipe = GoBinRecipe::new("flagbin", ".");
+        recipe.ldflags = Some("-s -w".to_string());
+
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "flagbin");
+    }
+
+    #[test]
+    fn test_go_bin_execute_invalid_package_returns_error() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/failtest\n\ngo 1.21\n").unwrap();
+        // No main.go — building "./nonexistent" should fail
+        let recipe = GoBinRecipe::new("fail-bin", "./nonexistent");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let result = recipe.execute(&ctx);
+        assert!(result.is_err(), "building nonexistent package should fail");
+    }
+
+    #[test]
+    fn test_go_bin_execute_cross_compile() {
+        // Go cross-compiles natively via GOOS/GOARCH env vars — no extra toolchain needed.
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/crosstest\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let recipe = GoBinRecipe::new("cross-bin", ".");
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "aarch64-unknown-linux-gnu".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        // Go can cross-compile for linux/arm64 without extra tools
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "cross-bin");
+    }
+
+    #[test]
+    fn test_go_bin_execute_with_build_tags() {
+        if !go_installed() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("go.mod"), "module example.com/tagtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
+
+        let mut recipe = GoBinRecipe::new("tagbin", ".");
+        recipe.build_tags = vec!["integration".to_string()];
+
+        let ctx = BuildContext {
+            project_root: root.to_owned(),
+            cache_dir: root.join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "debug".to_string(),
+            env: std::env::vars().collect(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = recipe.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "tagbin");
+    }
+
+    #[test]
+    fn test_go_bin_cache_key_covers_go_version_and_hash() {
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let ctx = make_build_context();
+        let key = recipe.cache_key(&ctx).unwrap();
+        assert_eq!(key.recipe, "my-bin");
+        assert_eq!(key.target, "host");
+        assert_eq!(key.profile, "debug");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_go_test_cache_key() {
+        let recipe = GoTestRecipe::new("my-tests", "./...");
+        let ctx = make_build_context();
+        let key = recipe.cache_key(&ctx).unwrap();
+        assert_eq!(key.recipe, "my-tests");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_go_bin_extra_flags_includes_all_fields() {
+        let mut recipe = GoBinRecipe::new("my-bin", "./cmd");
+        recipe.ldflags = Some("-s -w".to_string());
+        recipe.build_tags = vec!["release".to_string(), "cgo".to_string()];
+        let flags = recipe.extra_flags();
+        assert_eq!(flags.get("package").map(String::as_str), Some("./cmd"));
+        assert_eq!(flags.get("ldflags").map(String::as_str), Some("-s -w"));
+        assert_eq!(flags.get("tags").map(String::as_str), Some("release,cgo"));
+    }
+
+    #[test]
+    fn test_go_bin_cache_key_changes_with_ldflags() {
+        let ctx = make_build_context();
+        let mut r1 = GoBinRecipe::new("bin", "./cmd");
+        let key1 = r1.cache_key(&ctx).unwrap();
+        r1.ldflags = Some("-s -w".to_string());
+        let key2 = r1.cache_key(&ctx).unwrap();
+        assert_ne!(key1.hash, key2.hash, "ldflags should change the cache key hash");
+    }
 }

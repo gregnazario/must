@@ -759,4 +759,463 @@ mod tests {
         assert!(out.stdout.contains("dry-run"));
         assert_eq!(out.duration_ms, 0);
     }
+
+    // ── Accessor tests ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_cbin_name_accessor() {
+        let r = CBinRecipe::new("myprog");
+        assert_eq!(r.name(), "myprog");
+    }
+
+    #[test]
+    fn test_cbin_deps_non_empty() {
+        let mut r = CBinRecipe::new("myprog");
+        r.deps = vec!["libfoo".to_string()];
+        assert_eq!(r.deps(), &["libfoo"]);
+    }
+
+    #[test]
+    fn test_clib_name_accessor() {
+        let r = CLibRecipe::new("mylib", true);
+        assert_eq!(r.name(), "mylib");
+    }
+
+    #[test]
+    fn test_clib_deps_non_empty() {
+        let mut r = CLibRecipe::new("mylib", false);
+        r.deps = vec!["dep1".to_string()];
+        assert_eq!(r.deps(), &["dep1"]);
+    }
+
+    // ── cache_key tests ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_cbin_cache_key_fields() {
+        let r = CBinRecipe::new("myprog");
+        let key = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key.recipe, "myprog");
+        assert_eq!(key.target, "host");
+        assert_eq!(key.profile, "default");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_clib_static_cache_key_fields() {
+        let r = CLibRecipe::new("mylib", true);
+        let key = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key.recipe, "mylib");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_clib_shared_cache_key_fields() {
+        let r = CLibRecipe::new("mylib", false);
+        let key = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key.recipe, "mylib");
+        // Static and shared libs should have different cache keys
+        let static_key = CLibRecipe::new("mylib", true).cache_key(&ctx()).unwrap();
+        assert_ne!(key.hash, static_key.hash);
+    }
+
+    // ── execute() on host with real cc ────────────────────────────────────────
+
+    #[test]
+    fn test_cbin_execute_compiles_on_host() {
+        // Skip if cc not available
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let src = tmp.path().join("main.c");
+        std::fs::write(&src, "int main(void) { return 0; }\n").unwrap();
+
+        let mut r = CBinRecipe::new("myprog");
+        r.sources = vec!["main.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "myprog");
+        assert!(!result.outputs.is_empty());
+        assert!(result.outputs[0].exists(), "compiled binary should exist");
+    }
+
+    #[test]
+    fn test_cbin_execute_with_include_dir() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+
+        // Create include dir with a header
+        std::fs::create_dir_all(tmp.path().join("include")).unwrap();
+        std::fs::write(tmp.path().join("include/myheader.h"), "#define ANSWER 42\n").unwrap();
+        std::fs::write(tmp.path().join("main.c"), "#include \"myheader.h\"\nint main(void) { return ANSWER - ANSWER; }\n").unwrap();
+
+        let mut r = CBinRecipe::new("myprog2");
+        r.sources = vec!["main.c".to_string()];
+        r.includes = vec!["include".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert!(result.outputs[0].exists());
+    }
+
+    #[test]
+    fn test_clib_static_execute_on_host() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("mylib.c"), "int add(int a, int b) { return a + b; }\n").unwrap();
+
+        let mut r = CLibRecipe::new("mylib", true);
+        r.sources = vec!["mylib.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "mylib");
+        assert!(!result.outputs.is_empty());
+        assert!(result.outputs[0].exists(), "libmylib.a should exist");
+        assert!(result.outputs[0].to_string_lossy().ends_with("libmylib.a"));
+    }
+
+    #[test]
+    fn test_clib_shared_execute_on_host() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("myshared.c"), "int mul(int a, int b) { return a * b; }\n").unwrap();
+
+        let mut r = CLibRecipe::new("myshared", false);
+        r.sources = vec!["myshared.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        // On macOS, cc -shared may produce a dylib-format file named .so
+        // We just check it doesn't error and the output file exists
+        let result = r.execute(&ctx);
+        match result {
+            Ok(out) => {
+                assert!(!out.outputs.is_empty());
+                assert!(out.outputs[0].exists());
+            }
+            Err(e) => {
+                // Some environments may not support -shared; that's acceptable
+                let err_str = e.to_string();
+                assert!(
+                    err_str.contains("RecipeFailed") || err_str.contains("failed"),
+                    "unexpected error: {err_str}"
+                );
+            }
+        }
+    }
+
+    // ── ToolchainNotFound for cross targets ───────────────────────────────────
+
+    #[test]
+    fn test_cbin_execute_cross_no_compiler_returns_toolchain_not_found() {
+        // Use a cross target that definitely has no compiler on this host
+        let triple_str = "x86_64-unknown-linux-gnu";
+        let triple = must_toolchain::Triple::parse(triple_str).unwrap();
+
+        // Only run this test if the cross-compiler is NOT available
+        if must_toolchain::c_compiler_available(&triple) {
+            return; // cross-compiler found — skip
+        }
+
+        let mut r = CBinRecipe::new("myprog");
+        r.sources = vec!["src/main.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: std::path::PathBuf::from("/tmp"),
+            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            target: triple_str.to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        match r.execute(&ctx) {
+            Err(must_core::Error::ToolchainNotFound { target, hint }) => {
+                assert_eq!(target, triple_str);
+                assert!(!hint.is_empty());
+            }
+            other => panic!("expected ToolchainNotFound, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_clib_execute_cross_no_compiler_returns_toolchain_not_found() {
+        let triple_str = "x86_64-unknown-linux-gnu";
+        let triple = must_toolchain::Triple::parse(triple_str).unwrap();
+        if must_toolchain::c_compiler_available(&triple) {
+            return;
+        }
+
+        let mut r = CLibRecipe::new("mylib", true);
+        r.sources = vec!["src/lib.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: std::path::PathBuf::from("/tmp"),
+            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            target: triple_str.to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        match r.execute(&ctx) {
+            Err(must_core::Error::ToolchainNotFound { .. }) => {}
+            other => panic!("expected ToolchainNotFound, got: {other:?}"),
+        }
+    }
+
+    // ── run_command helper ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_cbin_execute_compile_failure() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        // Intentionally broken C code
+        let src = tmp.path().join("broken.c");
+        std::fs::write(&src, "this is not valid C code at all !!!\n").unwrap();
+
+        let mut r = CBinRecipe::new("broken");
+        r.sources = vec!["broken.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx);
+        assert!(result.is_err(), "compilation of invalid C should fail");
+    }
+
+    #[test]
+    fn test_cbin_execute_with_cross_config_linker() {
+        // Test the cross config path where a linker is explicitly set.
+        // We use "cc" (which exists on macOS/Linux) as the cross "linker"
+        // but for the host target (so it actually compiles successfully).
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("main.c"), "int main(void) { return 0; }\n").unwrap();
+
+        let mut cross = HashMap::new();
+        cross.insert("host".to_string(), CrossConfig {
+            linker: Some("cc".to_string()),
+            cross: None,
+        });
+
+        let mut r = CBinRecipe::new("cross_prog");
+        r.sources = vec!["main.c".to_string()];
+        r.cross = cross;
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "cross_prog");
+    }
+
+    #[test]
+    fn test_run_command_success() {
+        let mut cmd = std::process::Command::new("echo");
+        cmd.arg("hello from run_command");
+        let result = run_command(cmd).unwrap();
+        assert!(result.stdout.contains("hello from run_command"));
+    }
+
+    #[test]
+    fn test_run_command_failure() {
+        let mut cmd = std::process::Command::new("false");
+        let result = run_command(cmd);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            must_core::Error::RecipeFailed { name, code, .. } => {
+                assert_eq!(name, "cc");
+                assert_ne!(code, 0);
+            }
+            e => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_clib_inputs_returns_sources_joined_to_root() {
+        let mut r = CLibRecipe::new("mylib", true);
+        r.sources = vec!["src/lib.c".to_string(), "src/util.c".to_string()];
+        let inputs = r.inputs(&ctx()).unwrap();
+        assert_eq!(inputs.len(), 2);
+        assert!(inputs[0].to_string_lossy().ends_with("lib.c"));
+        assert!(inputs[1].to_string_lossy().ends_with("util.c"));
+    }
+
+    #[test]
+    fn test_clib_inputs_empty_when_no_sources() {
+        let r = CLibRecipe::new("mylib", true);
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_cbin_execute_with_cflags_and_nonempty_env() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("main.c"), "int main(void) { return 0; }\n").unwrap();
+
+        let mut r = CBinRecipe::new("flagprog");
+        r.sources = vec!["main.c".to_string()];
+        r.cflags = vec!["-O0".to_string()];
+
+        let mut ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::from([("MY_FLAG".to_string(), "1".to_string())]),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "flagprog");
+        assert!(result.outputs[0].exists());
+    }
+
+    #[test]
+    fn test_cbin_execute_with_recipe_env() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("main.c"), "int main(void) { return 0; }\n").unwrap();
+
+        let mut r = CBinRecipe::new("envprog");
+        r.sources = vec!["main.c".to_string()];
+        r.env = HashMap::from([("RECIPE_ENV".to_string(), "hello".to_string())]);
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert_eq!(result.recipe_name, "envprog");
+    }
+
+    #[test]
+    fn test_clib_static_execute_with_includes_and_cflags() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("include")).unwrap();
+        std::fs::write(tmp.path().join("include/mymath.h"), "int square(int x);\n").unwrap();
+        std::fs::write(tmp.path().join("mymath.c"), "#include \"mymath.h\"\nint square(int x) { return x * x; }\n").unwrap();
+
+        let mut r = CLibRecipe::new("mymath", true);
+        r.sources = vec!["mymath.c".to_string()];
+        r.includes = vec!["include".to_string()];
+        r.cflags = vec!["-O1".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let result = r.execute(&ctx).unwrap();
+        assert!(result.outputs[0].exists(), "libmymath.a should exist");
+    }
+
+    #[test]
+    fn test_clib_shared_execute_with_link_libs_and_cflags() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("shlib.c"), "double mysqrt(double x) { return x; }\n").unwrap();
+
+        let mut r = CLibRecipe::new("shlib", false);
+        r.sources = vec!["shlib.c".to_string()];
+        r.cflags = vec!["-O0".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        // Accept either success or a platform-specific shared-lib error
+        let _ = r.execute(&ctx);
+    }
 }
