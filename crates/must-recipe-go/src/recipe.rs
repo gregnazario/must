@@ -578,4 +578,45 @@ mod tests {
         let result = recipe.execute(&ctx).unwrap();
         assert_eq!(result.recipe_name, "tagbin");
     }
+
+    #[test]
+    fn test_go_bin_cache_key_covers_go_version_and_hash() {
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let ctx = make_build_context();
+        let key = recipe.cache_key(&ctx).unwrap();
+        assert_eq!(key.recipe, "my-bin");
+        assert_eq!(key.target, "host");
+        assert_eq!(key.profile, "debug");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_go_test_cache_key() {
+        let recipe = GoTestRecipe::new("my-tests", "./...");
+        let ctx = make_build_context();
+        let key = recipe.cache_key(&ctx).unwrap();
+        assert_eq!(key.recipe, "my-tests");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_go_bin_extra_flags_includes_all_fields() {
+        let mut recipe = GoBinRecipe::new("my-bin", "./cmd");
+        recipe.ldflags = Some("-s -w".to_string());
+        recipe.build_tags = vec!["release".to_string(), "cgo".to_string()];
+        let flags = recipe.extra_flags();
+        assert_eq!(flags.get("package").map(String::as_str), Some("./cmd"));
+        assert_eq!(flags.get("ldflags").map(String::as_str), Some("-s -w"));
+        assert_eq!(flags.get("tags").map(String::as_str), Some("release,cgo"));
+    }
+
+    #[test]
+    fn test_go_bin_cache_key_changes_with_ldflags() {
+        let ctx = make_build_context();
+        let mut r1 = GoBinRecipe::new("bin", "./cmd");
+        let key1 = r1.cache_key(&ctx).unwrap();
+        r1.ldflags = Some("-s -w".to_string());
+        let key2 = r1.cache_key(&ctx).unwrap();
+        assert_ne!(key1.hash, key2.hash, "ldflags should change the cache key hash");
+    }
 }

@@ -178,4 +178,28 @@ mod tests {
         std::fs::remove_dir_all(&entry_dir).unwrap();
         assert!(matches!(cache.lookup(&key).unwrap(), CacheLookup::Stale));
     }
+
+    #[test]
+    fn test_store_with_nonexistent_output_skips_copy() {
+        // When an output path doesn't exist, store() should skip the copy but still record the key
+        let dir = TempDir::new().unwrap();
+        let cache = DiskCache::open(dir.path()).unwrap();
+        let key = make_key("no-output");
+        let nonexistent = dir.path().join("does-not-exist.bin");
+        cache.store(&key, &[nonexistent]).unwrap();
+        assert!(matches!(cache.lookup(&key).unwrap(), CacheLookup::Hit));
+    }
+
+    #[test]
+    fn test_hash_string_is_deterministic_hex() {
+        let h1 = hash_string("hello");
+        let h2 = hash_string("hello");
+        assert_eq!(h1, h2, "hash_string must be deterministic");
+        // SHA-256 produces a 64-character hex string
+        assert_eq!(h1.len(), 64);
+        assert!(h1.chars().all(|c| c.is_ascii_hexdigit()));
+
+        let h3 = hash_string("world");
+        assert_ne!(h1, h3, "different inputs must produce different hashes");
+    }
 }

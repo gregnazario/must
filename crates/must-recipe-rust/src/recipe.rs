@@ -598,4 +598,28 @@ mod tests {
         let key2 = r2.cache_key(&ctx()).unwrap();
         assert_ne!(key.hash, key2.hash, "filter should affect cache key hash");
     }
+
+    #[test]
+    fn rust_test_name_deps_inputs() {
+        let mut r = RustTestRecipe::new("mytest", "mypkg");
+        r.deps = vec!["build".to_string()];
+        assert_eq!(r.name(), "mytest");
+        assert_eq!(r.deps(), &["build"]);
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn rust_test_dry_run_with_filter() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut r = RustTestRecipe::new("mytest", "mypkg");
+        r.test_filter = Some("specific_test".to_string());
+        let mut c = ctx();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert!(!out.from_cache);
+    }
 }

@@ -519,6 +519,7 @@ dependencies = [
  "glob",
  "must-cache",
  "must-core",
+ "tempfile",
 ]
 
 [[package]]

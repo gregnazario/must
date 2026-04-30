@@ -307,4 +307,87 @@ mod tests {
         let result = r.execute(&ctx());
         assert!(result.is_err());
     }
+
+    #[test]
+    fn cache_key_returns_stable_hash() {
+        let r = ShellRecipe::new("build", "echo hi");
+        let key = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key.recipe, "build");
+        assert_eq!(key.target, "host");
+        assert_eq!(key.profile, "default");
+        assert!(!key.hash.is_empty());
+        // Calling twice should produce identical result
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key.hash, key2.hash);
+    }
+
+    #[test]
+    fn mtime_cache_hit_returns_from_cache() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        // Create the output file before running the recipe
+        std::fs::write(tmp.path().join("out.txt"), "cached result").unwrap();
+
+        let mut r = ShellRecipe::new("gen", "echo should-not-run");
+        r.outputs = vec!["out.txt".to_string()];
+        // Default cache is Mtime
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let out = r.execute(&c).unwrap();
+        assert!(out.from_cache, "output exists with no newer inputs → should be a cache hit");
+        assert_eq!(out.duration_ms, 0);
+    }
+
+    #[test]
+    fn execute_with_ctx_and_recipe_env() {
+        // Cover the env loop bodies (ctx.env and self.env) in execute()
+        let mut r = ShellRecipe::new("greet-env", "echo hello");
+        r.env = HashMap::from([("RECIPE_VAR".to_string(), "world".to_string())]);
+
+        let mut c = BuildContext {
+            project_root: std::path::PathBuf::from("/tmp"),
+            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::from([("CTX_VAR".to_string(), "ctx-value".to_string())]),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("hello"));
+    }
+
+    #[test]
+    fn hash_cache_stores_then_hits_on_second_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+
+        let mut r = ShellRecipe::new("codegen", "echo generated");
+        r.cache = CacheStrategy::Hash;
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let first = r.execute(&c).unwrap();
+        assert!(!first.from_cache, "first run should not be from cache");
+
+        let second = r.execute(&c).unwrap();
+        assert!(second.from_cache, "second run with same inputs should be a cache hit");
+    }
 }

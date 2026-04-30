@@ -8,3 +8,6 @@ license.workspace = true
 must-core = { path = "../must-core" }
 must-cache = { path = "../must-cache" }
 glob.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
