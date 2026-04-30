@@ -816,7 +816,7 @@ mod tests {
         // call must_import directly (not via CLI) to keep test simple
         let input = std::fs::read_to_string(&mk).unwrap();
         let result = must_import::import(&input);
-        assert!(result.toml.contains("[recipe.build]") || result.toml.contains("[recipe.\"build\"]"));
+        assert!(result.toml.contains("[recipe.\"build\"]"), "writer always quotes recipe names");
         assert_eq!(result.todo_count, 0);
     }
 }
