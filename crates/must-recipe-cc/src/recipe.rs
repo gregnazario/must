@@ -1083,7 +1083,7 @@ mod tests {
 
     #[test]
     fn test_run_command_failure() {
-        let mut cmd = std::process::Command::new("false");
+        let cmd = std::process::Command::new("false");
         let result = run_command(cmd);
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -1123,7 +1123,7 @@ mod tests {
         r.sources = vec!["main.c".to_string()];
         r.cflags = vec!["-O0".to_string()];
 
-        let mut ctx = BuildContext {
+        let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
             target: "host".to_string(),

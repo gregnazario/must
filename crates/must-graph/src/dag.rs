@@ -57,7 +57,7 @@ impl Dag {
         // Start with nodes that have no dependencies
         let mut queue: VecDeque<&str> = in_deg
             .iter()
-            .filter(|(_, &deg)| deg == 0)
+            .filter(|&(_, &deg)| deg == 0)
             .map(|(&n, _)| n)
             .collect();
 
@@ -88,7 +88,7 @@ impl Dag {
         if visited != self.nodes.len() {
             let remaining: Vec<&str> = in_deg
                 .iter()
-                .filter(|(_, &d)| d > 0)
+                .filter(|&(_, &d)| d > 0)
                 .map(|(&n, _)| n)
                 .collect();
             let cycle = find_cycle(&self.deps, &remaining);

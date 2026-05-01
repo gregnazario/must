@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use must_config::load_config;
-use must_config::schema::{CacheMode, Config, EnvMap, EnvValue, Project, Recipe, RecipeType};
+use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{compose_env, Engine};
 use must_graph::Dag;

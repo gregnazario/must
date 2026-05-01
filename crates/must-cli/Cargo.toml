@@ -3,6 +3,7 @@ name = "must-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "must"
@@ -28,3 +29,8 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/must-{ target }.tar.gz"
+bin-dir = "must{ binary-ext }"
+pkg-fmt = "tgz"

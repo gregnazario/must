@@ -352,7 +352,7 @@ mod tests {
         let mut r = ShellRecipe::new("greet-env", "echo hello");
         r.env = HashMap::from([("RECIPE_VAR".to_string(), "world".to_string())]);
 
-        let mut c = BuildContext {
+        let c = BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
             cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
             target: "host".to_string(),

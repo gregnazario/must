@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn rust_test_dry_run_returns_without_spawning() {
-        let mut r = RustTestRecipe::new("test", "myapp");
+        let r = RustTestRecipe::new("test", "myapp");
         let mut c = ctx();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();

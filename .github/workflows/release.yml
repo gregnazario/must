@@ -47,12 +47,12 @@ jobs:
         if: matrix.cross
         run: cross build --release --target ${{ matrix.target }} -p must-cli
       - name: Prepare artifact
-        run: cp target/${{ matrix.target }}/release/must ${{ matrix.artifact }}
+        run: tar -czf must-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release must
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          name: must-${{ matrix.target }}
+          path: must-${{ matrix.target }}.tar.gz
 
   release:
     name: Create Release
