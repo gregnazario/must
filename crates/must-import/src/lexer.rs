@@ -61,19 +61,18 @@ fn classify_line(raw: &str) -> Token {
     }
 
     // 2. Comment
-    if line.starts_with('#') {
-        let body = line[1..].trim().to_string();
+    if let Some(rest) = line.strip_prefix('#') {
+        let body = rest.trim().to_string();
         return Token::Comment(body);
     }
 
     // 3. Recipe (leading tab)
-    if line.starts_with('\t') {
-        return Token::RecipeLine(line[1..].to_string());
+    if let Some(rest) = line.strip_prefix('\t') {
+        return Token::RecipeLine(rest.to_string());
     }
 
     // 4. .PHONY directive
-    if line.starts_with(".PHONY:") {
-        let rest = &line[".PHONY:".len()..];
+    if let Some(rest) = line.strip_prefix(".PHONY:") {
         let targets: Vec<String> = rest
             .split_whitespace()
             .filter(|s| !s.is_empty())
@@ -83,8 +82,8 @@ fn classify_line(raw: &str) -> Token {
     }
 
     // 5. include directive
-    if line.starts_with("include ") {
-        let path = line["include ".len()..].trim().to_string();
+    if let Some(rest) = line.strip_prefix("include ") {
+        let path = rest.trim().to_string();
         return Token::IncludeDirective(path);
     }
 
@@ -142,7 +141,7 @@ fn try_var_assign(line: &str) -> Option<Token> {
 
 /// Find the byte position of `op` in `line`, being careful not to confuse
 /// `=` with `:=`, `?=`, or `+=`.
-fn find_op<'a>(line: &'a str, op: &str) -> Option<usize> {
+fn find_op(line: &str, op: &str) -> Option<usize> {
     match op {
         "=" => {
             // Find a bare `=` that is not preceded by `:`, `?`, or `+`.
@@ -178,8 +177,8 @@ fn try_rule(line: &str) -> Option<Token> {
     // Skip a second `:` if present (double-colon rule — treat as ordinary).
     let after_colon = {
         let rest = &line[colon_pos + 1..];
-        if rest.starts_with(':') {
-            &rest[1..]
+        if let Some(stripped) = rest.strip_prefix(':') {
+            stripped
         } else {
             rest
         }

@@ -22,11 +22,11 @@ pub fn compose_env(
 
     // Layer 3: profile [env.<profile>] (stored as EnvValue::Profile maps)
     for (key, val) in &config.env.global {
-        if let EnvValue::Profile(profile_map) = val {
-            if key == profile {
-                for (k, v) in profile_map {
-                    env.insert(k.clone(), v.clone());
-                }
+        if let EnvValue::Profile(profile_map) = val
+            && key == profile
+        {
+            for (k, v) in profile_map {
+                env.insert(k.clone(), v.clone());
             }
         }
     }

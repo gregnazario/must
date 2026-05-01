@@ -11,7 +11,7 @@ pub(crate) fn write_report(output: &MustfileOutput, translated: usize, todo: usi
 
     if !output.env.is_empty() || !output.recipes.is_empty() {
         out.push_str("\n## Translated\n\n");
-        for (k, _) in &output.env {
+        for k in output.env.keys() {
             out.push_str(&format!("- Variable `{k}`\n"));
         }
         for r in &output.recipes {

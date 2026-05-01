@@ -103,11 +103,11 @@ impl Dag {
         let mut visited: HashSet<&str> = HashSet::new();
         let mut stack = vec![start];
         while let Some(node) = stack.pop() {
-            if visited.insert(node) {
-                if let Some(deps) = self.deps.get(node) {
-                    for dep in deps {
-                        stack.push(dep);
-                    }
+            if visited.insert(node)
+                && let Some(deps) = self.deps.get(node)
+            {
+                for dep in deps {
+                    stack.push(dep);
                 }
             }
         }

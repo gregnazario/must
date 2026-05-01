@@ -437,10 +437,10 @@ async fn execute_recipes(
 
         if !report.success {
             for result in &report.results {
-                if !result.success {
-                    if let Some(err) = &result.error {
-                        eprintln!("  FAILED {}: {}", result.recipe_name, err);
-                    }
+                if !result.success
+                    && let Some(err) = &result.error
+                {
+                    eprintln!("  FAILED {}: {}", result.recipe_name, err);
                 }
             }
             return Err(Error::RecipeFailed {
