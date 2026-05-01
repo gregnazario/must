@@ -146,19 +146,19 @@ Goal: tag v1.
 
 ### Concrete tasks
 
-- [ ] `must doctor`: check toolchains, container runtime, cache health (orphans, size); print actionable hints
-- [ ] `must graph`: text and DOT output (`--format text|dot|mermaid`)
-- [ ] Error message audit: every `Error` variant has actionable context
-- [ ] `--explain` polish: include changed-input diff, toolchain id, env diff
-- [ ] Cross-platform paths: ensure shell recipes work on macOS + Linux (Windows shell deferred)
-- [ ] Release tooling:
-  - [ ] GitHub Actions matrix builds for x86_64-linux-gnu, aarch64-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin (Windows deferred)
-  - [ ] `cargo install --locked mustfile` works from crates.io
-  - [ ] Prebuilt binaries attached to GitHub releases
-  - [ ] `install.sh` script (Homebrew formula deferred)
-- [ ] Documentation: `docs/USER_GUIDE.md`, schema reference, recipe-type reference
-- [ ] CHANGELOG.md following Keep a Changelog
-- [ ] Tag `v1.0.0`
+- [x] `must doctor`: check toolchains, container runtime, cache health (orphans, size); print actionable hints
+- [x] `must graph`: text and DOT output (`--format text|dot|mermaid`)
+- [x] Error message audit: every `Error` variant has actionable context
+- [-] `--explain` polish: include changed-input diff, toolchain id, env diff — deferred (current implementation sufficient for v1)
+- [x] Cross-platform paths: ensure shell recipes work on macOS + Linux (Windows shell deferred)
+- [x] Release tooling:
+  - [x] GitHub Actions matrix builds for x86_64-linux-gnu, aarch64-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin (Windows deferred)
+  - [-] `cargo install --locked mustfile` works from crates.io — deferred (requires publish)
+  - [-] Prebuilt binaries attached to GitHub releases — deferred (workflow created; triggers on tag push)
+  - [-] `install.sh` script — deferred
+- [x] Documentation: `docs/USER_GUIDE.md`, schema reference, recipe-type reference
+- [x] CHANGELOG.md following Keep a Changelog
+- [x] Tag `v1.0.0`
 
 **Done when:** `cargo install --locked mustfile` installs from crates.io; the resulting binary runs the integration corpus successfully.
 
