@@ -304,10 +304,7 @@ mod tests {
         // With fail_fast, wave 2 should be skipped
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert("a".into(), Arc::new(FailRecipe { name: "a".into() }));
-        recipes.insert(
-            "b".into(),
-            Arc::new(SuccessRecipe { name: "b".into() }),
-        );
+        recipes.insert("b".into(), Arc::new(SuccessRecipe { name: "b".into() }));
         // b depends on a, so they're in separate waves
         let dag = must_graph::Dag::new(
             [
@@ -327,17 +324,9 @@ mod tests {
     async fn test_engine_two_successes_report_counts() {
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert("a".into(), Arc::new(SuccessRecipe { name: "a".into() }));
-        recipes.insert(
-            "b".into(),
-            Arc::new(SuccessRecipe { name: "b".into() }),
-        );
-        let dag = must_graph::Dag::new(
-            [
-                ("a".to_string(), vec![]),
-                ("b".to_string(), vec![]),
-            ]
-            .into(),
-        );
+        recipes.insert("b".into(), Arc::new(SuccessRecipe { name: "b".into() }));
+        let dag =
+            must_graph::Dag::new([("a".to_string(), vec![]), ("b".to_string(), vec![])].into());
         let engine = Engine::new(2, false);
         let report = engine.execute(&dag, &recipes, &test_ctx()).await.unwrap();
         assert!(report.success);
@@ -349,17 +338,27 @@ mod tests {
         name: String,
     }
     impl must_core::Recipe for PanicRecipe {
-        fn name(&self) -> &str { &self.name }
-        fn deps(&self) -> &[String] { &[] }
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn deps(&self) -> &[String] {
+            &[]
+        }
         fn inputs(
             &self,
             _: &must_core::BuildContext,
-        ) -> must_core::Result<Vec<std::path::PathBuf>> { Ok(vec![]) }
+        ) -> must_core::Result<Vec<std::path::PathBuf>> {
+            Ok(vec![])
+        }
         fn outputs(
             &self,
             _: &must_core::BuildContext,
-        ) -> must_core::Result<Vec<std::path::PathBuf>> { Ok(vec![]) }
-        fn cache_strategy(&self) -> CacheStrategy { CacheStrategy::Never }
+        ) -> must_core::Result<Vec<std::path::PathBuf>> {
+            Ok(vec![])
+        }
+        fn cache_strategy(&self) -> CacheStrategy {
+            CacheStrategy::Never
+        }
         fn cache_key(&self, _: &must_core::BuildContext) -> must_core::Result<CacheKey> {
             Ok(CacheKey {
                 recipe: self.name.clone(),
@@ -378,12 +377,17 @@ mod tests {
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert(
             "panic-recipe".into(),
-            Arc::new(PanicRecipe { name: "panic-recipe".into() }),
+            Arc::new(PanicRecipe {
+                name: "panic-recipe".into(),
+            }),
         );
         let dag = must_graph::Dag::new([("panic-recipe".to_string(), vec![])].into());
         let engine = Engine::new(1, false);
         let report = engine.execute(&dag, &recipes, &test_ctx()).await.unwrap();
-        assert!(!report.success, "panicking recipe should mark report as failed");
+        assert!(
+            !report.success,
+            "panicking recipe should mark report as failed"
+        );
         assert_eq!(report.failed(), 1);
     }
 
@@ -393,7 +397,9 @@ mod tests {
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert(
             "build".into(),
-            Arc::new(SuccessRecipe { name: "build".into() }),
+            Arc::new(SuccessRecipe {
+                name: "build".into(),
+            }),
         );
         // Dag with "ghost" which is NOT in the recipes map
         let dag = must_graph::Dag::new([("ghost".to_string(), vec![])].into());

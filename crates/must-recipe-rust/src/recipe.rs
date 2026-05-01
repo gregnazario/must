@@ -134,11 +134,12 @@ impl Recipe for RustBinRecipe {
     }
     fn outputs(&self, ctx: &BuildContext) -> Result<Vec<PathBuf>> {
         let profile = if self.release { "release" } else { "debug" };
-        Ok(vec![ctx
-            .project_root
-            .join("target")
-            .join(profile)
-            .join(&self.package)])
+        Ok(vec![
+            ctx.project_root
+                .join("target")
+                .join(profile)
+                .join(&self.package),
+        ])
     }
     fn cache_strategy(&self) -> CacheStrategy {
         CacheStrategy::Hash

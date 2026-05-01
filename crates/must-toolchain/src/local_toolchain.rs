@@ -239,11 +239,20 @@ mod tests {
         let triple = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
         let compiler = Path::new("/usr/bin/aarch64-linux-gnu-clang");
         let env = c_cross_env(&triple, Some(compiler));
-        assert_eq!(env.get("CC").map(String::as_str), Some("/usr/bin/aarch64-linux-gnu-clang"));
+        assert_eq!(
+            env.get("CC").map(String::as_str),
+            Some("/usr/bin/aarch64-linux-gnu-clang")
+        );
         let cxx = env.get("CXX").expect("CXX should be set");
-        assert!(cxx.ends_with("-clang++"), "expected CXX to end with -clang++, got: {cxx}");
+        assert!(
+            cxx.ends_with("-clang++"),
+            "expected CXX to end with -clang++, got: {cxx}"
+        );
         let ar = env.get("AR").expect("AR should be set");
-        assert!(ar.ends_with("-ar") || ar == "ar", "expected AR to end with -ar or be 'ar', got: {ar}");
+        assert!(
+            ar.ends_with("-ar") || ar == "ar",
+            "expected AR to end with -ar or be 'ar', got: {ar}"
+        );
     }
 
     #[test]
@@ -252,10 +261,16 @@ mod tests {
         let triple = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
         let compiler = Path::new("/usr/local/bin/mycc");
         let env = c_cross_env(&triple, Some(compiler));
-        assert_eq!(env.get("CC").map(String::as_str), Some("/usr/local/bin/mycc"));
+        assert_eq!(
+            env.get("CC").map(String::as_str),
+            Some("/usr/local/bin/mycc")
+        );
         // CXX should be the stem + "++"
         let cxx = env.get("CXX").expect("CXX");
-        assert!(cxx.contains("++"), "expected CXX to contain '++', got: {cxx}");
+        assert!(
+            cxx.contains("++"),
+            "expected CXX to contain '++', got: {cxx}"
+        );
         // AR should fall back to "ar"
         assert_eq!(env.get("AR").map(String::as_str), Some("ar"));
         assert_eq!(env.get("LD").map(String::as_str), Some("ld"));
@@ -274,7 +289,11 @@ mod tests {
         let triple = Triple::parse("x86_64-unknown-linux-musl").unwrap();
         let env = rust_cross_env(&triple, Some("/usr/bin/musl-gcc"));
         let key = "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER";
-        assert!(env.contains_key(key), "expected key {key}, got: {:?}", env.keys().collect::<Vec<_>>());
+        assert!(
+            env.contains_key(key),
+            "expected key {key}, got: {:?}",
+            env.keys().collect::<Vec<_>>()
+        );
         assert_eq!(env[key], "/usr/bin/musl-gcc");
     }
 

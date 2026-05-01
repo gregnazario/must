@@ -60,7 +60,7 @@ impl Triple {
                         "unrecognized architecture '{}'; supported: x86_64, aarch64, riscv64",
                         other
                     ),
-                })
+                });
             }
         };
 
@@ -80,7 +80,7 @@ impl Triple {
                         "unrecognized OS '{}'; supported: linux, apple/darwin, windows",
                         other
                     ),
-                })
+                });
             }
         };
 

@@ -1,6 +1,11 @@
 use crate::translate::{MustfileOutput, TodoKind};
 
-pub(crate) fn write_report(output: &MustfileOutput, translated: usize, todo: usize, skipped: usize) -> String {
+pub(crate) fn write_report(
+    output: &MustfileOutput,
+    translated: usize,
+    todo: usize,
+    skipped: usize,
+) -> String {
     let mut out = String::new();
 
     out.push_str("# Mustfile Import Report\n\n");
@@ -31,7 +36,10 @@ pub(crate) fn write_report(output: &MustfileOutput, translated: usize, todo: usi
                     out.push_str(&format!("- Pattern rule: `{}` — pattern rules are not supported; convert manually\n", item.description));
                 }
                 TodoKind::Include => {
-                    out.push_str(&format!("- Include: `{}` — include directives are not supported; inline the file\n", item.description));
+                    out.push_str(&format!(
+                        "- Include: `{}` — include directives are not supported; inline the file\n",
+                        item.description
+                    ));
                 }
             }
         }

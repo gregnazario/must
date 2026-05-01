@@ -110,7 +110,9 @@ pub fn parse(tokens: Vec<crate::lexer::Token>) -> MakefileAst {
                 i += 1;
             }
             Token::Unrecognized(s) => {
-                nodes.push(AstNode::Unrecognized { original: s.clone() });
+                nodes.push(AstNode::Unrecognized {
+                    original: s.clone(),
+                });
                 i += 1;
             }
             // Comment, Blank, PhonyDecl → skip.

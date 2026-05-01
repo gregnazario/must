@@ -1,6 +1,6 @@
 use must_cache::hash::compute_hash;
 use must_core::{BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result};
-use must_toolchain::{go_cross_env, go_install_hint, go_installed, Triple};
+use must_toolchain::{Triple, go_cross_env, go_install_hint, go_installed};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::process::Command;
@@ -148,7 +148,12 @@ impl Recipe for GoBinRecipe {
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
-        Ok(make_cache_key(&self.name, "go-bin", ctx, &self.extra_flags()))
+        Ok(make_cache_key(
+            &self.name,
+            "go-bin",
+            ctx,
+            &self.extra_flags(),
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -428,7 +433,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let root = tmp.path();
 
-        std::fs::write(root.join("go.mod"), "module example.com/testbin\n\ngo 1.21\n").unwrap();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/testbin\n\ngo 1.21\n",
+        )
+        .unwrap();
         std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
 
         let recipe = GoBinRecipe::new("my-bin", ".");
@@ -455,8 +464,16 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let root = tmp.path();
 
-        std::fs::write(root.join("go.mod"), "module example.com/testpkg\n\ngo 1.21\n").unwrap();
-        std::fs::write(root.join("math.go"), "package testpkg\n\nfunc Add(a, b int) int { return a + b }\n").unwrap();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/testpkg\n\ngo 1.21\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("math.go"),
+            "package testpkg\n\nfunc Add(a, b int) int { return a + b }\n",
+        )
+        .unwrap();
         std::fs::write(root.join("math_test.go"), "package testpkg\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\tif Add(1,2) != 3 { t.Fatal(\"wrong\") }\n}\n").unwrap();
 
         let recipe = GoTestRecipe::new("my-tests", "./...");
@@ -482,7 +499,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let root = tmp.path();
 
-        std::fs::write(root.join("go.mod"), "module example.com/flagtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/flagtest\n\ngo 1.21\n",
+        )
+        .unwrap();
         std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
 
         let mut recipe = GoBinRecipe::new("flagbin", ".");
@@ -509,7 +530,11 @@ mod tests {
         }
         let tmp = tempfile::TempDir::new().unwrap();
         let root = tmp.path();
-        std::fs::write(root.join("go.mod"), "module example.com/failtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/failtest\n\ngo 1.21\n",
+        )
+        .unwrap();
         // No main.go — building "./nonexistent" should fail
         let recipe = GoBinRecipe::new("fail-bin", "./nonexistent");
         let ctx = BuildContext {
@@ -533,7 +558,11 @@ mod tests {
         }
         let tmp = tempfile::TempDir::new().unwrap();
         let root = tmp.path();
-        std::fs::write(root.join("go.mod"), "module example.com/crosstest\n\ngo 1.21\n").unwrap();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/crosstest\n\ngo 1.21\n",
+        )
+        .unwrap();
         std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
 
         let recipe = GoBinRecipe::new("cross-bin", ".");
@@ -559,7 +588,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let root = tmp.path();
 
-        std::fs::write(root.join("go.mod"), "module example.com/tagtest\n\ngo 1.21\n").unwrap();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/tagtest\n\ngo 1.21\n",
+        )
+        .unwrap();
         std::fs::write(root.join("main.go"), "package main\n\nfunc main() {}\n").unwrap();
 
         let mut recipe = GoBinRecipe::new("tagbin", ".");
@@ -617,6 +650,9 @@ mod tests {
         let key1 = r1.cache_key(&ctx).unwrap();
         r1.ldflags = Some("-s -w".to_string());
         let key2 = r1.cache_key(&ctx).unwrap();
-        assert_ne!(key1.hash, key2.hash, "ldflags should change the cache key hash");
+        assert_ne!(
+            key1.hash, key2.hash,
+            "ldflags should change the cache key hash"
+        );
     }
 }

@@ -1,7 +1,9 @@
 use must_cache::hash::compute_hash;
 use must_config::schema::{CrossBackend, CrossConfig};
 use must_core::{BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result};
-use must_toolchain::{c_cross_env, c_install_hint, discover_c_compiler, ContainerToolchain, Triple};
+use must_toolchain::{
+    ContainerToolchain, Triple, c_cross_env, c_install_hint, discover_c_compiler,
+};
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -201,7 +203,11 @@ impl Recipe for CBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!("[dry-run] cc {} -o build/{}", self.sources.join(" "), self.name),
+                stdout: format!(
+                    "[dry-run] cc {} -o build/{}",
+                    self.sources.join(" "),
+                    self.name
+                ),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -227,12 +233,11 @@ impl Recipe for CBinRecipe {
 
         if use_container {
             // Container execution path
-            let tc =
-                ContainerToolchain::new(triple, "c-bin", ctx.project_root.clone(), None)
-                    .map_err(|e| Error::ToolchainNotFound {
-                        target: ctx.target.clone(),
-                        hint: e,
-                    })?;
+            let tc = ContainerToolchain::new(triple, "c-bin", ctx.project_root.clone(), None)
+                .map_err(|e| Error::ToolchainNotFound {
+                    target: ctx.target.clone(),
+                    hint: e,
+                })?;
 
             let mut translated_args: Vec<String> = Vec::new();
 
@@ -399,7 +404,11 @@ impl Recipe for CLibRecipe {
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let compiler = PathBuf::from("cc");
-        let recipe_type = if self.static_lib { "c-lib-static" } else { "c-lib-shared" };
+        let recipe_type = if self.static_lib {
+            "c-lib-static"
+        } else {
+            "c-lib-shared"
+        };
         Ok(make_cache_key(
             &self.name,
             recipe_type,
@@ -411,7 +420,11 @@ impl Recipe for CLibRecipe {
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
         if ctx.dry_run {
-            let action = if self.static_lib { "ar rcs" } else { "cc -shared" };
+            let action = if self.static_lib {
+                "ar rcs"
+            } else {
+                "cc -shared"
+            };
             return Ok(RecipeOutput {
                 recipe_name: self.name.clone(),
                 from_cache: false,
@@ -445,12 +458,11 @@ impl Recipe for CLibRecipe {
         }
 
         if use_container {
-            let tc =
-                ContainerToolchain::new(triple, "c-lib", ctx.project_root.clone(), None)
-                    .map_err(|e| Error::ToolchainNotFound {
-                        target: ctx.target.clone(),
-                        hint: e,
-                    })?;
+            let tc = ContainerToolchain::new(triple, "c-lib", ctx.project_root.clone(), None)
+                .map_err(|e| Error::ToolchainNotFound {
+                    target: ctx.target.clone(),
+                    hint: e,
+                })?;
 
             let container_output = tc.translate_path(&output_path);
 
@@ -493,8 +505,10 @@ impl Recipe for CLibRecipe {
                 }
 
                 // ar rcs <output> <objects...>
-                let mut ar_args: Vec<String> =
-                    vec!["rcs".to_string(), container_output.to_string_lossy().into_owned()];
+                let mut ar_args: Vec<String> = vec![
+                    "rcs".to_string(),
+                    container_output.to_string_lossy().into_owned(),
+                ];
                 for obj in &object_paths {
                     ar_args.push(obj.to_string_lossy().into_owned());
                 }
@@ -578,9 +592,7 @@ impl Recipe for CLibRecipe {
                     ];
                     for inc in &self.includes {
                         cc_args.push("-I".to_string());
-                        cc_args.push(
-                            ctx.project_root.join(inc).to_string_lossy().into_owned(),
-                        );
+                        cc_args.push(ctx.project_root.join(inc).to_string_lossy().into_owned());
                     }
                     for flag in &self.cflags {
                         cc_args.push(flag.clone());
@@ -597,8 +609,10 @@ impl Recipe for CLibRecipe {
                     .get("AR")
                     .map(PathBuf::from)
                     .unwrap_or_else(|| PathBuf::from("ar"));
-                let mut ar_args: Vec<String> =
-                    vec!["rcs".to_string(), output_path.to_string_lossy().into_owned()];
+                let mut ar_args: Vec<String> = vec![
+                    "rcs".to_string(),
+                    output_path.to_string_lossy().into_owned(),
+                ];
                 for obj in &object_paths {
                     ar_args.push(obj.to_string_lossy().into_owned());
                 }
@@ -859,7 +873,11 @@ mod tests {
         // Create include dir with a header
         std::fs::create_dir_all(tmp.path().join("include")).unwrap();
         std::fs::write(tmp.path().join("include/myheader.h"), "#define ANSWER 42\n").unwrap();
-        std::fs::write(tmp.path().join("main.c"), "#include \"myheader.h\"\nint main(void) { return ANSWER - ANSWER; }\n").unwrap();
+        std::fs::write(
+            tmp.path().join("main.c"),
+            "#include \"myheader.h\"\nint main(void) { return ANSWER - ANSWER; }\n",
+        )
+        .unwrap();
 
         let mut r = CBinRecipe::new("myprog2");
         r.sources = vec!["main.c".to_string()];
@@ -885,7 +903,11 @@ mod tests {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(tmp.path().join("mylib.c"), "int add(int a, int b) { return a + b; }\n").unwrap();
+        std::fs::write(
+            tmp.path().join("mylib.c"),
+            "int add(int a, int b) { return a + b; }\n",
+        )
+        .unwrap();
 
         let mut r = CLibRecipe::new("mylib", true);
         r.sources = vec!["mylib.c".to_string()];
@@ -913,7 +935,11 @@ mod tests {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(tmp.path().join("myshared.c"), "int mul(int a, int b) { return a * b; }\n").unwrap();
+        std::fs::write(
+            tmp.path().join("myshared.c"),
+            "int mul(int a, int b) { return a * b; }\n",
+        )
+        .unwrap();
 
         let mut r = CLibRecipe::new("myshared", false);
         r.sources = vec!["myshared.c".to_string()];
@@ -1050,10 +1076,13 @@ mod tests {
         std::fs::write(tmp.path().join("main.c"), "int main(void) { return 0; }\n").unwrap();
 
         let mut cross = HashMap::new();
-        cross.insert("host".to_string(), CrossConfig {
-            linker: Some("cc".to_string()),
-            cross: None,
-        });
+        cross.insert(
+            "host".to_string(),
+            CrossConfig {
+                linker: Some("cc".to_string()),
+                cross: None,
+            },
+        );
 
         let mut r = CBinRecipe::new("cross_prog");
         r.sources = vec!["main.c".to_string()];
@@ -1172,7 +1201,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("include")).unwrap();
         std::fs::write(tmp.path().join("include/mymath.h"), "int square(int x);\n").unwrap();
-        std::fs::write(tmp.path().join("mymath.c"), "#include \"mymath.h\"\nint square(int x) { return x * x; }\n").unwrap();
+        std::fs::write(
+            tmp.path().join("mymath.c"),
+            "#include \"mymath.h\"\nint square(int x) { return x * x; }\n",
+        )
+        .unwrap();
 
         let mut r = CLibRecipe::new("mymath", true);
         r.sources = vec!["mymath.c".to_string()];
@@ -1199,7 +1232,11 @@ mod tests {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(tmp.path().join("shlib.c"), "double mysqrt(double x) { return x; }\n").unwrap();
+        std::fs::write(
+            tmp.path().join("shlib.c"),
+            "double mysqrt(double x) { return x; }\n",
+        )
+        .unwrap();
 
         let mut r = CLibRecipe::new("shlib", false);
         r.sources = vec!["shlib.c".to_string()];

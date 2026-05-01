@@ -1,8 +1,8 @@
 pub mod lexer;
 pub mod parser;
+pub(crate) mod report;
 pub mod translate;
 pub(crate) mod writer;
-pub(crate) mod report;
 
 pub use translate::ImportResult;
 

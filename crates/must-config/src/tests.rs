@@ -384,11 +384,12 @@ cache = "none"
     assert_eq!(cfg.recipe["hashed"].cache, Some(CacheMode::Hash));
     assert_eq!(cfg.recipe["mtimed"].cache, Some(CacheMode::Mtime));
     assert_eq!(cfg.recipe["uncached"].cache, Some(CacheMode::None));
-    assert!(cfg
-        .recipe
-        .get("hashed")
-        .map(|r| r.cache.is_some())
-        .unwrap_or(false));
+    assert!(
+        cfg.recipe
+            .get("hashed")
+            .map(|r| r.cache.is_some())
+            .unwrap_or(false)
+    );
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────

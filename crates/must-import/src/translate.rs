@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use crate::parser::{AstNode, MakefileAst};
+use std::collections::BTreeMap;
 
 pub struct ImportResult {
     pub toml: String,
@@ -11,7 +11,7 @@ pub struct ImportResult {
 
 // Private intermediate representation
 pub(crate) struct MustfileOutput {
-    pub env: BTreeMap<String, String>,   // sorted for stable TOML output
+    pub env: BTreeMap<String, String>, // sorted for stable TOML output
     pub recipes: Vec<OutputRecipe>,
     pub todos: Vec<TodoItem>,
     pub skipped: Vec<String>,
@@ -20,7 +20,7 @@ pub(crate) struct MustfileOutput {
 pub(crate) struct OutputRecipe {
     pub name: String,
     pub deps: Vec<String>,
-    pub script: String,        // recipe lines joined by \n
+    pub script: String, // recipe lines joined by \n
     pub phony: bool,
 }
 
@@ -46,20 +46,38 @@ pub fn translate(ast: MakefileAst) -> ImportResult {
         match node {
             AstNode::Variable { name, value, .. } => {
                 if value.is_empty() {
-                    output.skipped.push(format!("{name} = (empty value — skipped)"));
+                    output
+                        .skipped
+                        .push(format!("{name} = (empty value — skipped)"));
                 } else {
                     output.env.insert(name, value);
                 }
             }
-            AstNode::Rule { target, deps, recipe_lines, phony } => {
+            AstNode::Rule {
+                target,
+                deps,
+                recipe_lines,
+                phony,
+            } => {
                 let script = recipe_lines.join("\n");
-                output.recipes.push(OutputRecipe { name: target, deps, script, phony });
+                output.recipes.push(OutputRecipe {
+                    name: target,
+                    deps,
+                    script,
+                    phony,
+                });
             }
             AstNode::PatternRuleTodo { original } => {
-                output.todos.push(TodoItem { kind: TodoKind::PatternRule, description: original });
+                output.todos.push(TodoItem {
+                    kind: TodoKind::PatternRule,
+                    description: original,
+                });
             }
             AstNode::IncludeTodo { path } => {
-                output.todos.push(TodoItem { kind: TodoKind::Include, description: path });
+                output.todos.push(TodoItem {
+                    kind: TodoKind::Include,
+                    description: path,
+                });
             }
             AstNode::Unrecognized { original } => {
                 output.skipped.push(original);
@@ -73,7 +91,13 @@ pub fn translate(ast: MakefileAst) -> ImportResult {
     let toml = crate::writer::write_toml(&output);
     let report = crate::report::write_report(&output, translated_count, todo_count, skipped_count);
 
-    ImportResult { toml, report, translated_count, todo_count, skipped_count }
+    ImportResult {
+        toml,
+        report,
+        translated_count,
+        todo_count,
+        skipped_count,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -83,10 +107,12 @@ pub fn translate(ast: MakefileAst) -> ImportResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::{AstNode, MakefileAst};
     use crate::lexer::AssignOp;
+    use crate::parser::{AstNode, MakefileAst};
 
-    fn ast(nodes: Vec<AstNode>) -> MakefileAst { MakefileAst { nodes } }
+    fn ast(nodes: Vec<AstNode>) -> MakefileAst {
+        MakefileAst { nodes }
+    }
 
     #[test]
     fn empty_ast_zero_counts() {
@@ -98,55 +124,68 @@ mod tests {
 
     #[test]
     fn variable_node_goes_into_env() {
-        let r = translate(ast(vec![
-            AstNode::Variable { name: "CC".into(), op: AssignOp::Simple, value: "gcc".into() }
-        ]));
+        let r = translate(ast(vec![AstNode::Variable {
+            name: "CC".into(),
+            op: AssignOp::Simple,
+            value: "gcc".into(),
+        }]));
         assert_eq!(r.translated_count, 1);
         assert!(r.toml.contains("CC = \"gcc\""));
     }
 
     #[test]
     fn empty_value_var_is_skipped() {
-        let r = translate(ast(vec![
-            AstNode::Variable { name: "EMPTY".into(), op: AssignOp::Simple, value: "".into() }
-        ]));
+        let r = translate(ast(vec![AstNode::Variable {
+            name: "EMPTY".into(),
+            op: AssignOp::Simple,
+            value: "".into(),
+        }]));
         assert_eq!(r.translated_count, 0);
-        assert_eq!(r.skipped_count, 1, "empty-value variable should appear in skipped_count");
-        assert!(r.report.contains("EMPTY"), "skipped variable name should appear in report");
+        assert_eq!(
+            r.skipped_count, 1,
+            "empty-value variable should appear in skipped_count"
+        );
+        assert!(
+            r.report.contains("EMPTY"),
+            "skipped variable name should appear in report"
+        );
     }
 
     #[test]
     fn rule_node_goes_into_recipes() {
-        let r = translate(ast(vec![
-            AstNode::Rule { target: "build".into(), deps: vec![], recipe_lines: vec!["gcc -o app main.c".into()], phony: false }
-        ]));
+        let r = translate(ast(vec![AstNode::Rule {
+            target: "build".into(),
+            deps: vec![],
+            recipe_lines: vec!["gcc -o app main.c".into()],
+            phony: false,
+        }]));
         assert_eq!(r.translated_count, 1);
         assert!(r.toml.contains("[recipe.\"build\"]"));
     }
 
     #[test]
     fn pattern_rule_increments_todo() {
-        let r = translate(ast(vec![
-            AstNode::PatternRuleTodo { original: "%.o: %.c".into() }
-        ]));
+        let r = translate(ast(vec![AstNode::PatternRuleTodo {
+            original: "%.o: %.c".into(),
+        }]));
         assert_eq!(r.todo_count, 1);
         assert!(r.report.contains("Pattern rule"));
     }
 
     #[test]
     fn include_increments_todo() {
-        let r = translate(ast(vec![
-            AstNode::IncludeTodo { path: "common.mk".into() }
-        ]));
+        let r = translate(ast(vec![AstNode::IncludeTodo {
+            path: "common.mk".into(),
+        }]));
         assert_eq!(r.todo_count, 1);
         assert!(r.report.contains("Include"));
     }
 
     #[test]
     fn unrecognized_increments_skipped() {
-        let r = translate(ast(vec![
-            AstNode::Unrecognized { original: "ifeq ($(OS),Windows)".into() }
-        ]));
+        let r = translate(ast(vec![AstNode::Unrecognized {
+            original: "ifeq ($(OS),Windows)".into(),
+        }]));
         assert_eq!(r.skipped_count, 1);
         assert_eq!(r.translated_count, 0);
         assert_eq!(r.todo_count, 0);

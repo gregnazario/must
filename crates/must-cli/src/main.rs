@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use must_config::load_config;
 use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
-use must_engine::{compose_env, Engine};
+use must_engine::{Engine, compose_env};
 use must_graph::Dag;
 use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
@@ -120,16 +120,13 @@ async fn main() {
 async fn run(cli: Cli) -> must_core::Result<()> {
     // Handle import before loading config — it doesn't need a Mustfile.toml
     if let Commands::Import { makefile, out } = cli.command {
-        let input = std::fs::read_to_string(&makefile)
-            .map_err(must_core::Error::Io)?;
+        let input = std::fs::read_to_string(&makefile).map_err(must_core::Error::Io)?;
         let result = must_import::import(&input);
 
-        std::fs::write(&out, &result.toml)
-            .map_err(must_core::Error::Io)?;
+        std::fs::write(&out, &result.toml).map_err(must_core::Error::Io)?;
 
         let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
-        std::fs::write(&report_path, &result.report)
-            .map_err(must_core::Error::Io)?;
+        std::fs::write(&report_path, &result.report).map_err(must_core::Error::Io)?;
 
         println!("Imported {} → {}", makefile.display(), out.display());
         println!(
@@ -257,7 +254,14 @@ async fn execute_recipes(
     mustfile_path: &Path,
     opts: RunOpts<'_>,
 ) -> must_core::Result<()> {
-    let RunOpts { profile, parallelism, dry_run, fail_fast, target_recipes, targets } = opts;
+    let RunOpts {
+        profile,
+        parallelism,
+        dry_run,
+        fail_fast,
+        target_recipes,
+        targets,
+    } = opts;
     let mustfile_abs = mustfile_path
         .canonicalize()
         .unwrap_or_else(|_| mustfile_path.to_owned());
@@ -341,7 +345,10 @@ async fn execute_recipes(
             RecipeType::GoBin => {
                 let r = GoBinRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     ldflags: recipe_cfg.ldflags.clone(),
                     build_tags: Vec::new(),
@@ -352,7 +359,10 @@ async fn execute_recipes(
             RecipeType::GoTest => {
                 let r = GoTestRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| "./...".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| "./...".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     env,
                 };
@@ -466,9 +476,12 @@ fn explain_recipe(
     use must_config::schema::RecipeType;
     use std::collections::BTreeMap;
 
-    let recipe = config.recipe.get(recipe_name).ok_or_else(|| {
-        must_core::Error::UnknownRecipe { name: recipe_name.to_string() }
-    })?;
+    let recipe = config
+        .recipe
+        .get(recipe_name)
+        .ok_or_else(|| must_core::Error::UnknownRecipe {
+            name: recipe_name.to_string(),
+        })?;
 
     let project_root = mustfile_path
         .parent()
@@ -476,22 +489,30 @@ fn explain_recipe(
 
     println!("Recipe:   {recipe_name}");
     println!("Type:     {:?}", recipe.recipe_type);
-    println!("Strategy: {}", match &recipe.cache {
-        Some(must_config::schema::CacheMode::Hash) => "hash",
-        Some(must_config::schema::CacheMode::Mtime) => "mtime",
-        Some(must_config::schema::CacheMode::None) => "none",
-        None => match recipe.recipe_type {
-            RecipeType::Shell => "mtime (default)",
-            _ => "hash (default)",
-        },
-    });
+    println!(
+        "Strategy: {}",
+        match &recipe.cache {
+            Some(must_config::schema::CacheMode::Hash) => "hash",
+            Some(must_config::schema::CacheMode::Mtime) => "mtime",
+            Some(must_config::schema::CacheMode::None) => "none",
+            None => match recipe.recipe_type {
+                RecipeType::Shell => "mtime (default)",
+                _ => "hash (default)",
+            },
+        }
+    );
 
     if !recipe.deps.is_empty() {
         println!("Deps:     {}", recipe.deps.join(", "));
     }
 
     // Expand and show input files with their hashes
-    let env = must_engine::compose_env(config, recipe_name, profile, &std::collections::HashMap::new());
+    let env = must_engine::compose_env(
+        config,
+        recipe_name,
+        profile,
+        &std::collections::HashMap::new(),
+    );
 
     if !recipe.inputs.is_empty() {
         println!("\nInputs:");
@@ -512,15 +533,25 @@ fn explain_recipe(
     }
 
     // Show env vars affecting the key (all non-PATH vars)
-    let relevant_env: BTreeMap<&str, &str> = env.iter()
-        .filter(|(k, _)| !matches!(k.as_str(), "PATH" | "HOME" | "USER" | "SHELL" | "TERM" | "COLORTERM" | "TMPDIR"))
+    let relevant_env: BTreeMap<&str, &str> = env
+        .iter()
+        .filter(|(k, _)| {
+            !matches!(
+                k.as_str(),
+                "PATH" | "HOME" | "USER" | "SHELL" | "TERM" | "COLORTERM" | "TMPDIR"
+            )
+        })
         .map(|(k, v)| (k.as_str(), v.as_str()))
         .collect();
 
     if !relevant_env.is_empty() {
         println!("\nEnv (affects hash):");
         for (k, v) in &relevant_env {
-            let display = if v.len() > 60 { format!("{}...", &v[..60]) } else { v.to_string() };
+            let display = if v.len() > 60 {
+                format!("{}...", &v[..60])
+            } else {
+                v.to_string()
+            };
             println!("  {k} = {display}");
         }
     }
@@ -536,10 +567,18 @@ fn explain_recipe(
         RecipeType::CBin => "c-bin",
         RecipeType::CLib => "c-lib",
     };
-    let env_btree: BTreeMap<String, String> = relevant_env.iter()
+    let env_btree: BTreeMap<String, String> = relevant_env
+        .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
-    let hash = compute_hash(recipe_name, recipe_type_str, &[], &env_btree, "", &BTreeMap::new());
+    let hash = compute_hash(
+        recipe_name,
+        recipe_type_str,
+        &[],
+        &env_btree,
+        "",
+        &BTreeMap::new(),
+    );
 
     println!("\nCache key: {hash}");
 
@@ -554,9 +593,9 @@ fn explain_recipe(
     if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
         use must_core::Cache;
         match cache.lookup(&key) {
-            Ok(must_core::CacheLookup::Hit)   => println!("Status:    HIT — would skip"),
+            Ok(must_core::CacheLookup::Hit) => println!("Status:    HIT — would skip"),
             Ok(must_core::CacheLookup::Stale) => println!("Status:    STALE — would rebuild"),
-            _                                  => println!("Status:    MISS — would build"),
+            _ => println!("Status:    MISS — would build"),
         }
     } else {
         println!("Status:    MISS — no cache yet");
@@ -648,7 +687,9 @@ fn run_doctor() {
         }
         None => {
             println!("  ? {:<20} — not found", "Container runtime");
-            println!("    hint: Install Docker (https://docs.docker.com/get-docker/) or Podman (https://podman.io/)");
+            println!(
+                "    hint: Install Docker (https://docs.docker.com/get-docker/) or Podman (https://podman.io/)"
+            );
         }
     }
 
@@ -748,8 +789,13 @@ mod tests {
 
     fn make_config() -> Config {
         Config {
-            project: Project { name: "test".into(), version: None },
-            env: EnvMap { global: HashMap::new() },
+            project: Project {
+                name: "test".into(),
+                version: None,
+            },
+            env: EnvMap {
+                global: HashMap::new(),
+            },
             targets: HashMap::new(),
             recipe: HashMap::new(),
         }
@@ -795,10 +841,16 @@ mod tests {
         let mut config = make_config();
         config.targets.insert(
             "linux".into(),
-            vec!["x86_64-unknown-linux-gnu".into(), "aarch64-unknown-linux-gnu".into()],
+            vec![
+                "x86_64-unknown-linux-gnu".into(),
+                "aarch64-unknown-linux-gnu".into(),
+            ],
         );
         let result = resolve_targets(&["linux".to_string()], &config);
-        assert_eq!(result, vec!["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]);
+        assert_eq!(
+            result,
+            vec!["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+        );
     }
 
     #[test]
@@ -814,7 +866,9 @@ mod tests {
     #[test]
     fn test_resolve_targets_mixed_group_and_direct() {
         let mut config = make_config();
-        config.targets.insert("linux".into(), vec!["x86_64-unknown-linux-gnu".into()]);
+        config
+            .targets
+            .insert("linux".into(), vec!["x86_64-unknown-linux-gnu".into()]);
         let result = resolve_targets(&["linux".to_string(), "host".to_string()], &config);
         assert_eq!(result, vec!["x86_64-unknown-linux-gnu", "host"]);
     }
@@ -837,7 +891,9 @@ mod tests {
         let mustfile = tmp.path().join("Mustfile.toml");
         std::fs::write(&mustfile, "").unwrap();
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
     }
 
@@ -860,12 +916,14 @@ mod tests {
         let mustfile = tmp.path().join("Mustfile.toml");
         std::fs::write(&mustfile, "").unwrap();
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         // Add a global env var that should appear in "Env (affects hash)" section
-        config.env.global.insert(
-            "MY_BUILD_VAR".into(),
-            EnvValue::Scalar("some_value".into()),
-        );
+        config
+            .env
+            .global
+            .insert("MY_BUILD_VAR".into(), EnvValue::Scalar("some_value".into()));
         assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
     }
 
@@ -924,9 +982,14 @@ mod tests {
         std::fs::write(&mustfile, "").unwrap();
         // Exercise every branch of the recipe_type_str match
         let types = [
-            RecipeType::Shell, RecipeType::RustBin, RecipeType::RustLib,
-            RecipeType::RustTest, RecipeType::GoBin, RecipeType::GoTest,
-            RecipeType::CBin, RecipeType::CLib,
+            RecipeType::Shell,
+            RecipeType::RustBin,
+            RecipeType::RustLib,
+            RecipeType::RustTest,
+            RecipeType::GoBin,
+            RecipeType::GoTest,
+            RecipeType::CBin,
+            RecipeType::CLib,
         ];
         for rtype in types {
             let mut config = make_config();
@@ -955,12 +1018,14 @@ mod tests {
         let mustfile = tmp.path().join("Mustfile.toml");
         std::fs::write(&mustfile, "").unwrap();
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         // A value > 60 chars should be truncated with "..."
-        config.env.global.insert(
-            "LONG_VAR".into(),
-            EnvValue::Scalar("x".repeat(80)),
-        );
+        config
+            .env
+            .global
+            .insert("LONG_VAR".into(), EnvValue::Scalar("x".repeat(80)));
         assert!(explain_recipe(&config, &mustfile, "default", "build").is_ok());
     }
 
@@ -1021,14 +1086,18 @@ mod tests {
     #[test]
     fn test_print_graph_dot_single_recipe() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         assert!(print_graph(&config, "dot").is_ok());
     }
 
     #[test]
     fn test_print_graph_mermaid_with_deps() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         let mut test_recipe = make_recipe(RecipeType::Shell);
         test_recipe.deps = vec!["build".into()];
         config.recipe.insert("test".into(), test_recipe);
@@ -1038,7 +1107,9 @@ mod tests {
     #[test]
     fn test_print_graph_unknown_format_falls_back_to_text() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         assert!(print_graph(&config, "xml").is_ok()); // unknown format → text fallback
     }
 
@@ -1064,7 +1135,10 @@ mod tests {
         // call must_import directly (not via CLI) to keep test simple
         let input = std::fs::read_to_string(&mk).unwrap();
         let result = must_import::import(&input);
-        assert!(result.toml.contains("[recipe.\"build\"]"), "writer always quotes recipe names");
+        assert!(
+            result.toml.contains("[recipe.\"build\"]"),
+            "writer always quotes recipe names"
+        );
         assert_eq!(result.todo_count, 0);
     }
 }

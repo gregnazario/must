@@ -214,7 +214,9 @@ fn test_rust_bin_recipe() {
     let root = dir.path();
 
     // Create a minimal Cargo workspace with one binary crate
-    std::fs::write(root.join("Cargo.toml"), r#"
+    std::fs::write(
+        root.join("Cargo.toml"),
+        r#"
 [workspace]
 resolver = "2"
 members = ["hello"]
@@ -222,10 +224,14 @@ members = ["hello"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     std::fs::create_dir(root.join("hello")).unwrap();
-    std::fs::write(root.join("hello").join("Cargo.toml"), r#"
+    std::fs::write(
+        root.join("hello").join("Cargo.toml"),
+        r#"
 [package]
 name = "hello"
 version.workspace = true
@@ -234,41 +240,64 @@ edition.workspace = true
 [[bin]]
 name = "hello"
 path = "src/main.rs"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     std::fs::create_dir(root.join("hello").join("src")).unwrap();
-    std::fs::write(root.join("hello").join("src").join("main.rs"),
-        r#"fn main() { println!("hello from must"); }"#
-    ).unwrap();
+    std::fs::write(
+        root.join("hello").join("src").join("main.rs"),
+        r#"fn main() { println!("hello from must"); }"#,
+    )
+    .unwrap();
 
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.build]
 type = "rust-bin"
 package = "hello"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     let binary = env!("CARGO_BIN_EXE_must");
 
     // First run: binary doesn't exist → should build
     let output = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
-    assert!(output.status.success(), "first build should succeed\nstdout: {}\nstderr: {}",
+    assert!(
+        output.status.success(),
+        "first build should succeed\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr));
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     // The built binary should exist
     let built = root.join("target").join("debug").join("hello");
-    assert!(built.exists(), "hello binary should be built at {}", built.display());
+    assert!(
+        built.exists(),
+        "hello binary should be built at {}",
+        built.display()
+    );
 
     // Second run: hash cache should prevent rebuild (0 built, 1 cached)
     let output2 = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -286,7 +315,9 @@ fn test_shell_hash_cache_content_sensitive() {
     let root = dir.path();
 
     std::fs::write(root.join("input.txt"), "version 1").unwrap();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
@@ -296,38 +327,75 @@ inputs = ["input.txt"]
 outputs = ["output.txt"]
 cache = "hash"
 script = "cp input.txt output.txt"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     let binary = env!("CARGO_BIN_EXE_must");
 
     // First run: cache miss → execute
     let s1 = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "process"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+            "process",
+        ])
         .current_dir(root)
-        .status().unwrap();
+        .status()
+        .unwrap();
     assert!(s1.success());
     assert!(root.join("output.txt").exists());
 
     // Second run: same content → cache hit (output unchanged)
-    let out_mtime1 = root.join("output.txt").metadata().unwrap().modified().unwrap();
+    let out_mtime1 = root
+        .join("output.txt")
+        .metadata()
+        .unwrap()
+        .modified()
+        .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(50));
     let s2 = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "process"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+            "process",
+        ])
         .current_dir(root)
-        .status().unwrap();
+        .status()
+        .unwrap();
     assert!(s2.success());
-    let out_mtime2 = root.join("output.txt").metadata().unwrap().modified().unwrap();
-    assert_eq!(out_mtime1, out_mtime2, "hash cache: unchanged content should not rerun");
+    let out_mtime2 = root
+        .join("output.txt")
+        .metadata()
+        .unwrap()
+        .modified()
+        .unwrap();
+    assert_eq!(
+        out_mtime1, out_mtime2,
+        "hash cache: unchanged content should not rerun"
+    );
 
     // Change file content → should rebuild
     std::fs::write(root.join("input.txt"), "version 2").unwrap();
     let s3 = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "process"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+            "process",
+        ])
         .current_dir(root)
-        .status().unwrap();
+        .status()
+        .unwrap();
     assert!(s3.success());
     let output_content = std::fs::read_to_string(root.join("output.txt")).unwrap();
-    assert_eq!(output_content.trim(), "version 2", "output should reflect new content after rebuild");
+    assert_eq!(
+        output_content.trim(),
+        "version 2",
+        "output should reflect new content after rebuild"
+    );
 }
 
 #[test]
@@ -380,7 +448,11 @@ package = "."
 
     let binary = env!("CARGO_BIN_EXE_must");
     let status = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
@@ -459,20 +531,28 @@ fn test_c_bin_recipe_local() {
     let root = dir.path();
 
     // Write a minimal C program
-    std::fs::write(root.join("hello.c"), r#"
+    std::fs::write(
+        root.join("hello.c"),
+        r#"
 #include <stdio.h>
 int main(void) { puts("hello from c"); return 0; }
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     // Write Mustfile.toml
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "ctest"
 
 [recipe.build]
 type = "c-bin"
 sources = ["hello.c"]
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     let binary = env!("CARGO_BIN_EXE_must");
     let status = std::process::Command::new(binary)
@@ -482,8 +562,10 @@ sources = ["hello.c"]
         .status()
         .unwrap();
     assert!(status.success(), "c-bin build should succeed");
-    assert!(root.join("build").join("build").exists() || root.join("build").exists(),
-        "build output directory should exist");
+    assert!(
+        root.join("build").join("build").exists() || root.join("build").exists(),
+        "build output directory should exist"
+    );
 }
 
 #[test]
@@ -507,12 +589,18 @@ fn test_c_bin_recipe_container() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    std::fs::write(root.join("hello.c"), r#"
+    std::fs::write(
+        root.join("hello.c"),
+        r#"
 #include <stdio.h>
 int main(void) { puts("hello from container"); return 0; }
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "ctest"
 
@@ -522,7 +610,9 @@ sources = ["hello.c"]
 
 [recipe.build.cross]
 "x86_64-unknown-linux-gnu" = { cross = "container" }
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     let binary = env!("CARGO_BIN_EXE_must");
     let status = std::process::Command::new(binary)
@@ -563,7 +653,11 @@ script = "echo lint"
 
     let binary = env!("CARGO_BIN_EXE_must");
     let output = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "list",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -574,10 +668,22 @@ script = "echo lint"
         "must list should exit 0\nstdout: {stdout}\nstderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(stdout.contains("build"), "stdout should contain 'build': {stdout}");
-    assert!(stdout.contains("test"), "stdout should contain 'test': {stdout}");
-    assert!(stdout.contains("lint"), "stdout should contain 'lint': {stdout}");
-    assert!(stdout.contains("shell"), "stdout should contain 'shell' (type column): {stdout}");
+    assert!(
+        stdout.contains("build"),
+        "stdout should contain 'build': {stdout}"
+    );
+    assert!(
+        stdout.contains("test"),
+        "stdout should contain 'test': {stdout}"
+    );
+    assert!(
+        stdout.contains("lint"),
+        "stdout should contain 'lint': {stdout}"
+    );
+    assert!(
+        stdout.contains("shell"),
+        "stdout should contain 'shell' (type column): {stdout}"
+    );
 }
 
 #[test]
@@ -693,7 +799,11 @@ script = "echo cached"
 
     // First run: populate the cache
     let status = std::process::Command::new(binary)
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
@@ -738,16 +848,24 @@ script = "echo cached"
 fn test_test_subcommand() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.test]
 type = "shell"
 script = "touch test_ran.txt"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "test"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "test",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
@@ -759,16 +877,25 @@ script = "touch test_ran.txt"
 fn test_unknown_recipe_exits_nonzero() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.build]
 type = "shell"
 script = "echo ok"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build", "nonexistent"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+            "nonexistent",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
@@ -779,7 +906,9 @@ script = "echo ok"
 fn test_resolve_targets_group_expansion() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
@@ -789,13 +918,24 @@ mygroup = ["host"]
 [recipe.build]
 type = "shell"
 script = "echo building"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "--target", "mygroup", "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "--target",
+            "mygroup",
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
-    assert!(output.status.success(), "group target should expand correctly");
+    assert!(
+        output.status.success(),
+        "group target should expand correctly"
+    );
 }
 
 #[test]
@@ -803,7 +943,9 @@ fn test_explain_recipe_with_inputs() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
     std::fs::write(root.join("hello.txt"), "hello").unwrap();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
@@ -812,9 +954,16 @@ type = "shell"
 inputs = ["hello.txt"]
 outputs = ["out.txt"]
 script = "cp hello.txt out.txt"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "explain", "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "explain",
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -828,16 +977,25 @@ script = "cp hello.txt out.txt"
 fn test_explain_unknown_recipe_exits_nonzero() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.build]
 type = "shell"
 script = "echo ok"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "explain", "bogus"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "explain",
+            "bogus",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
@@ -848,47 +1006,72 @@ script = "echo ok"
 fn test_failing_recipe_exits_nonzero() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.build]
 type = "shell"
 script = "exit 1"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
-    assert!(!status.success(), "failing recipe should cause nonzero exit");
+    assert!(
+        !status.success(),
+        "failing recipe should cause nonzero exit"
+    );
 }
 
 #[test]
 fn test_clean_when_no_cache_dir() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.build]
 type = "shell"
 script = "echo ok"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let status = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "clean", "--cache"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "clean",
+            "--cache",
+        ])
         .current_dir(root)
         .status()
         .unwrap();
-    assert!(status.success(), "clean --cache on nonexistent cache should succeed");
+    assert!(
+        status.success(),
+        "clean --cache on nonexistent cache should succeed"
+    );
 }
 
 #[test]
 fn test_list_shows_deps() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
@@ -900,23 +1083,34 @@ script = "echo codegen"
 type = "shell"
 deps = ["codegen"]
 script = "echo build"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "list",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("codegen"), "should list codegen recipe");
-    assert!(stdout.contains("build"), "should list build recipe with dep");
+    assert!(
+        stdout.contains("build"),
+        "should list build recipe with dep"
+    );
 }
 
 #[test]
 fn test_explain_recipe_with_env_vars() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
@@ -926,38 +1120,55 @@ MY_BUILD_VAR = "some_value"
 [recipe.build]
 type = "shell"
 script = "echo ok"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "explain", "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "explain",
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     // The env var MY_BUILD_VAR should appear in the "Env (affects hash):" section
-    assert!(stdout.contains("MY_BUILD_VAR"), "should show env var: {stdout}");
+    assert!(
+        stdout.contains("MY_BUILD_VAR"),
+        "should show env var: {stdout}"
+    );
 }
 
 #[test]
 fn test_build_with_two_targets_shows_header() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
-    std::fs::write(root.join("Mustfile.toml"), r#"
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
 [project]
 name = "test"
 
 [recipe.build]
 type = "shell"
 script = "echo building"
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     // Pass two distinct target strings so we get target headers in output.
     // x86_64-unknown-linux-gnu and aarch64-unknown-linux-gnu are both shell-compatible
     // (shell recipe doesn't care about target).
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
         .args([
-            "--file", &root.join("Mustfile.toml").to_string_lossy(),
-            "--target", "x86_64-unknown-linux-gnu",
-            "--target", "aarch64-unknown-linux-gnu",
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--target",
+            "aarch64-unknown-linux-gnu",
             "build",
         ])
         .current_dir(root)
@@ -966,5 +1177,8 @@ script = "echo building"
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     // Should contain "[target: ...]" headers since 2 targets
-    assert!(stdout.contains("[target:"), "expected target headers, got: {stdout}");
+    assert!(
+        stdout.contains("[target:"),
+        "expected target headers, got: {stdout}"
+    );
 }

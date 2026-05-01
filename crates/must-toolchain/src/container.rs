@@ -92,8 +92,9 @@ impl ContainerToolchain {
         project_root: PathBuf,
         image_override: Option<String>,
     ) -> Result<Self, String> {
-        let runtime = detect_runtime()
-            .ok_or_else(|| "no container runtime detected (docker or podman required)".to_string())?;
+        let runtime = detect_runtime().ok_or_else(|| {
+            "no container runtime detected (docker or podman required)".to_string()
+        })?;
 
         let image = match image_override {
             Some(img) => img,
@@ -209,42 +210,67 @@ mod tests {
     #[test]
     fn test_image_for_x86_64_c_bin() {
         let triple = Triple::parse("x86_64-unknown-linux-gnu").unwrap();
-        assert_eq!(image_for(&triple, "c-bin"), Some("dockcross/linux-x64".to_string()));
+        assert_eq!(
+            image_for(&triple, "c-bin"),
+            Some("dockcross/linux-x64".to_string())
+        );
     }
 
     #[test]
     fn test_image_for_x86_64_c_lib() {
         let triple = Triple::parse("x86_64-unknown-linux-gnu").unwrap();
-        assert_eq!(image_for(&triple, "c-lib"), Some("dockcross/linux-x64".to_string()));
+        assert_eq!(
+            image_for(&triple, "c-lib"),
+            Some("dockcross/linux-x64".to_string())
+        );
     }
 
     #[test]
     fn test_image_for_x86_64_musl() {
         let triple = Triple::parse("x86_64-unknown-linux-musl").unwrap();
-        assert_eq!(image_for(&triple, "c-bin"), Some("dockcross/linux-x64-musl".to_string()));
-        assert_eq!(image_for(&triple, "rust-bin"), Some("dockcross/linux-x64-musl".to_string()));
+        assert_eq!(
+            image_for(&triple, "c-bin"),
+            Some("dockcross/linux-x64-musl".to_string())
+        );
+        assert_eq!(
+            image_for(&triple, "rust-bin"),
+            Some("dockcross/linux-x64-musl".to_string())
+        );
     }
 
     #[test]
     fn test_image_for_aarch64_musl() {
         let triple = Triple::parse("aarch64-unknown-linux-musl").unwrap();
-        assert_eq!(image_for(&triple, "c-lib"), Some("dockcross/linux-arm64-musl".to_string()));
+        assert_eq!(
+            image_for(&triple, "c-lib"),
+            Some("dockcross/linux-arm64-musl".to_string())
+        );
     }
 
     #[test]
     fn test_image_for_rust_cross_compilation() {
         let triple = Triple::parse("x86_64-unknown-linux-gnu").unwrap();
-        assert_eq!(image_for(&triple, "rust-bin"), Some("ghcr.io/cross-rs/cross:latest".to_string()));
-        assert_eq!(image_for(&triple, "rust-lib"), Some("ghcr.io/cross-rs/cross:latest".to_string()));
+        assert_eq!(
+            image_for(&triple, "rust-bin"),
+            Some("ghcr.io/cross-rs/cross:latest".to_string())
+        );
+        assert_eq!(
+            image_for(&triple, "rust-lib"),
+            Some("ghcr.io/cross-rs/cross:latest".to_string())
+        );
         let triple2 = Triple::parse("aarch64-unknown-linux-gnu").unwrap();
-        assert_eq!(image_for(&triple2, "rust-bin"), Some("ghcr.io/cross-rs/cross:latest".to_string()));
+        assert_eq!(
+            image_for(&triple2, "rust-bin"),
+            Some("ghcr.io/cross-rs/cross:latest".to_string())
+        );
     }
 
     #[test]
     fn test_container_toolchain_new_no_image_returns_err() {
         // x86_64-apple-darwin has no known container image → Err (regardless of runtime)
         let triple = Triple::parse("x86_64-apple-darwin").unwrap();
-        let result = ContainerToolchain::new(triple, "c-bin", std::path::PathBuf::from("/tmp"), None);
+        let result =
+            ContainerToolchain::new(triple, "c-bin", std::path::PathBuf::from("/tmp"), None);
         assert!(result.is_err(), "should fail when no runtime or no image");
     }
 
@@ -265,8 +291,16 @@ mod tests {
             .get_args()
             .map(|a| a.to_string_lossy().to_string())
             .collect();
-        assert!(args.contains(&"--rm".to_string()), "args should contain --rm: {:?}", args);
-        assert!(args.contains(&"-v".to_string()), "args should contain -v: {:?}", args);
+        assert!(
+            args.contains(&"--rm".to_string()),
+            "args should contain --rm: {:?}",
+            args
+        );
+        assert!(
+            args.contains(&"-v".to_string()),
+            "args should contain -v: {:?}",
+            args
+        );
         assert!(
             args.iter().any(|a| a.contains("/work")),
             "args should contain /work: {:?}",

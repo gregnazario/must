@@ -121,10 +121,7 @@ pub fn c_install_hint(triple: &Triple) -> String {
     match host.os {
         Os::Linux => {
             // Derive short package name, e.g. aarch64-linux-gnu from aarch64-unknown-linux-gnu
-            let short = triple
-                .raw
-                .replace("-unknown-", "-")
-                .replace("-none-", "-");
+            let short = triple.raw.replace("-unknown-", "-").replace("-none-", "-");
             format!(
                 "Run: sudo apt-get install gcc-{} (e.g. gcc-aarch64-linux-gnu)",
                 short

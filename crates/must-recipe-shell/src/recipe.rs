@@ -342,7 +342,10 @@ mod tests {
         };
 
         let out = r.execute(&c).unwrap();
-        assert!(out.from_cache, "output exists with no newer inputs → should be a cache hit");
+        assert!(
+            out.from_cache,
+            "output exists with no newer inputs → should be a cache hit"
+        );
         assert_eq!(out.duration_ms, 0);
     }
 
@@ -388,6 +391,9 @@ mod tests {
         assert!(!first.from_cache, "first run should not be from cache");
 
         let second = r.execute(&c).unwrap();
-        assert!(second.from_cache, "second run with same inputs should be a cache hit");
+        assert!(
+            second.from_cache,
+            "second run with same inputs should be a cache hit"
+        );
     }
 }

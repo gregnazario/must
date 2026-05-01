@@ -125,7 +125,10 @@ fn try_var_assign(line: &str) -> Option<Token> {
             // Lines like `$(eval $(call TEMPLATE,foo=bar))` contain `=` inside a
             // macro expression; the extracted "name" will contain `$(` which makes
             // it invalid — fall through to try_rule / Unrecognized instead.
-            if name.chars().any(|c| matches!(c, '(' | ')' | '$' | ' ' | '\t')) {
+            if name
+                .chars()
+                .any(|c| matches!(c, '(' | ')' | '$' | ' ' | '\t'))
+            {
                 continue;
             }
             let value = line[pos + op_str.len()..].trim().to_string();
@@ -342,7 +345,10 @@ mod tests {
     // 12. Recipe line
     #[test]
     fn recipe_line() {
-        assert_eq!(tok("\techo hello"), Token::RecipeLine("echo hello".to_string()));
+        assert_eq!(
+            tok("\techo hello"),
+            Token::RecipeLine("echo hello".to_string())
+        );
     }
 
     // 13. include directive
@@ -431,7 +437,10 @@ mod tests {
         // The `=` inside `$(call TEMPLATE,foo=bar)` must not cause the line to
         // be classified as a variable assignment with a garbage name.
         let t = tok("$(eval $(call TEMPLATE,foo=bar))");
-        assert_eq!(t, Token::Unrecognized("$(eval $(call TEMPLATE,foo=bar))".to_string()));
+        assert_eq!(
+            t,
+            Token::Unrecognized("$(eval $(call TEMPLATE,foo=bar))".to_string())
+        );
     }
 
     // Extra: trailing whitespace stripped
