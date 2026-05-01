@@ -439,6 +439,7 @@ dependencies = [
  "must-recipe-go",
  "must-recipe-rust",
  "must-recipe-shell",
+ "must-toolchain",
  "tempfile",
  "tokio",
  "tracing",

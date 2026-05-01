@@ -635,7 +635,7 @@ fn run_doctor() {
     // --- Container runtime (optional) ---
     match must_toolchain::container::detect_runtime() {
         Some(r) => {
-            println!("  ✓ {:<20} — found: {}", "Container runtime", r.binary());
+            println!("  ✓ {:<20} — found: {:?}", "Container runtime", r);
         }
         None => {
             println!("  ? {:<20} — not found", "Container runtime");
