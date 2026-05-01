@@ -85,6 +85,12 @@ enum Commands {
     },
     /// Check environment health (toolchains, container runtime, cache)
     Doctor,
+    /// Print the recipe dependency graph
+    Graph {
+        /// Output format: text, dot, or mermaid
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
 }
 
 #[tokio::main]
@@ -220,6 +226,9 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         }
         Commands::Explain { recipe } => {
             explain_recipe(&config, &mustfile_path, &cli.profile, &recipe)?;
+        }
+        Commands::Graph { format } => {
+            print_graph(&config, &format)?;
         }
         Commands::Import { .. } => {
             // handled before config loading above
@@ -670,6 +679,54 @@ fn run_doctor() {
     }
 }
 
+fn print_graph(config: &Config, format: &str) -> must_core::Result<()> {
+    let dep_map: HashMap<String, Vec<String>> = config
+        .recipe
+        .iter()
+        .map(|(name, r)| (name.clone(), r.deps.clone()))
+        .collect();
+    let dag = Dag::new(dep_map.clone());
+    let order = dag.topo_sort()?;
+
+    match format {
+        "dot" => {
+            println!("digraph mustfile {{");
+            println!("  rankdir=LR;");
+            for name in &order {
+                if let Some(deps) = dep_map.get(name) {
+                    for dep in deps {
+                        println!("  \"{name}\" -> \"{dep}\";");
+                    }
+                }
+            }
+            println!("}}");
+        }
+        "mermaid" => {
+            println!("graph LR");
+            for name in &order {
+                if let Some(deps) = dep_map.get(name) {
+                    for dep in deps {
+                        println!("  {name} --> {dep}");
+                    }
+                }
+            }
+        }
+        _ => {
+            // text (default)
+            println!("Recipe dependency graph:\n");
+            for name in &order {
+                let deps = dep_map.get(name).map(|d| d.as_slice()).unwrap_or(&[]);
+                if deps.is_empty() {
+                    println!("  {name}");
+                } else {
+                    println!("  {name} <- [{}]", deps.join(", "));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn find_mustfile() -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
@@ -951,6 +1008,50 @@ mod tests {
     #[test]
     fn test_print_check_fail() {
         print_check("cargo", false, "install from rustup.rs");
+    }
+
+    // ── print_graph ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_print_graph_text_no_recipes() {
+        let config = make_config();
+        assert!(print_graph(&config, "text").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_dot_single_recipe() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        assert!(print_graph(&config, "dot").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_mermaid_with_deps() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        let mut test_recipe = make_recipe(RecipeType::Shell);
+        test_recipe.deps = vec!["build".into()];
+        config.recipe.insert("test".into(), test_recipe);
+        assert!(print_graph(&config, "mermaid").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_unknown_format_falls_back_to_text() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        assert!(print_graph(&config, "xml").is_ok()); // unknown format → text fallback
+    }
+
+    #[test]
+    fn test_print_graph_cycle_returns_error() {
+        let mut config = make_config();
+        let mut a = make_recipe(RecipeType::Shell);
+        a.deps = vec!["b".into()];
+        let mut b = make_recipe(RecipeType::Shell);
+        b.deps = vec!["a".into()];
+        config.recipe.insert("a".into(), a);
+        config.recipe.insert("b".into(), b);
+        assert!(print_graph(&config, "text").is_err());
     }
 
     // ── import_roundtrip ──────────────────────────────────────────────────────
