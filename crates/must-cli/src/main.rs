@@ -83,6 +83,8 @@ enum Commands {
         #[arg(long, default_value = "Mustfile.toml")]
         out: PathBuf,
     },
+    /// Check environment health (toolchains, container runtime, cache)
+    Doctor,
 }
 
 #[tokio::main]
@@ -129,6 +131,11 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             result.translated_count, result.todo_count, result.skipped_count
         );
         println!("Report: {}", report_path.display());
+        return Ok(());
+    }
+
+    if matches!(cli.command, Commands::Doctor) {
+        run_doctor();
         return Ok(());
     }
 
@@ -215,6 +222,10 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             explain_recipe(&config, &mustfile_path, &cli.profile, &recipe)?;
         }
         Commands::Import { .. } => {
+            // handled before config loading above
+            unreachable!()
+        }
+        Commands::Doctor => {
             // handled before config loading above
             unreachable!()
         }
@@ -563,6 +574,102 @@ fn resolve_targets(raw_targets: &[String], config: &Config) -> Vec<String> {
     resolved
 }
 
+fn print_check(label: &str, ok: bool, hint: &str) {
+    let icon = if ok { "✓" } else { "✗" };
+    println!("  {icon} {label:<20}");
+    if !ok {
+        println!("    hint: {hint}");
+    }
+}
+
+fn dir_size(path: &std::path::Path) -> std::io::Result<u64> {
+    let mut total = 0u64;
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let meta = entry.metadata()?;
+        if meta.is_dir() {
+            total += dir_size(&entry.path()).unwrap_or(0);
+        } else {
+            total += meta.len();
+        }
+    }
+    Ok(total)
+}
+
+fn run_doctor() {
+    println!("must doctor — environment health check\n");
+
+    // --- Rust/cargo (required) ---
+    let cargo_ok = std::process::Command::new("cargo")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check("cargo", cargo_ok, "Install from https://rustup.rs");
+
+    // --- Go (optional) ---
+    let go_ok = must_toolchain::discover::go_installed();
+    print_check(
+        "go (optional)",
+        go_ok,
+        &must_toolchain::discover::go_install_hint(),
+    );
+
+    // --- C compiler / host (optional) ---
+    let cc_ok = std::process::Command::new("cc")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || std::process::Command::new("gcc")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+    print_check(
+        "cc/gcc (optional)",
+        cc_ok,
+        "Install Xcode Command Line Tools (macOS) or build-essential (Linux)",
+    );
+
+    // --- Container runtime (optional) ---
+    match must_toolchain::container::detect_runtime() {
+        Some(r) => {
+            println!("  ✓ {:<20} — found: {}", "Container runtime", r.binary());
+        }
+        None => {
+            println!("  ? {:<20} — not found", "Container runtime");
+            println!("    hint: Install Docker (https://docs.docker.com/get-docker/) or Podman (https://podman.io/)");
+        }
+    }
+
+    // --- Cache ---
+    let cache_dir = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".mustfile")
+        .join("cache");
+    if cache_dir.exists() {
+        let bytes = dir_size(&cache_dir).unwrap_or(0);
+        let mb = bytes as f64 / (1024.0 * 1024.0);
+        println!(
+            "  ✓ {:<20} — {:.1} MB at {}",
+            "Cache",
+            mb,
+            cache_dir.display()
+        );
+    } else {
+        println!("  ✓ {:<20} — empty (no cache yet)", "Cache");
+    }
+
+    println!();
+    if cargo_ok {
+        println!("All required tools present. Ready to build.");
+    } else {
+        println!("Some required tools are missing. See hints above.");
+        std::process::exit(1);
+    }
+}
+
 fn find_mustfile() -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
@@ -807,6 +914,46 @@ mod tests {
         // We can't guarantee the working directory, but the function should not panic.
         let _ = find_mustfile();
     }
+
+    // ── dir_size ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_dir_size_empty_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        assert_eq!(dir_size(tmp.path()).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_dir_size_counts_file_bytes() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("f.txt"), "hello").unwrap();
+        assert_eq!(dir_size(tmp.path()).unwrap(), 5);
+    }
+
+    #[test]
+    fn test_dir_size_recursive() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = tmp.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("a.txt"), "abc").unwrap();
+        std::fs::write(tmp.path().join("b.txt"), "de").unwrap();
+        assert_eq!(dir_size(tmp.path()).unwrap(), 5);
+    }
+
+    // ── print_check ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_print_check_ok() {
+        // Just ensure it doesn't panic
+        print_check("cargo", true, "not needed");
+    }
+
+    #[test]
+    fn test_print_check_fail() {
+        print_check("cargo", false, "install from rustup.rs");
+    }
+
+    // ── import_roundtrip ──────────────────────────────────────────────────────
 
     #[test]
     fn test_import_roundtrip() {

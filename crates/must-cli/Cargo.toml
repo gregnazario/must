@@ -19,6 +19,7 @@ must-recipe-go = { path = "../must-recipe-go" }
 must-recipe-cc = { path = "../must-recipe-cc" }
 must-cache = { path = "../must-cache" }
 must-import = { path = "../must-import" }
+must-toolchain = { path = "../must-toolchain" }
 clap.workspace = true
 glob.workspace = true
 tokio.workspace = true
