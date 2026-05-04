@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use must_config::load_config;
 use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
@@ -8,6 +8,7 @@ use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
+use must_recipe_ts::{NpmRecipe, TsBinRecipe, TsCheckRecipe, TsLintRecipe};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -66,7 +67,11 @@ enum Commands {
         recipes: Vec<String>,
     },
     /// List all recipes
-    List,
+    List {
+        /// Output only recipe names (one per line, for shell completions)
+        #[arg(long)]
+        names_only: bool,
+    },
     /// Clean outputs
     Clean {
         /// Also clean the cache
@@ -101,6 +106,11 @@ enum Commands {
         /// Output format: text, dot, or mermaid
         #[arg(long, default_value = "text")]
         format: String,
+    },
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for (bash, zsh, fish, elvish)
+        shell: clap_complete::Shell,
     },
     /// Run a recipe by name directly (e.g. `must lint` → `must run lint`)
     #[command(external_subcommand)]
@@ -156,6 +166,12 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         return Ok(());
     }
 
+    if let Commands::Completions { shell } = &cli.command {
+        let buf = generate_completions(*shell);
+        std::io::Write::write_all(&mut std::io::stdout(), &buf).map_err(Error::Io)?;
+        return Ok(());
+    }
+
     if let Commands::Init { name } = &cli.command {
         let out = cli
             .file
@@ -175,20 +191,26 @@ async fn run(cli: Cli) -> must_core::Result<()> {
     let targets = resolve_targets(&cli.target, &config);
 
     match cli.command {
-        Commands::List => {
-            println!("{:<20} {:<12} DEPS", "NAME", "TYPE");
-            println!("{}", "-".repeat(60));
+        Commands::List { names_only } => {
             let mut names: Vec<&String> = config.recipe.keys().collect();
             names.sort();
-            for name in names {
-                let recipe = &config.recipe[name];
-                let type_str = format!("{:?}", recipe.recipe_type).to_lowercase();
-                let deps = if recipe.deps.is_empty() {
-                    String::new()
-                } else {
-                    recipe.deps.join(", ")
-                };
-                println!("{:<20} {:<12} {}", name, type_str, deps);
+            if names_only {
+                for name in names {
+                    println!("{name}");
+                }
+            } else {
+                println!("{:<20} {:<12} DEPS", "NAME", "TYPE");
+                println!("{}", "-".repeat(60));
+                for name in names {
+                    let recipe = &config.recipe[name];
+                    let type_str = format!("{:?}", recipe.recipe_type).to_lowercase();
+                    let deps = if recipe.deps.is_empty() {
+                        String::new()
+                    } else {
+                        recipe.deps.join(", ")
+                    };
+                    println!("{:<20} {:<12} {}", name, type_str, deps);
+                }
             }
         }
         Commands::Clean { cache } => {
@@ -269,7 +291,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             )
             .await?;
         }
-        Commands::Doctor | Commands::Init { .. } => {
+        Commands::Doctor | Commands::Init { .. } | Commands::Completions { .. } => {
             // handled before config loading above
             unreachable!()
         }
@@ -474,6 +496,46 @@ async fn execute_recipes(
                 };
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
+            RecipeType::TsBin => {
+                let mut r = TsBinRecipe::new(
+                    name.clone(),
+                    recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::TsCheck => {
+                let mut r = TsCheckRecipe::new(
+                    name.clone(),
+                    recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::TsLint => {
+                let mut r = TsLintRecipe::new(
+                    name.clone(),
+                    recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::Npm => {
+                let mut r = NpmRecipe::new(
+                    name.clone(),
+                    recipe_cfg.script.clone().unwrap_or_else(|| name.clone()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.workdir = recipe_cfg
+                    .package
+                    .clone()
+                    .unwrap_or_else(|| ".".to_string());
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
         }
     }
 
@@ -645,6 +707,10 @@ fn explain_recipe(
         RecipeType::GoTest => "go-test",
         RecipeType::CBin => "c-bin",
         RecipeType::CLib => "c-lib",
+        RecipeType::TsBin => "ts-bin",
+        RecipeType::TsCheck => "ts-check",
+        RecipeType::TsLint => "ts-lint",
+        RecipeType::Npm => "npm",
     };
     let env_btree: BTreeMap<String, String> = relevant_env
         .iter()
@@ -759,6 +825,40 @@ fn run_doctor() {
         "Install Xcode Command Line Tools (macOS) or build-essential (Linux)",
     );
 
+    // --- TypeScript (optional) ---
+    let tsc_ok = std::process::Command::new("tsc")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check(
+        "tsc (optional)",
+        tsc_ok,
+        "Install TypeScript: npm install -g typescript",
+    );
+
+    let biome_ok = std::process::Command::new("biome")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check(
+        "biome (optional)",
+        biome_ok,
+        "Install Biome: npm install -g @biomejs/biome",
+    );
+
+    let npm_ok = std::process::Command::new("npm")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check(
+        "npm (optional)",
+        npm_ok,
+        "Install Node.js: https://nodejs.org",
+    );
+
     // --- Container runtime (optional) ---
     match must_toolchain::container::detect_runtime() {
         Some(r) => {
@@ -845,6 +945,126 @@ fn print_graph(config: &Config, format: &str) -> must_core::Result<()> {
         }
     }
     Ok(())
+}
+
+fn generate_completions(shell: clap_complete::Shell) -> Vec<u8> {
+    let mut cmd = Cli::command();
+    let mut buf = Vec::new();
+    clap_complete::generate(shell, &mut cmd, "must", &mut buf);
+    match shell {
+        clap_complete::Shell::Bash => {
+            buf.extend_from_slice(bash_recipe_hook().as_bytes());
+        }
+        clap_complete::Shell::Zsh => {
+            apply_zsh_recipe_hook(&mut buf);
+        }
+        _ => {}
+    }
+    buf
+}
+
+fn apply_zsh_recipe_hook(buf: &mut Vec<u8>) {
+    let mut script = String::from_utf8_lossy(buf).into_owned();
+
+    let recipe_completer = r#"
+_must_recipes() {
+    local -a recipes
+    recipes=(${(f)"$(must list --names-only 2>/dev/null)"})
+    _describe 'recipe' recipes
+}
+"#;
+
+    let header_end = match script.find("#compdef must") {
+        Some(i) => script[i..].find('\n').map(|j| i + j + 1).unwrap_or(i),
+        None => 0,
+    };
+    script.insert_str(header_end, recipe_completer);
+
+    script = script.replace(
+        "*::recipes -- Specific recipes to build (default\\: \"build\"):_default",
+        "*::recipes -- Specific recipes to build (default\\: \"build\"):_must_recipes",
+    );
+    script = script.replace(
+        "*::recipes -- Recipes to run (default\\: \"build\"):_default",
+        "*::recipes -- Recipes to run (default\\: \"build\"):_must_recipes",
+    );
+    script = script.replace(
+        "*::recipes -- Specific recipes to test (default\\: \"test\"):_default",
+        "*::recipes -- Specific recipes to test (default\\: \"test\"):_must_recipes",
+    );
+    script = script.replace(
+        ":recipe -- Recipe name to explain:_default",
+        ":recipe -- Recipe name to explain:_must_recipes",
+    );
+
+    if let Some(idx) = script.rfind("}") {
+        let external = r#"
+_must_external_recipe() {
+    local -a recipes
+    recipes=(${(f)"$(must list --names-only 2>/dev/null)"})
+    if (( CURRENT == 2 )); then
+        _describe 'recipe' recipes
+    fi
+    _arguments "${_arguments_options[@]}" : \
+        '--file=[Path to Mustfile.toml]:FILE:_files' \
+        '*--target=[Cross-compile targets]:TARGET:' \
+        '--profile=[Profile]:PROFILE:' \
+        '-j+[Parallelism]:PARALLELISM:' \
+        '--dry-run[dry run]' \
+        '--fail-fast[fail fast]' \
+        '*-v[verbosity]' \
+        && ret=0
+}
+"#;
+        script.insert_str(idx + 1, external);
+    }
+
+    *buf = script.into_bytes();
+}
+
+fn bash_recipe_hook() -> &'static str {
+    r#"
+# ---- mustfile: dynamic recipe name completion ----
+_must_recipe_names() {
+    must list --names-only 2>/dev/null
+}
+
+# Wrapper functions that offer recipe names for positional args,
+# then fall through to clap-generated completion.
+__must_complete_recipes() {
+    if [[ ${cur} != -* ]]; then
+        local recipes
+        recipes=$(compgen -W "$(_must_recipe_names)" -- "${cur}")
+        if [[ -n "${recipes}" ]]; then
+            COMPREPLY=( ${recipes} )
+            return 0
+        fi
+    fi
+    return 1
+}
+
+_must_build()  { __must_complete_recipes || _must; }
+_must_run()    { __must_complete_recipes || _must; }
+_must_test()   { __must_complete_recipes || _must; }
+_must_explain(){ __must_complete_recipes || _must; }
+
+# Also complete recipe names for `must <recipe-name>` (external subcommand).
+# This overrides the main completion function to intercept bare recipe names.
+_must_default() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    if [[ ${COMP_CWORD} -ge 1 && "${cur}" != -* ]]; then
+        local recipes
+        recipes=$(compgen -W "$(_must_recipe_names)" -- "${cur}")
+        if [[ -n "${recipes}" ]]; then
+            COMPREPLY=( ${recipes} )
+            return 0
+        fi
+    fi
+    _must
+}
+complete -F _must_default must 2>/dev/null || true
+# ---- end mustfile recipe completion ----
+"#
 }
 
 fn find_mustfile() -> Option<PathBuf> {
@@ -1069,6 +1289,10 @@ mod tests {
             RecipeType::GoTest,
             RecipeType::CBin,
             RecipeType::CLib,
+            RecipeType::TsBin,
+            RecipeType::TsCheck,
+            RecipeType::TsLint,
+            RecipeType::Npm,
         ];
         for rtype in types {
             let mut config = make_config();

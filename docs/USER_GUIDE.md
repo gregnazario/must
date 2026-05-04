@@ -70,7 +70,7 @@ Apply with `must build --profile release`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `type` | string | required | `shell`, `rust-bin`, `rust-lib`, `rust-test`, `go-bin`, `go-test`, `c-bin`, `c-lib` |
+| `type` | string | required | `shell`, `rust-bin`, `rust-lib`, `rust-test`, `go-bin`, `go-test`, `c-bin`, `c-lib`, `ts-bin`, `ts-check`, `ts-lint`, `npm` |
 | `deps` | list | `[]` | Recipe names that must complete first |
 | `inputs` | list | `[]` | Glob patterns for input files (mtime tracking) |
 | `outputs` | list | `[]` | Glob patterns for output files (mtime tracking) |
@@ -78,7 +78,7 @@ Apply with `must build --profile release`.
 | `cache` | string | type default | `"mtime"`, `"hash"`, or `"none"` |
 | `phony` | bool | `false` | Always re-run even if outputs are up to date |
 | `env` | table | `{}` | Extra env vars for this recipe only |
-| `package` | string | — | Package name (Rust/Go recipes) |
+| `package` | string | — | Package/project path (Rust/Go/TypeScript recipes) |
 | `features` | list | `[]` | Cargo features (`rust-*` recipes) |
 | `ldflags` | string | — | Linker flags (`go-bin` only) |
 | `sources` | list | `[]` | Source files (`c-bin`, `c-lib`) |

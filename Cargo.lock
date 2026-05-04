@@ -129,6 +129,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "660c0520455b1013b9bcb0393d5f643d7e4454fb69c915b8d6d2aa0e9a45acc3"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -433,6 +442,7 @@ name = "must-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "clap_complete",
  "glob",
  "must-cache",
  "must-config",
@@ -444,6 +454,7 @@ dependencies = [
  "must-recipe-go",
  "must-recipe-rust",
  "must-recipe-shell",
+ "must-recipe-ts",
  "must-toolchain",
  "tempfile",
  "tokio",
@@ -534,6 +545,15 @@ name = "must-recipe-shell"
 version = "0.1.0"
 dependencies = [
  "glob",
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-ts"
+version = "0.1.0"
+dependencies = [
  "must-cache",
  "must-core",
  "tempfile",

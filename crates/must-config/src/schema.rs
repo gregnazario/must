@@ -83,6 +83,10 @@ pub enum RecipeType {
     GoTest,
     CBin,
     CLib,
+    TsBin,
+    TsCheck,
+    TsLint,
+    Npm,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

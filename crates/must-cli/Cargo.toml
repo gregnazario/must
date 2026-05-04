@@ -18,10 +18,12 @@ must-recipe-shell = { path = "../must-recipe-shell" }
 must-recipe-rust = { path = "../must-recipe-rust" }
 must-recipe-go = { path = "../must-recipe-go" }
 must-recipe-cc = { path = "../must-recipe-cc" }
+must-recipe-ts = { path = "../must-recipe-ts" }
 must-cache = { path = "../must-cache" }
 must-import = { path = "../must-import" }
 must-toolchain = { path = "../must-toolchain" }
 clap.workspace = true
+clap_complete.workspace = true
 glob.workspace = true
 tokio.workspace = true
 tracing.workspace = true
