@@ -55,6 +55,11 @@ enum Commands {
         /// Specific recipes to build (default: "build")
         recipes: Vec<String>,
     },
+    /// Run one or more recipes (alias for build)
+    Run {
+        /// Recipes to run (default: "build")
+        recipes: Vec<String>,
+    },
     /// Run the default 'test' recipe
     Test {
         /// Specific recipes to test (default: "test")
@@ -83,6 +88,12 @@ enum Commands {
         #[arg(long, default_value = "Mustfile.toml")]
         out: PathBuf,
     },
+    /// Create a new Mustfile.toml in the current directory
+    Init {
+        /// Project name (default: current directory name)
+        #[arg(long)]
+        name: Option<String>,
+    },
     /// Check environment health (toolchains, container runtime, cache)
     Doctor,
     /// Print the recipe dependency graph
@@ -91,6 +102,9 @@ enum Commands {
         #[arg(long, default_value = "text")]
         format: String,
     },
+    /// Run a recipe by name directly (e.g. `must lint` → `must run lint`)
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[tokio::main]
@@ -142,6 +156,15 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         return Ok(());
     }
 
+    if let Commands::Init { name } = &cli.command {
+        let out = cli
+            .file
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("Mustfile.toml"));
+        run_init(&out, name.as_deref())?;
+        return Ok(());
+    }
+
     // Find and load Mustfile.toml
     let mustfile_path = cli
         .file
@@ -181,7 +204,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 }
             }
         }
-        Commands::Build { recipes } => {
+        Commands::Build { recipes } | Commands::Run { recipes } => {
             let target_recipes = if recipes.is_empty() {
                 vec!["build".to_string()]
             } else {
@@ -231,12 +254,68 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             // handled before config loading above
             unreachable!()
         }
-        Commands::Doctor => {
+        Commands::External(args) => {
+            execute_recipes(
+                &config,
+                &mustfile_path,
+                RunOpts {
+                    profile: &cli.profile,
+                    parallelism: cli.parallelism,
+                    dry_run: cli.dry_run,
+                    fail_fast: cli.fail_fast,
+                    target_recipes: args,
+                    targets: &targets,
+                },
+            )
+            .await?;
+        }
+        Commands::Doctor | Commands::Init { .. } => {
             // handled before config loading above
             unreachable!()
         }
     }
 
+    Ok(())
+}
+
+fn run_init(out: &Path, name: Option<&str>) -> must_core::Result<()> {
+    if out.exists() {
+        return Err(must_core::Error::Config {
+            path: out.to_owned(),
+            message:
+                "file already exists; delete it first or use --file to choose a different path"
+                    .to_string(),
+        });
+    }
+
+    let project_name = name
+        .map(|s| s.to_string())
+        .or_else(|| {
+            std::env::current_dir()
+                .ok()
+                .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+        })
+        .unwrap_or_else(|| "my-project".to_string());
+
+    let contents = format!(
+        r#"[project]
+name = "{project_name}"
+
+[recipe.build]
+type = "shell"
+script = "echo 'Building {project_name}'"
+phony = true
+
+[recipe.test]
+type = "shell"
+script = "echo 'Testing {project_name}'"
+deps = ["build"]
+phony = true
+"#
+    );
+
+    std::fs::write(out, contents).map_err(must_core::Error::Io)?;
+    println!("Created {}", out.display());
     Ok(())
 }
 

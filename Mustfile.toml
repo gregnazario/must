@@ -69,6 +69,12 @@ deps   = ["ci", "build-release"]
 phony  = true
 script = "echo Release build complete"
 
+# Install the must binary to ~/.cargo/bin.
+[recipe.install]
+type   = "shell"
+phony  = true
+script = "cargo install --path crates/must-cli"
+
 # Clean.
 [recipe.clean]
 type   = "shell"
