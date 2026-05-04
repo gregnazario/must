@@ -168,17 +168,14 @@ impl Recipe for ShellRecipe {
             cmd.env(k, v);
         }
 
-        let output = cmd.output().map_err(Error::Io)?;
+        let status = cmd.status().map_err(Error::Io)?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
-        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-
-        if !output.status.success() {
+        if !status.success() {
             return Err(Error::RecipeFailed {
                 name: self.name.clone(),
-                code: output.status.code().unwrap_or(-1),
-                stderr: stderr.clone(),
+                code: status.code().unwrap_or(-1),
+                stderr: String::new(),
             });
         }
 
@@ -221,8 +218,8 @@ impl Recipe for ShellRecipe {
             recipe_name: self.name.clone(),
             from_cache: false,
             outputs,
-            stdout,
-            stderr,
+            stdout: String::new(),
+            stderr: String::new(),
             duration_ms,
         })
     }
@@ -295,10 +292,10 @@ mod tests {
     }
 
     #[test]
-    fn execute_runs_script_and_captures_stdout() {
+    fn execute_runs_script_and_returns_ok() {
         let r = ShellRecipe::new("greet", "echo hello");
         let out = r.execute(&ctx()).unwrap();
-        assert!(out.stdout.contains("hello"));
+        assert!(out.stdout.is_empty());
     }
 
     #[test]
@@ -366,7 +363,7 @@ mod tests {
         };
 
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("hello"));
+        assert!(out.stdout.is_empty());
     }
 
     #[test]

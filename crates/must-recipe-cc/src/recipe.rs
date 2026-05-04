@@ -76,24 +76,22 @@ fn run_cc(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let output = cmd.output().map_err(Error::Io)?;
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    let status = cmd.status().map_err(Error::Io)?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !output.status.success() {
+    if !status.success() {
         return Err(Error::RecipeFailed {
             name: compiler.display().to_string(),
-            code: output.status.code().unwrap_or(-1),
-            stderr,
+            code: status.code().unwrap_or(-1),
+            stderr: String::new(),
         });
     }
     Ok(RecipeOutput {
         recipe_name: compiler.display().to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout,
-        stderr,
+        stdout: String::new(),
+        stderr: String::new(),
         duration_ms,
     })
 }
@@ -101,24 +99,22 @@ fn run_cc(
 /// Run a pre-built command (used for the container execution path).
 fn run_command(mut cmd: Command) -> Result<RecipeOutput> {
     let start = Instant::now();
-    let output = cmd.output().map_err(Error::Io)?;
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    let status = cmd.status().map_err(Error::Io)?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !output.status.success() {
+    if !status.success() {
         return Err(Error::RecipeFailed {
             name: "cc".to_string(),
-            code: output.status.code().unwrap_or(-1),
-            stderr,
+            code: status.code().unwrap_or(-1),
+            stderr: String::new(),
         });
     }
     Ok(RecipeOutput {
         recipe_name: "cc".to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout,
-        stderr,
+        stdout: String::new(),
+        stderr: String::new(),
         duration_ms,
     })
 }
@@ -623,22 +619,21 @@ impl Recipe for CLibRecipe {
                     cmd.arg(a);
                 }
                 cmd.current_dir(&ctx.project_root);
-                let output = cmd.output().map_err(Error::Io)?;
-                let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+                let status = cmd.status().map_err(Error::Io)?;
                 let duration_ms = start.elapsed().as_millis() as u64;
-                if !output.status.success() {
+                if !status.success() {
                     return Err(Error::RecipeFailed {
                         name: "ar".to_string(),
-                        code: output.status.code().unwrap_or(-1),
-                        stderr,
+                        code: status.code().unwrap_or(-1),
+                        stderr: String::new(),
                     });
                 }
                 Ok(RecipeOutput {
                     recipe_name: self.name.clone(),
                     from_cache: false,
                     outputs: vec![output_path],
-                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-                    stderr,
+                    stdout: String::new(),
+                    stderr: String::new(),
                     duration_ms,
                 })
             } else {
@@ -1104,10 +1099,9 @@ mod tests {
 
     #[test]
     fn test_run_command_success() {
-        let mut cmd = std::process::Command::new("echo");
-        cmd.arg("hello from run_command");
+        let cmd = std::process::Command::new("true");
         let result = run_command(cmd).unwrap();
-        assert!(result.stdout.contains("hello from run_command"));
+        assert!(result.stdout.is_empty());
     }
 
     #[test]

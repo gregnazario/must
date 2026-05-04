@@ -29,24 +29,22 @@ fn run_cargo(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let output = cmd.output().map_err(Error::Io)?;
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    let status = cmd.status().map_err(Error::Io)?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !output.status.success() {
+    if !status.success() {
         return Err(Error::RecipeFailed {
             name: name.to_string(),
-            code: output.status.code().unwrap_or(-1),
-            stderr,
+            code: status.code().unwrap_or(-1),
+            stderr: String::new(),
         });
     }
     Ok(RecipeOutput {
         recipe_name: name.to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout,
-        stderr,
+        stdout: String::new(),
+        stderr: String::new(),
         duration_ms,
     })
 }
