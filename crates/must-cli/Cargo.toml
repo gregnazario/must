@@ -19,6 +19,9 @@ must-recipe-rust = { path = "../must-recipe-rust" }
 must-recipe-go = { path = "../must-recipe-go" }
 must-recipe-cc = { path = "../must-recipe-cc" }
 must-recipe-ts = { path = "../must-recipe-ts" }
+must-recipe-py = { path = "../must-recipe-py" }
+must-recipe-zig = { path = "../must-recipe-zig" }
+must-recipe-docker = { path = "../must-recipe-docker" }
 must-cache = { path = "../must-cache" }
 must-import = { path = "../must-import" }
 must-toolchain = { path = "../must-toolchain" }
@@ -28,6 +31,7 @@ glob.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+notify = "8.2.0"
 
 [dev-dependencies]
 tempfile.workspace = true

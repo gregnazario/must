@@ -314,6 +314,150 @@ sources = ["src/foo.c"]
     assert_eq!(cfg.recipe["libfoo"].recipe_type, RecipeType::CLib);
 }
 
+// ── Python recipe types ──────────────────────────────────────────────────────
+
+#[test]
+fn test_py_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "py-bin"
+package = "."
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::PyBin);
+    assert_eq!(r.package.as_deref(), Some("."));
+}
+
+#[test]
+fn test_py_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "py-test"
+package = "tests"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::PyTest);
+    assert_eq!(cfg.recipe["test"].package.as_deref(), Some("tests"));
+}
+
+#[test]
+fn test_py_lint_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.lint]
+type = "py-lint"
+package = "src"
+"#,
+    );
+    assert_eq!(cfg.recipe["lint"].recipe_type, RecipeType::PyLint);
+}
+
+// ── Zig recipe types ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_zig_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "zig-bin"
+package = "install"
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::ZigBin);
+    assert_eq!(r.package.as_deref(), Some("install"));
+}
+
+#[test]
+fn test_zig_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "zig-test"
+package = "."
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::ZigTest);
+}
+
+// ── Docker recipe types ──────────────────────────────────────────────────────
+
+#[test]
+fn test_docker_build_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "docker-build"
+image = "myapp:latest"
+dockerfile = "Dockerfile"
+build_args = ["VERSION=1.0", "PLATFORM=linux"]
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::DockerBuild);
+    assert_eq!(r.image.as_deref(), Some("myapp:latest"));
+    assert_eq!(r.dockerfile.as_deref(), Some("Dockerfile"));
+    assert_eq!(r.build_args, ["VERSION=1.0", "PLATFORM=linux"]);
+}
+
+#[test]
+fn test_docker_push_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.push]
+type = "docker-push"
+image = "myregistry/myapp:v2"
+deps = ["build"]
+"#,
+    );
+    let r = &cfg.recipe["push"];
+    assert_eq!(r.recipe_type, RecipeType::DockerPush);
+    assert_eq!(r.image.as_deref(), Some("myregistry/myapp:v2"));
+    assert_eq!(r.deps, ["build"]);
+}
+
+#[test]
+fn test_docker_build_minimal() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "docker-build"
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::DockerBuild);
+    assert!(r.image.is_none());
+    assert!(r.dockerfile.is_none());
+    assert!(r.build_args.is_empty());
+}
+
 // ── Cross-compile config ──────────────────────────────────────────────────────
 
 #[test]

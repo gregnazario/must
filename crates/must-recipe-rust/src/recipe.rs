@@ -2,6 +2,7 @@ use crate::toolchain::rustc_version;
 use must_cache::hash::compute_hash;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    run_status,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -29,7 +30,7 @@ fn run_cargo(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = cmd.status().map_err(Error::Io)?;
+    let status = run_status(cmd.status(), "cargo", "Install Rust: https://rustup.rs")?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     if !status.success() {

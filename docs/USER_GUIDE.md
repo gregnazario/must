@@ -70,7 +70,7 @@ Apply with `must build --profile release`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `type` | string | required | `shell`, `rust-bin`, `rust-lib`, `rust-test`, `go-bin`, `go-test`, `c-bin`, `c-lib`, `ts-bin`, `ts-check`, `ts-lint`, `npm` |
+| `type` | string | required | `shell`, `rust-bin`, `rust-lib`, `rust-test`, `go-bin`, `go-test`, `c-bin`, `c-lib`, `ts-bin`, `ts-check`, `ts-lint`, `npm`, `py-bin`, `py-test`, `py-lint`, `zig-bin`, `zig-test`, `docker-build`, `docker-push` |
 | `deps` | list | `[]` | Recipe names that must complete first |
 | `inputs` | list | `[]` | Glob patterns for input files (mtime tracking) |
 | `outputs` | list | `[]` | Glob patterns for output files (mtime tracking) |
@@ -78,12 +78,15 @@ Apply with `must build --profile release`.
 | `cache` | string | type default | `"mtime"`, `"hash"`, or `"none"` |
 | `phony` | bool | `false` | Always re-run even if outputs are up to date |
 | `env` | table | `{}` | Extra env vars for this recipe only |
-| `package` | string | — | Package/project path (Rust/Go/TypeScript recipes) |
+| `package` | string | — | Package/project path (Rust/Go/TypeScript/Python/Zig recipes) |
 | `features` | list | `[]` | Cargo features (`rust-*` recipes) |
 | `ldflags` | string | — | Linker flags (`go-bin` only) |
 | `sources` | list | `[]` | Source files (`c-bin`, `c-lib`) |
 | `includes` | list | `[]` | Include directories (`c-bin`, `c-lib`) |
 | `link_libs` | list | `[]` | Libraries to link (`c-bin`, `c-lib`) |
+| `image` | string | — | Docker image tag (`docker-build`, `docker-push`) |
+| `dockerfile` | string | — | Dockerfile path (`docker-build`) |
+| `build_args` | list | `[]` | Docker build args (`docker-build`) |
 
 ### `[targets]`
 
@@ -146,14 +149,15 @@ Check whether required tools are installed and the cache is healthy.
 must doctor
 ```
 
-Checks: Rust/cargo (required), Go (optional), C compiler (optional), container runtime (optional), cache size.
+Checks: Rust/cargo (required), Go (optional), C compiler (optional), TypeScript/biome/npm (optional), Python3/ruff/mypy (optional), Zig (optional), container runtime (optional), cache size.
 
 ### `must graph`
 
 Print the recipe dependency graph.
 
 ```bash
-must graph                    # human-readable text
+must graph                    # human-readable tree (default)
+must graph --format dag       # box-drawing DAG with dependency arrows
 must graph --format dot       # Graphviz DOT — pipe to: dot -Tpng -o graph.png
 must graph --format mermaid   # Mermaid diagram for GitHub/GitLab markdown
 ```
@@ -167,11 +171,30 @@ must clean           # clean declared outputs
 must clean --cache   # also wipe .mustfile/cache/
 ```
 
+### `must completions <shell>`
+
+Generate shell completions to stdout.
+
+```bash
+must completions bash   # bash completions
+must completions zsh    # zsh completions
+must completions fish   # fish completions
+```
+
+### `must init`
+
+Create a starter `Mustfile.toml` in the current directory.
+
+```bash
+must init              # uses current directory name
+must init --name myapp # explicit project name
+```
+
 ## Caching
 
 By default:
 - **Shell recipes** use **mtime** caching: rebuild when any input file is newer than any output file.
-- **First-class recipes** (Rust, Go, C) use **hash** caching: rebuild when the SHA-256 hash of inputs + env + flags changes.
+- **First-class recipes** (Rust, Go, C, TypeScript, Python, Zig, Docker) use **hash** caching: rebuild when the SHA-256 hash of inputs + env + flags changes.
 
 Override per recipe:
 

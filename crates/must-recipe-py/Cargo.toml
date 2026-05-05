@@ -1,0 +1,12 @@
+[package]
+name = "must-recipe-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+must-core = { path = "../must-core" }
+must-cache = { path = "../must-cache" }
+
+[dev-dependencies]
+tempfile.workspace = true

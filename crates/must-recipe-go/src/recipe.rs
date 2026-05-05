@@ -1,5 +1,7 @@
 use must_cache::hash::compute_hash;
-use must_core::{BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result};
+use must_core::{
+    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_status,
+};
 use must_toolchain::{Triple, go_cross_env, go_install_hint, go_installed};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -42,7 +44,7 @@ fn run_go(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = cmd.status().map_err(Error::Io)?;
+    let status = run_status(cmd.status(), "go", "Install Go: https://go.dev/dl/")?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     if !status.success() {

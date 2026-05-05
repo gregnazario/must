@@ -70,6 +70,13 @@ pub struct Recipe {
     pub includes: Vec<String>,
     #[serde(default)]
     pub link_libs: Vec<String>,
+    // docker-build / docker-push fields
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub dockerfile: Option<String>,
+    #[serde(default)]
+    pub build_args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -87,6 +94,13 @@ pub enum RecipeType {
     TsCheck,
     TsLint,
     Npm,
+    PyBin,
+    PyTest,
+    PyLint,
+    ZigBin,
+    ZigTest,
+    DockerBuild,
+    DockerPush,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

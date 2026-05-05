@@ -1,6 +1,8 @@
 use must_cache::hash::compute_hash;
 use must_config::schema::{CrossBackend, CrossConfig};
-use must_core::{BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result};
+use must_core::{
+    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_status,
+};
 use must_toolchain::{
     ContainerToolchain, Triple, c_cross_env, c_install_hint, discover_c_compiler,
 };
@@ -76,7 +78,11 @@ fn run_cc(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = cmd.status().map_err(Error::Io)?;
+    let status = run_status(
+        cmd.status(),
+        &compiler.display().to_string(),
+        "Install a C compiler (Xcode CLI tools or build-essential)",
+    )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     if !status.success() {
@@ -99,7 +105,11 @@ fn run_cc(
 /// Run a pre-built command (used for the container execution path).
 fn run_command(mut cmd: Command) -> Result<RecipeOutput> {
     let start = Instant::now();
-    let status = cmd.status().map_err(Error::Io)?;
+    let status = run_status(
+        cmd.status(),
+        "cc",
+        "Install a C compiler (Xcode CLI tools or build-essential)",
+    )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     if !status.success() {
@@ -619,7 +629,11 @@ impl Recipe for CLibRecipe {
                     cmd.arg(a);
                 }
                 cmd.current_dir(&ctx.project_root);
-                let status = cmd.status().map_err(Error::Io)?;
+                let status = run_status(
+                    cmd.status(),
+                    "docker",
+                    "Install Docker: https://docs.docker.com/get-docker/ or Podman: https://podman.io/",
+                )?;
                 let duration_ms = start.elapsed().as_millis() as u64;
                 if !status.success() {
                     return Err(Error::RecipeFailed {

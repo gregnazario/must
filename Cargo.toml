@@ -13,6 +13,9 @@ members = [
     "crates/must-toolchain",
     "crates/must-recipe-cc",
     "crates/must-recipe-ts",
+    "crates/must-recipe-py",
+    "crates/must-recipe-zig",
+    "crates/must-recipe-docker",
     "crates/must-import",
 ]
 

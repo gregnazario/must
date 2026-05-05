@@ -22,6 +22,9 @@ pub enum Error {
     #[error("toolchain not found for target '{target}': {hint}")]
     ToolchainNotFound { target: String, hint: String },
 
+    #[error("{tool} not found: {hint}")]
+    ToolNotFound { tool: String, hint: String },
+
     #[error("cache error: {0}")]
     Cache(String),
 

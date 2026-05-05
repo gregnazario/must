@@ -1,6 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    run_status,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -26,7 +27,7 @@ fn run_cmd(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = cmd.status().map_err(Error::Io)?;
+    let status = run_status(cmd.status(), program, "Install Node.js: https://nodejs.org")?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     if !status.success() {
@@ -57,14 +58,7 @@ fn make_cache_key(
         .iter()
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
-    let hash = compute_hash(
-        recipe_name,
-        recipe_type,
-        &[],
-        &env_btree,
-        "",
-        extra_flags,
-    );
+    let hash = compute_hash(recipe_name, recipe_type, &[], &env_btree, "", extra_flags);
     CacheKey {
         recipe: recipe_name.to_string(),
         target: ctx.target.clone(),
@@ -383,7 +377,7 @@ fn run_cmd_in(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = cmd.status().map_err(Error::Io)?;
+    let status = run_status(cmd.status(), program, "Install Node.js: https://nodejs.org")?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
     if !status.success() {

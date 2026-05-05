@@ -1182,3 +1182,266 @@ script = "echo building"
         "expected target headers, got: {stdout}"
     );
 }
+
+#[test]
+fn test_py_bin_recipe() {
+    let python3_available = std::process::Command::new("python3")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !python3_available {
+        eprintln!("skipping test_py_bin_recipe: python3 not installed");
+        return;
+    }
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("pyproject.toml"),
+        r#"[project]
+name = "hello-py"
+version = "0.1.0"
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(root.join("hello_py")).unwrap();
+    std::fs::write(root.join("hello_py/__init__.py"), "").unwrap();
+
+    // Create a virtual environment so uv/pip doesn't complain about externally-managed Python
+    let venv_status = std::process::Command::new("python3")
+        .args(["-m", "venv", ".venv"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    if !venv_status.success() {
+        eprintln!("skipping test_py_bin_recipe: could not create venv");
+        return;
+    }
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "pytest"
+
+[recipe.build]
+type = "py-bin"
+package = "."
+
+[recipe.build.env]
+VIRTUAL_ENV = ".venv"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "py-bin build should succeed\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_py_test_recipe() {
+    let pytest_available = std::process::Command::new("pytest")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !pytest_available {
+        eprintln!("skipping test_py_test_recipe: pytest not installed");
+        return;
+    }
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("test_basic.py"),
+        r#"def test_ok():
+    assert True
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "pytest"
+
+[recipe.test]
+type = "py-test"
+package = "."
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "test",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "py-test should succeed\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_zig_bin_recipe() {
+    let zig_available = std::process::Command::new("zig")
+        .arg("version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !zig_available {
+        eprintln!("skipping test_zig_bin_recipe: zig not installed");
+        return;
+    }
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("build.zig"),
+        r#"const std = @import("std");
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+    const exe = b.addExecutable(.{
+        .name = "hello",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    b.installArtifact(exe);
+}
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(
+        root.join("src").join("main.zig"),
+        r#"const std = @import("std");
+pub fn main() !void {
+    std.debug.print("hello from zig\n", .{});
+}
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "zigtest"
+
+[recipe.build]
+type = "zig-bin"
+package = "install"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "zig-bin build should succeed\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_docker_build_recipe() {
+    let docker_available = std::process::Command::new("docker")
+        .arg("version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || std::process::Command::new("podman")
+            .arg("version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+    if !docker_available {
+        eprintln!("skipping test_docker_build_recipe: no container runtime found");
+        return;
+    }
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Dockerfile"),
+        r#"FROM alpine:latest
+RUN echo "hello from docker"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "dockertest"
+
+[recipe.build]
+type = "docker-build"
+image = "mustfile-test-docker-build:latest"
+dockerfile = "Dockerfile"
+"#,
+    )
+    .unwrap();
+
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "docker-build should succeed\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}

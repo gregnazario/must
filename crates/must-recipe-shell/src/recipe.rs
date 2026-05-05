@@ -2,6 +2,7 @@ use glob::glob;
 use must_cache::mtime::check_mtime;
 use must_core::{
     BuildContext, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    run_status,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -168,7 +169,7 @@ impl Recipe for ShellRecipe {
             cmd.env(k, v);
         }
 
-        let status = cmd.status().map_err(Error::Io)?;
+        let status = run_status(cmd.status(), "sh", "A POSIX shell is required")?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if !status.success() {

@@ -9,7 +9,7 @@ This guide helps you move from Make, [Just](https://github.com/casey/just), [Tas
 | Pain point | Make | Just | Taskfile | npm scripts | Mustfile |
 |---|---|---|---|---|---|
 | Tab-significant syntax | Yes | No | No | No | No (TOML) |
-| Language-aware builds | No | No | No | No | Yes (Rust, Go, C, TypeScript) |
+| Language-aware builds | No | No | No | No | Yes (Rust, Go, C, TypeScript, Python, Zig, Docker) |
 | Automatic cross-compilation | No | No | No | No | Yes (per-toolchain env + container opt-in) |
 | Content-hash caching | No | No | No | No | Yes (first-class recipes) |
 | Parallel DAG execution | `make -j` | `-j` flag | `RUN_IN_PARALLEL` | No | Automatic (wave-based) |
@@ -680,7 +680,14 @@ Benefits:
    - `gcc`/`clang` compiles → `type = "c-bin"` or `type = "c-lib"`
    - `tsc` compiles → `type = "ts-bin"`
    - `tsc --noEmit` → `type = "ts-check"`
-   - `biome check` → `type = "ts-lint"`
+    - `biome check` → `type = "ts-lint"`
+    - `pip install` / `uv install` → `type = "py-bin"`
+    - `pytest` → `type = "py-test"`
+    - `ruff check && mypy` → `type = "py-lint"`
+    - `zig build` → `type = "zig-bin"`
+    - `zig build test` → `type = "zig-test"`
+    - `docker build` → `type = "docker-build"`
+    - `docker push` → `type = "docker-push"`
 3. **Add `inputs`/`outputs`** to shell recipes for mtime caching
 4. **Move variables to `[env]`** tables and use `--profile` for variants
 5. **Add `[targets]`** for cross-compilation groups
@@ -700,6 +707,9 @@ Benefits:
 | Go recipes | Manual | Manual | Manual | `go-bin` / `go-test` |
 | C/C++ recipes | Manual | Manual | Manual | `c-bin` / `c-lib` |
 | TypeScript recipes | Manual | Manual | Manual | `ts-bin` / `ts-check` / `ts-lint` |
+| Python recipes | Manual | Manual | Manual | `py-bin` / `py-test` / `py-lint` |
+| Zig recipes | Manual | Manual | Manual | `zig-bin` / `zig-test` |
+| Docker recipes | Manual | Manual | Manual | `docker-build` / `docker-push` |
 | Dependency graph | No | No | No | `must graph` |
 | Cache introspection | No | No | No | `must explain` |
 | Cross-compilation | Manual | Manual | Manual | `--target` + auto toolchain |

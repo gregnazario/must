@@ -5,10 +5,13 @@ use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{Engine, compose_env};
 use must_graph::Dag;
 use must_recipe_cc::{CBinRecipe, CLibRecipe};
+use must_recipe_docker::{DockerBuildRecipe, DockerPushRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
+use must_recipe_py::{PyBinRecipe, PyLintRecipe, PyTestRecipe};
 use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
 use must_recipe_ts::{NpmRecipe, TsBinRecipe, TsCheckRecipe, TsLintRecipe};
+use must_recipe_zig::{ZigBinRecipe, ZigTestRecipe};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -98,6 +101,9 @@ enum Commands {
         /// Project name (default: current directory name)
         #[arg(long)]
         name: Option<String>,
+        /// Template: minimal, rust, go, python, zig, docker, polyglot
+        #[arg(long, default_value = "minimal")]
+        template: String,
     },
     /// Check environment health (toolchains, container runtime, cache)
     Doctor,
@@ -111,6 +117,11 @@ enum Commands {
     Completions {
         /// Shell to generate completions for (bash, zsh, fish, elvish)
         shell: clap_complete::Shell,
+    },
+    /// Watch for file changes and re-run recipes
+    Watch {
+        /// Recipes to watch and re-run
+        recipes: Vec<String>,
     },
     /// Run a recipe by name directly (e.g. `must lint` → `must run lint`)
     #[command(external_subcommand)]
@@ -172,12 +183,12 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         return Ok(());
     }
 
-    if let Commands::Init { name } = &cli.command {
+    if let Commands::Init { name, template } = &cli.command {
         let out = cli
             .file
             .clone()
             .unwrap_or_else(|| PathBuf::from("Mustfile.toml"));
-        run_init(&out, name.as_deref())?;
+        run_init(&out, name.as_deref(), template)?;
         return Ok(());
     }
 
@@ -295,12 +306,31 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             // handled before config loading above
             unreachable!()
         }
+        Commands::Watch { recipes } => {
+            let target_recipes = if recipes.is_empty() {
+                vec!["build".to_string()]
+            } else {
+                recipes
+            };
+            let profile = cli.profile.clone();
+            let targets_owned = targets.clone();
+            run_watch(
+                &config,
+                &mustfile_path,
+                &profile,
+                cli.parallelism,
+                cli.fail_fast,
+                target_recipes,
+                &targets_owned,
+            )
+            .await?;
+        }
     }
 
     Ok(())
 }
 
-fn run_init(out: &Path, name: Option<&str>) -> must_core::Result<()> {
+fn run_init(out: &Path, name: Option<&str>, template: &str) -> must_core::Result<()> {
     if out.exists() {
         return Err(must_core::Error::Config {
             path: out.to_owned(),
@@ -319,8 +349,123 @@ fn run_init(out: &Path, name: Option<&str>) -> must_core::Result<()> {
         })
         .unwrap_or_else(|| "my-project".to_string());
 
-    let contents = format!(
-        r#"[project]
+    let contents = match template {
+        "rust" => format!(
+            r#"[project]
+name = "{project_name}"
+
+[recipe.build]
+type    = "rust-bin"
+package = "{project_name}"
+
+[recipe.test]
+type    = "rust-test"
+package = "{project_name}"
+deps    = ["build"]
+
+[recipe.lint]
+type   = "shell"
+phony  = true
+script = "cargo clippy -- -D warnings"
+"#
+        ),
+        "go" => format!(
+            r#"[project]
+name = "{project_name}"
+
+[recipe.build]
+type    = "go-bin"
+package = "."
+
+[recipe.test]
+type    = "go-test"
+package = "./..."
+deps    = ["build"]
+"#
+        ),
+        "python" => format!(
+            r#"[project]
+name = "{project_name}"
+
+[recipe.build]
+type    = "py-bin"
+package = "."
+
+[recipe.test]
+type    = "py-test"
+package = "."
+deps    = ["build"]
+
+[recipe.lint]
+type    = "py-lint"
+package = "."
+"#
+        ),
+        "zig" => format!(
+            r#"[project]
+name = "{project_name}"
+
+[recipe.build]
+type    = "zig-bin"
+package = "install"
+
+[recipe.test]
+type    = "zig-test"
+package = "."
+deps    = ["build"]
+"#
+        ),
+        "docker" => format!(
+            r#"[project]
+name = "{project_name}"
+
+[recipe.build]
+type       = "docker-build"
+image      = "{project_name}:latest"
+dockerfile = "Dockerfile"
+
+[recipe.push]
+type  = "docker-push"
+image = "{project_name}:latest"
+deps  = ["build"]
+"#
+        ),
+        "polyglot" => format!(
+            r#"[project]
+name = "{project_name}"
+
+[recipe.build-rs]
+type    = "rust-bin"
+package = "{project_name}"
+
+[recipe.build-go]
+type    = "go-bin"
+package = "./cmd/server"
+
+[recipe.build-ts]
+type    = "ts-bin"
+package = "web"
+
+[recipe.build-docker]
+type       = "docker-build"
+image      = "{project_name}:latest"
+dockerfile = "Dockerfile"
+deps       = ["build-rs"]
+
+[recipe.test]
+type    = "rust-test"
+package = "{project_name}"
+deps    = ["build-rs"]
+
+[recipe.build]
+type   = "shell"
+deps   = ["build-rs", "build-go", "build-ts"]
+phony  = true
+script = "echo 'all builds complete'"
+"#
+        ),
+        _ => format!(
+            r#"[project]
 name = "{project_name}"
 
 [recipe.build]
@@ -334,11 +479,82 @@ script = "echo 'Testing {project_name}'"
 deps = ["build"]
 phony = true
 "#
-    );
+        ),
+    };
 
     std::fs::write(out, contents).map_err(must_core::Error::Io)?;
-    println!("Created {}", out.display());
+    println!("Created {} (template: {template})", out.display());
     Ok(())
+}
+
+async fn run_watch(
+    config: &Config,
+    mustfile_path: &Path,
+    profile: &str,
+    parallelism: Option<usize>,
+    fail_fast: bool,
+    target_recipes: Vec<String>,
+    targets: &[String],
+) -> must_core::Result<()> {
+    use notify::{Config as NotifyConfig, Event, RecommendedWatcher, RecursiveMode, Watcher};
+
+    let mustfile_abs = mustfile_path
+        .canonicalize()
+        .unwrap_or_else(|_| mustfile_path.to_owned());
+    let project_root = mustfile_abs
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_owned();
+
+    let (tx, rx) = std::sync::mpsc::channel::<Event>();
+
+    let mut watcher = RecommendedWatcher::new(
+        move |res: Result<Event, notify::Error>| {
+            if let Ok(event) = res {
+                let _ = tx.send(event);
+            }
+        },
+        NotifyConfig::default(),
+    )
+    .map_err(|e| must_core::Error::Cache(format!("watcher init failed: {e}")))?;
+
+    watcher
+        .watch(&project_root, RecursiveMode::Recursive)
+        .map_err(|e| must_core::Error::Cache(format!("watch failed: {e}")))?;
+
+    println!("watching {} for changes...", project_root.display());
+
+    loop {
+        execute_recipes(
+            config,
+            mustfile_path,
+            RunOpts {
+                profile,
+                parallelism,
+                dry_run: false,
+                fail_fast,
+                target_recipes: target_recipes.clone(),
+                targets,
+            },
+        )
+        .await?;
+
+        println!("\nwaiting for changes... (ctrl-c to stop)");
+
+        loop {
+            match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+                Ok(_event) => {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    while rx.try_recv().is_ok() {}
+                    break;
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+            }
+        }
+
+        println!("\n--- change detected, rebuilding ---\n");
+    }
 }
 
 struct RunOpts<'a> {
@@ -499,7 +715,10 @@ async fn execute_recipes(
             RecipeType::TsBin => {
                 let mut r = TsBinRecipe::new(
                     name.clone(),
-                    recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.env = env;
@@ -508,7 +727,10 @@ async fn execute_recipes(
             RecipeType::TsCheck => {
                 let mut r = TsCheckRecipe::new(
                     name.clone(),
-                    recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.env = env;
@@ -517,7 +739,10 @@ async fn execute_recipes(
             RecipeType::TsLint => {
                 let mut r = TsLintRecipe::new(
                     name.clone(),
-                    recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.env = env;
@@ -533,6 +758,93 @@ async fn execute_recipes(
                     .package
                     .clone()
                     .unwrap_or_else(|| ".".to_string());
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::PyBin => {
+                let mut r = PyBinRecipe::new(
+                    name.clone(),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::PyTest => {
+                let mut r = PyTestRecipe::new(
+                    name.clone(),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::PyLint => {
+                let mut r = PyLintRecipe::new(
+                    name.clone(),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::ZigBin => {
+                let mut r = ZigBinRecipe::new(
+                    name.clone(),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::ZigTest => {
+                let mut r = ZigTestRecipe::new(
+                    name.clone(),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DockerBuild => {
+                let mut r = DockerBuildRecipe::new(
+                    name.clone(),
+                    recipe_cfg.image.clone().unwrap_or_else(|| name.clone()),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.dockerfile = recipe_cfg
+                    .dockerfile
+                    .clone()
+                    .unwrap_or_else(|| ".".to_string());
+                r.context = recipe_cfg
+                    .package
+                    .clone()
+                    .unwrap_or_else(|| ".".to_string());
+                r.build_args = recipe_cfg.build_args.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DockerPush => {
+                let mut r = DockerPushRecipe::new(
+                    name.clone(),
+                    recipe_cfg.image.clone().unwrap_or_else(|| name.clone()),
+                );
+                r.deps = recipe_cfg.deps.clone();
                 r.env = env;
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
@@ -711,6 +1023,13 @@ fn explain_recipe(
         RecipeType::TsCheck => "ts-check",
         RecipeType::TsLint => "ts-lint",
         RecipeType::Npm => "npm",
+        RecipeType::PyBin => "py-bin",
+        RecipeType::PyTest => "py-test",
+        RecipeType::PyLint => "py-lint",
+        RecipeType::ZigBin => "zig-bin",
+        RecipeType::ZigTest => "zig-test",
+        RecipeType::DockerBuild => "docker-build",
+        RecipeType::DockerPush => "docker-push",
     };
     let env_btree: BTreeMap<String, String> = relevant_env
         .iter()
@@ -859,6 +1178,44 @@ fn run_doctor() {
         "Install Node.js: https://nodejs.org",
     );
 
+    // --- Python (optional) ---
+    let python3_ok = std::process::Command::new("python3")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check(
+        "python3 (optional)",
+        python3_ok,
+        "Install Python 3: https://python.org",
+    );
+
+    let ruff_ok = std::process::Command::new("ruff")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check("ruff (optional)", ruff_ok, "Install ruff: pip install ruff");
+
+    let mypy_ok = std::process::Command::new("mypy")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check("mypy (optional)", mypy_ok, "Install mypy: pip install mypy");
+
+    // --- Zig (optional) ---
+    let zig_ok = std::process::Command::new("zig")
+        .arg("version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    print_check(
+        "zig (optional)",
+        zig_ok,
+        "Install Zig: https://ziglang.org/learn/getting-started/",
+    );
+
     // --- Container runtime (optional) ---
     match must_toolchain::container::detect_runtime() {
         Some(r) => {
@@ -950,6 +1307,9 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::TsBin | RecipeType::TsCheck => ("ts", "\x1b[33m"),
         RecipeType::TsLint => ("bi", "\x1b[36m"),
         RecipeType::Npm => ("npm", "\x1b[35m"),
+        RecipeType::PyBin | RecipeType::PyTest | RecipeType::PyLint => ("py", "\x1b[34m"),
+        RecipeType::ZigBin | RecipeType::ZigTest => ("zig", "\x1b[33m"),
+        RecipeType::DockerBuild | RecipeType::DockerPush => ("docker", "\x1b[32m"),
     }
 }
 
@@ -995,9 +1355,7 @@ fn print_tree_graph(
                 format!(" {dim}← {}{reset}", deps.join(", "))
             };
 
-            println!(
-                "{connector}{color}{bold}{name:<20}{reset} {dim}[{tag}]{reset}{deps_str}",
-            );
+            println!("{connector}{color}{bold}{name:<20}{reset} {dim}[{tag}]{reset}{deps_str}",);
         }
         if waves.len() > 1 && wi + 1 < waves.len() {
             println!();
@@ -1006,11 +1364,7 @@ fn print_tree_graph(
     Ok(())
 }
 
-fn print_dag_graph(
-    config: &Config,
-    dep_map: &HashMap<String, Vec<String>>,
-    order: &[String],
-) {
+fn print_dag_graph(config: &Config, dep_map: &HashMap<String, Vec<String>>, order: &[String]) {
     let reset = "\x1b[0m";
     let bold = "\x1b[1m";
     let dim = "\x1b[2m";
@@ -1033,7 +1387,10 @@ fn print_dag_graph(
         let (tag, color) = nodes.get(name.as_str()).copied().unwrap_or(("?", reset));
         let pad = node_width.saturating_sub(name.len() + tag.len() + 4);
         let top = format!("╔{}╗", "═".repeat(node_width));
-        let mid = format!("║ {color}{bold}{name}{reset} {dim}[{tag}]{reset}{}║", " ".repeat(pad));
+        let mid = format!(
+            "║ {color}{bold}{name}{reset} {dim}[{tag}]{reset}{}║",
+            " ".repeat(pad)
+        );
         let bot = format!("╚{}╝", "═".repeat(node_width));
 
         println!("  {top}");
@@ -1226,6 +1583,9 @@ mod tests {
             sources: vec![],
             includes: vec![],
             link_libs: vec![],
+            image: None,
+            dockerfile: None,
+            build_args: vec![],
         }
     }
 
@@ -1402,6 +1762,13 @@ mod tests {
             RecipeType::TsCheck,
             RecipeType::TsLint,
             RecipeType::Npm,
+            RecipeType::PyBin,
+            RecipeType::PyTest,
+            RecipeType::PyLint,
+            RecipeType::ZigBin,
+            RecipeType::ZigTest,
+            RecipeType::DockerBuild,
+            RecipeType::DockerPush,
         ];
         for rtype in types {
             let mut config = make_config();
