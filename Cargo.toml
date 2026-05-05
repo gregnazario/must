@@ -21,6 +21,9 @@ members = [
     "crates/must-recipe-java",
     "crates/must-recipe-kotlin",
     "crates/must-recipe-swift",
+    "crates/must-recipe-dotnet",
+    "crates/must-recipe-ruby",
+    "crates/must-recipe-dart",
 ]
 
 [workspace.package]

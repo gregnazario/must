@@ -5,12 +5,15 @@ use must_core::{BuildContext, CacheStrategy, Error};
 use must_engine::{Engine, compose_env};
 use must_graph::Dag;
 use must_recipe_cc::{CBinRecipe, CLibRecipe};
+use must_recipe_dart::{DartBinRecipe, DartTestRecipe};
 use must_recipe_docker::{DockerBuildRecipe, DockerPushRecipe};
+use must_recipe_dotnet::{DotnetBuildRecipe, DotnetPublishRecipe, DotnetTestRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_java::{JavaBinRecipe, JavaTestRecipe};
 use must_recipe_kotlin::{KotlinBinRecipe, KotlinTestRecipe};
 use must_recipe_py::{PyBinRecipe, PyLintRecipe, PyTestRecipe};
 use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
+use must_recipe_ruby::{RubyBinRecipe, RubyTestRecipe};
 use must_recipe_shell::ShellRecipe;
 use must_recipe_swift::{SwiftBinRecipe, SwiftTestRecipe};
 use must_recipe_ts::{NpmRecipe, TsBinRecipe, TsCheckRecipe, TsLintRecipe};
@@ -1452,15 +1455,78 @@ async fn execute_recipes(
                 };
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
-            RecipeType::SwiftTest => {
-                let r = SwiftTestRecipe {
-                    name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                    deps: recipe_cfg.deps.clone(),
-                    env,
-                };
-                recipe_map.insert(name.clone(), Arc::new(r));
-            }
+             RecipeType::SwiftTest => {
+                 let r = SwiftTestRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::DotnetBuild => {
+                 let r = DotnetBuildRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::DotnetTest => {
+                 let r = DotnetTestRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::DotnetPublish => {
+                 let r = DotnetPublishRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::RubyBin => {
+                 let r = RubyBinRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::RubyTest => {
+                 let r = RubyTestRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::DartBin => {
+                 let r = DartBinRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::DartTest => {
+                 let r = DartTestRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
         }
     }
 
@@ -2006,6 +2072,34 @@ fn explain_recipe(
             "swift test (in {})",
             recipe.package.as_deref().unwrap_or(".")
         ),
+        RecipeType::DotnetBuild => format!(
+            "dotnet build {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::DotnetTest => format!(
+            "dotnet test {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::DotnetPublish => format!(
+            "dotnet publish {} -c Release",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::RubyBin => format!(
+            "bundle install (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::RubyTest => format!(
+            "bundle exec rspec (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::DartBin => format!(
+            "dart compile exe {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::DartTest => format!(
+            "dart test (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -2179,6 +2273,13 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::KotlinTest => "kotlin-test",
         RecipeType::SwiftBin => "swift-bin",
         RecipeType::SwiftTest => "swift-test",
+        RecipeType::DotnetBuild => "dotnet-build",
+        RecipeType::DotnetTest => "dotnet-test",
+        RecipeType::DotnetPublish => "dotnet-publish",
+        RecipeType::RubyBin => "ruby-bin",
+        RecipeType::RubyTest => "ruby-test",
+        RecipeType::DartBin => "dart-bin",
+        RecipeType::DartTest => "dart-test",
     }
 }
 
@@ -2388,6 +2489,9 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::JavaBin | RecipeType::JavaTest => ("java", "\x1b[33m"),
         RecipeType::KotlinBin | RecipeType::KotlinTest => ("kt", "\x1b[35m"),
         RecipeType::SwiftBin | RecipeType::SwiftTest => ("swift", "\x1b[31m"),
+        RecipeType::DotnetBuild | RecipeType::DotnetTest | RecipeType::DotnetPublish => ("c#", "\x1b[35m"),
+        RecipeType::RubyBin | RecipeType::RubyTest => ("rb", "\x1b[31m"),
+        RecipeType::DartBin | RecipeType::DartTest => ("dart", "\x1b[36m"),
     }
 }
 
@@ -2855,6 +2959,13 @@ mod tests {
             RecipeType::KotlinTest,
             RecipeType::SwiftBin,
             RecipeType::SwiftTest,
+            RecipeType::DotnetBuild,
+            RecipeType::DotnetTest,
+            RecipeType::DotnetPublish,
+            RecipeType::RubyBin,
+            RecipeType::RubyTest,
+            RecipeType::DartBin,
+            RecipeType::DartTest,
         ];
         for rtype in types {
             let mut config = make_config();

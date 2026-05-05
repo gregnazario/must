@@ -52,6 +52,15 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::SwiftBin | RecipeType::SwiftTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
+            RecipeType::DotnetBuild | RecipeType::DotnetTest | RecipeType::DotnetPublish => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::RubyBin | RecipeType::RubyTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::DartBin | RecipeType::DartTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
         };
 
         if let Some(err) = missing {

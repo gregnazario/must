@@ -113,6 +113,13 @@ pub enum RecipeType {
     KotlinTest,
     SwiftBin,
     SwiftTest,
+    DotnetBuild,
+    DotnetTest,
+    DotnetPublish,
+    RubyBin,
+    RubyTest,
+    DartBin,
+    DartTest,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

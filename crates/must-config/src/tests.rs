@@ -928,6 +928,57 @@ type = "swift-bin"
 }
 
 #[test]
+fn test_validation_dotnet_build_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "dotnet-build"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+}
+
+#[test]
+fn test_validation_ruby_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "ruby-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+}
+
+#[test]
+fn test_validation_dart_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "dart-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+}
+
+#[test]
 fn test_validation_docker_build_missing_image() {
     let cfg = parse(
         r#"
@@ -1225,4 +1276,121 @@ package = "MyPackage"
 "#,
     );
     assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::SwiftTest);
+}
+
+// ── .NET recipe types ───────────────────────────────────────────────────────
+
+#[test]
+fn test_dotnet_build_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "dotnet-build"
+package = "src/MyApp"
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::DotnetBuild);
+    assert_eq!(r.package.as_deref(), Some("src/MyApp"));
+}
+
+#[test]
+fn test_dotnet_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "dotnet-test"
+package = "tests/MyApp.Tests"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::DotnetTest);
+}
+
+#[test]
+fn test_dotnet_publish_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.publish]
+type = "dotnet-publish"
+package = "src/MyApp"
+"#,
+    );
+    assert_eq!(cfg.recipe["publish"].recipe_type, RecipeType::DotnetPublish);
+}
+
+// ── Ruby recipe types ───────────────────────────────────────────────────────
+
+#[test]
+fn test_ruby_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "ruby-bin"
+package = "."
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::RubyBin);
+    assert_eq!(r.package.as_deref(), Some("."));
+}
+
+#[test]
+fn test_ruby_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "ruby-test"
+package = "gems/core"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::RubyTest);
+}
+
+// ── Dart recipe types ───────────────────────────────────────────────────────
+
+#[test]
+fn test_dart_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "dart-bin"
+package = "bin/main.dart"
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::DartBin);
+    assert_eq!(r.package.as_deref(), Some("bin/main.dart"));
+}
+
+#[test]
+fn test_dart_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "dart-test"
+package = "test/"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::DartTest);
 }

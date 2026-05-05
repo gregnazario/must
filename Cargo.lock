@@ -967,11 +967,14 @@ dependencies = [
  "must-import",
  "must-plugin",
  "must-recipe-cc",
+ "must-recipe-dart",
  "must-recipe-docker",
+ "must-recipe-dotnet",
  "must-recipe-go",
  "must-recipe-java",
  "must-recipe-kotlin",
  "must-recipe-py",
+ "must-recipe-ruby",
  "must-recipe-rust",
  "must-recipe-shell",
  "must-recipe-swift",
@@ -1062,7 +1065,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-recipe-dart"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
 name = "must-recipe-docker"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-dotnet"
 version = "0.1.0"
 dependencies = [
  "must-cache",
@@ -1100,6 +1121,15 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-py"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-ruby"
 version = "0.1.0"
 dependencies = [
  "must-cache",
