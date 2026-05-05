@@ -943,3 +943,124 @@ package = ""
     let result = validate(&cfg, Path::new("Mustfile.toml"));
     assert!(result.is_err(), "empty package should be rejected");
 }
+
+// ── Include tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_include_merges_recipes() {
+    use std::io::Write;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let main_path = dir.path().join("Mustfile.toml");
+    let inc_path = dir.path().join("libs.toml");
+
+    std::fs::write(
+        &inc_path,
+        r#"
+[recipe.parser]
+type = "rust-bin"
+package = "parser"
+
+[recipe.parser-test]
+type = "rust-test"
+package = "parser"
+"#,
+    )
+    .unwrap();
+
+    let mut f = std::fs::File::create(&main_path).unwrap();
+    write!(
+        f,
+        r#"
+[project]
+name = "myapp"
+include = ["libs.toml"]
+
+[recipe.build]
+type = "rust-bin"
+package = "myapp"
+"#,
+    )
+    .unwrap();
+
+    let cfg = load_config(&main_path).unwrap();
+    assert!(cfg.recipe.contains_key("build"), "main recipe present");
+    assert!(cfg.recipe.contains_key("parser"), "included recipe present");
+    assert!(
+        cfg.recipe.contains_key("parser-test"),
+        "included recipe present"
+    );
+    assert_eq!(cfg.project.include, vec!["libs.toml"]);
+}
+
+#[test]
+fn test_include_main_wins_on_conflict() {
+    use std::io::Write;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let main_path = dir.path().join("Mustfile.toml");
+    let inc_path = dir.path().join("shared.toml");
+
+    std::fs::write(
+        &inc_path,
+        r#"
+[recipe.build]
+type = "shell"
+script = "echo included"
+"#,
+    )
+    .unwrap();
+
+    let mut f = std::fs::File::create(&main_path).unwrap();
+    write!(
+        f,
+        r#"
+[project]
+name = "myapp"
+include = ["shared.toml"]
+
+[recipe.build]
+type = "rust-bin"
+package = "myapp"
+"#,
+    )
+    .unwrap();
+
+    let cfg = load_config(&main_path).unwrap();
+    assert_eq!(
+        cfg.recipe["build"].recipe_type,
+        crate::schema::RecipeType::RustBin,
+        "main config should win over include"
+    );
+}
+
+#[test]
+fn test_include_missing_file_is_error() {
+    use std::io::Write;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let main_path = dir.path().join("Mustfile.toml");
+
+    let mut f = std::fs::File::create(&main_path).unwrap();
+    write!(
+        f,
+        r#"
+[project]
+name = "myapp"
+include = ["nonexistent.toml"]
+
+[recipe.build]
+type = "shell"
+script = "echo hi"
+"#,
+    )
+    .unwrap();
+
+    let result = load_config(&main_path);
+    assert!(result.is_err(), "missing include should error");
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("include"),
+        "error should mention include: {msg}"
+    );
+}

@@ -17,6 +17,8 @@ pub struct Project {
     pub name: String,
     #[serde(default)]
     pub version: Option<String>,
+    #[serde(default)]
+    pub include: Vec<String>,
 }
 
 /// Env vars table. Supports both flat `[env]` and profile-scoped `[env.release]`.
@@ -117,6 +119,16 @@ pub struct CrossConfig {
     pub linker: Option<String>,
     #[serde(default)]
     pub cross: Option<CrossBackend>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct IncludeFragment {
+    #[serde(default)]
+    pub env: EnvMap,
+    #[serde(default)]
+    pub targets: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub recipe: HashMap<String, Recipe>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

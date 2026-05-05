@@ -1862,6 +1862,7 @@ mod tests {
             project: Project {
                 name: "test".into(),
                 version: None,
+                include: Vec::new(),
             },
             env: EnvMap {
                 global: HashMap::new(),
