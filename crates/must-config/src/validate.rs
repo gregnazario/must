@@ -1,7 +1,7 @@
-use crate::schema::Config;
+use crate::schema::{Config, RecipeType};
 use must_core::Error;
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
     let recipe_names: HashSet<&str> = config.recipe.keys().map(|s| s.as_str()).collect();
@@ -15,7 +15,59 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
                 });
             }
         }
+
+        let missing = match &recipe.recipe_type {
+            RecipeType::Shell => require_field("script", recipe.script.as_ref(), name),
+            RecipeType::RustBin | RecipeType::RustLib | RecipeType::RustTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::GoBin | RecipeType::GoTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::CBin | RecipeType::CLib => {
+                require_non_empty_vec("sources", &recipe.sources, name)
+            }
+            RecipeType::TsBin | RecipeType::TsCheck | RecipeType::TsLint => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::Npm => require_field("script", recipe.script.as_ref(), name),
+            RecipeType::PyBin | RecipeType::PyTest | RecipeType::PyLint => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::ZigBin | RecipeType::ZigTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::DockerBuild | RecipeType::DockerPush => {
+                require_field("image", recipe.image.as_ref(), name)
+            }
+        };
+
+        if let Some(err) = missing {
+            return Err(err);
+        }
     }
 
     Ok(())
+}
+
+fn require_field(field: &str, value: Option<&String>, recipe_name: &str) -> Option<Error> {
+    if value.is_none() || value.is_none_or(|v| v.is_empty()) {
+        Some(Error::Config {
+            path: PathBuf::new(),
+            message: format!("recipe '{recipe_name}' is missing required field '{field}'"),
+        })
+    } else {
+        None
+    }
+}
+
+fn require_non_empty_vec(field: &str, vec: &[String], recipe_name: &str) -> Option<Error> {
+    if vec.is_empty() {
+        Some(Error::Config {
+            path: PathBuf::new(),
+            message: format!("recipe '{recipe_name}' is missing required field '{field}'"),
+        })
+    } else {
+        None
+    }
 }

@@ -704,3 +704,242 @@ version = "1.0"
     );
     assert!(!err.is_empty(), "missing project.name should fail to parse");
 }
+
+// ── Field validation tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_validation_shell_missing_script() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("script"),
+        "should mention missing 'script': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_rust_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "rust-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_go_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "go-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_c_bin_missing_sources() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "c-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("sources"),
+        "should mention missing 'sources': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_ts_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "ts-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_npm_missing_script() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "npm"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("script"),
+        "should mention missing 'script': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_py_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "py-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_zig_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "zig-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_docker_build_missing_image() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "docker-build"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("image"),
+        "should mention missing 'image': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_docker_push_missing_image() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.push]
+type = "docker-push"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("image"),
+        "should mention missing 'image': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_valid_recipe_with_all_fields() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "rust-bin"
+package = "myapp"
+
+[recipe.test]
+type = "rust-test"
+package = "myapp"
+deps = ["build"]
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_validation_empty_package_rejected() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "rust-bin"
+package = ""
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err(), "empty package should be rejected");
+}
