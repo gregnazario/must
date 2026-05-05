@@ -359,6 +359,9 @@ mod tests {
 
     #[test]
     fn java_bin_execute_real() {
+        if std::process::Command::new("gradle").arg("--version").output().is_err() {
+            return;
+        }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::write(
             tmp.path().join("build.gradle"),
@@ -379,5 +382,38 @@ mod tests {
             Err(must_core::Error::RecipeFailed { .. }) => {}
             Err(e) => panic!("unexpected error: {e:?}"),
         }
+    }
+
+    #[test]
+    fn java_bin_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = JavaBinRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn java_bin_workdir_not_dot_dry_run() {
+        let r = JavaBinRecipe::new("build", "services/api");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("services/api"));
+    }
+
+    #[test]
+    fn java_test_inputs_outputs_empty() {
+        let r = JavaTestRecipe::new("test", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 }

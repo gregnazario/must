@@ -321,6 +321,26 @@ mod tests {
         }
     }
 
+    fn ctx_with_path() -> BuildContext {
+        let mut env = HashMap::new();
+        if let Ok(path) = std::env::var("PATH") {
+            env.insert("PATH".to_string(), path);
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            env.insert("HOME".to_string(), home);
+        }
+        BuildContext {
+            project_root: PathBuf::from("/tmp"),
+            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env,
+            dry_run: false,
+            parallelism: 1,
+        }
+    }
+
     #[test]
     fn dotnet_build_cache_strategy_is_hash() {
         let r = DotnetBuildRecipe::new("build", ".");
@@ -455,5 +475,62 @@ mod tests {
         drop(cache);
         let out = r.execute(&ctx).unwrap();
         assert!(out.from_cache);
+    }
+
+    #[test]
+    fn dotnet_build_execute_real() {
+        if std::process::Command::new("dotnet")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = DotnetBuildRecipe::new("build", "MyApp.csproj");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "build");
+                assert!(!out.from_cache);
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn dotnet_build_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = DotnetBuildRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn dotnet_test_inputs_outputs_empty() {
+        let r = DotnetTestRecipe::new("test", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn dotnet_publish_inputs_outputs_empty() {
+        let r = DotnetPublishRecipe::new("publish", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 }

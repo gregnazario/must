@@ -1,0 +1,12 @@
+[project]
+name = "swift-app"
+version = "1.0.0"
+
+[recipe.build]
+type = "swift-bin"
+package = "."
+
+[recipe.test]
+type = "swift-test"
+package = "."
+deps = ["build"]

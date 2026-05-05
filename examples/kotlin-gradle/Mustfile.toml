@@ -1,0 +1,12 @@
+[project]
+name = "kotlin-gradle"
+version = "1.0.0"
+
+[recipe.build]
+type = "kotlin-bin"
+package = "."
+
+[recipe.test]
+type = "kotlin-test"
+package = "."
+deps = ["build"]

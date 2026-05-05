@@ -1,0 +1,12 @@
+[project]
+name = "dart-app"
+version = "1.0.0"
+
+[recipe.build]
+type = "dart-bin"
+package = "bin/main.dart"
+
+[recipe.test]
+type = "dart-test"
+package = "."
+deps = ["build"]

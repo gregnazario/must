@@ -1,0 +1,17 @@
+[project]
+name = "dotnet-app"
+version = "1.0.0"
+
+[recipe.build]
+type = "dotnet-build"
+package = "MyApp.csproj"
+
+[recipe.test]
+type = "dotnet-test"
+package = "MyApp.Tests"
+deps = ["build"]
+
+[recipe.publish]
+type = "dotnet-publish"
+package = "MyApp.csproj"
+deps = ["test"]

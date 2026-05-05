@@ -448,4 +448,46 @@ final class TestPkgTests: XCTestCase { func testExample() { XCTAssertEqual(1, 1)
             Err(e) => panic!("unexpected error: {e:?}"),
         }
     }
+
+    #[test]
+    fn swift_bin_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = SwiftBinRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn swift_bin_cache_store_and_hit() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let key = {
+            let r = SwiftBinRecipe::new("build", ".");
+            r.cache_key(&c).unwrap()
+        };
+        let cache = must_cache::store::DiskCache::open(&c.cache_dir).unwrap();
+        cache.store(&key, &[]).unwrap();
+        drop(cache);
+        let r = SwiftBinRecipe::new("build", ".");
+        let out = r.execute(&c).unwrap();
+        assert!(out.from_cache);
+    }
+
+    #[test]
+    fn swift_test_inputs_outputs_empty() {
+        let r = SwiftTestRecipe::new("test", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
 }

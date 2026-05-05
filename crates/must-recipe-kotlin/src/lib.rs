@@ -344,4 +344,28 @@ mod tests {
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("libs/core"));
     }
+
+    #[test]
+    fn kotlin_bin_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = KotlinBinRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn kotlin_test_inputs_outputs_empty() {
+        let r = KotlinTestRecipe::new("test", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
 }

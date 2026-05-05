@@ -1,0 +1,12 @@
+[project]
+name = "java-gradle"
+version = "1.0.0"
+
+[recipe.build]
+type = "java-bin"
+package = "."
+
+[recipe.test]
+type = "java-test"
+package = "."
+deps = ["build"]

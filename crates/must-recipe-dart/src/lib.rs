@@ -158,7 +158,7 @@ impl Recipe for DartBinRecipe {
                 duration_ms: 0,
             });
         }
-        let dir = workdir_path(ctx, &self.package);
+        let dir = ctx.project_root.clone();
         let args = vec!["compile", "exe", &self.package];
         let mut result = run_dart(&args, ctx, &self.env, &dir)?;
         result.recipe_name = self.name.clone();
@@ -241,6 +241,26 @@ mod tests {
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        }
+    }
+
+    fn ctx_with_path() -> BuildContext {
+        let mut env = HashMap::new();
+        if let Ok(path) = std::env::var("PATH") {
+            env.insert("PATH".to_string(), path);
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            env.insert("HOME".to_string(), home);
+        }
+        BuildContext {
+            project_root: PathBuf::from("/tmp"),
+            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env,
             dry_run: false,
             parallelism: 1,
         }
@@ -343,5 +363,59 @@ mod tests {
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("pkgs/api"));
+    }
+
+    #[test]
+    fn dart_bin_execute_real() {
+        if std::process::Command::new("dart")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let bindir = tmp.path().join("bin");
+        std::fs::create_dir_all(&bindir).unwrap();
+        std::fs::write(bindir.join("main.dart"), "void main() { print('hello'); }\n").unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let mut r = DartBinRecipe::new("build", "bin/main.dart");
+        r.package = "bin/main.dart".to_string();
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "build");
+                assert!(!out.from_cache);
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn dart_bin_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = DartBinRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn dart_test_inputs_outputs_empty() {
+        let r = DartTestRecipe::new("test", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 }

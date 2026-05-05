@@ -1,0 +1,12 @@
+[project]
+name = "ruby-app"
+version = "1.0.0"
+
+[recipe.build]
+type = "ruby-bin"
+package = "."
+
+[recipe.test]
+type = "ruby-test"
+package = "."
+deps = ["build"]
