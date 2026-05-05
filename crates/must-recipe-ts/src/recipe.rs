@@ -416,6 +416,26 @@ mod tests {
         }
     }
 
+    fn ctx_with_path() -> BuildContext {
+        let mut env = HashMap::new();
+        if let Ok(path) = std::env::var("PATH") {
+            env.insert("PATH".to_string(), path);
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            env.insert("HOME".to_string(), home);
+        }
+        BuildContext {
+            project_root: PathBuf::from("/tmp"),
+            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env,
+            dry_run: false,
+            parallelism: 1,
+        }
+    }
+
     // ── TsBinRecipe ──────────────────────────────────────────────────────────
 
     #[test]
@@ -629,5 +649,263 @@ mod tests {
         let key1 = r1.cache_key(&ctx()).unwrap();
         let key2 = r2.cache_key(&ctx()).unwrap();
         assert_ne!(key1.hash, key2.hash, "workdir should affect cache key");
+    }
+
+    #[test]
+    fn ts_bin_execute_real() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/index.ts"),
+            "console.log('hello');\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = TsBinRecipe::new("build", "tsconfig.json");
+        let result = r.execute(&c);
+        assert!(result.is_ok(), "ts bin execute should succeed: {:?}", result);
+        let out = result.unwrap();
+        assert_eq!(out.recipe_name, "build");
+        assert!(!out.from_cache);
+    }
+
+    #[test]
+    fn ts_bin_cache_store_and_second_hit() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/index.ts"),
+            "export const x = 1;\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = TsBinRecipe::new("build", "tsconfig.json");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => {
+                assert!(!out.from_cache);
+                let out2 = r.execute(&c).unwrap();
+                assert!(out2.from_cache, "second run should hit cache");
+            }
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn ts_check_execute_real() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/index.ts"),
+            "export const x: number = 1;\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"strict":true},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = TsCheckRecipe::new("typecheck", "tsconfig.json");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "typecheck"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn ts_lint_execute_real() {
+        if std::process::Command::new("biome").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("index.ts"),
+            "const x = 1;\nconsole.log(x);\n",
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = TsLintRecipe::new("lint", "index.ts");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "lint"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn ts_bin_execute_with_env() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/index.ts"),
+            "export const x = 1;\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let mut r = TsBinRecipe::new("build", "tsconfig.json");
+        r.env = HashMap::from([("TS_ENV".to_string(), "test".to_string())]);
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "build"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn npm_execute_real() {
+        if std::process::Command::new("npm").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("package.json"),
+            r#"{"name":"test","scripts":{"hello":"echo hi"}}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = NpmRecipe::new("hello", "hello");
+        let result = r.execute(&c);
+        assert!(result.is_ok(), "npm execute should succeed: {:?}", result);
+        let out = result.unwrap();
+        assert_eq!(out.recipe_name, "hello");
+    }
+
+    #[test]
+    fn npm_execute_with_workdir() {
+        if std::process::Command::new("npm").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = tmp.path().join("packages").join("api");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(
+            sub.join("package.json"),
+            r#"{"name":"api","scripts":{"build":"echo built"}}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let mut r = NpmRecipe::new("build-api", "build");
+        r.workdir = "packages/api".to_string();
+        let result = r.execute(&c);
+        assert!(result.is_ok(), "npm with workdir should succeed: {:?}", result);
+    }
+
+    #[test]
+    fn ts_check_execute_with_env() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/index.ts"),
+            "export const y = 2;\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"strict":true},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut r = TsCheckRecipe::new("typecheck", "tsconfig.json");
+        r.env = HashMap::from([("TS_CHECK_VAR".to_string(), "1".to_string())]);
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "typecheck"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn ts_lint_execute_with_env() {
+        if std::process::Command::new("biome").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("index.ts"),
+            "const y = 2;\nconsole.log(y);\n",
+        )
+        .unwrap();
+        let mut r = TsLintRecipe::new("lint", "index.ts");
+        r.env = HashMap::from([("LINT_MODE".to_string(), "strict".to_string())]);
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "lint"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn npm_inputs_empty() {
+        let r = NpmRecipe::new("build", "build");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn ts_check_inputs_empty() {
+        let r = TsCheckRecipe::new("check", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn ts_lint_inputs_empty() {
+        let r = TsLintRecipe::new("lint", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
     }
 }

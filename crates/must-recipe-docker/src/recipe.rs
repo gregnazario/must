@@ -343,4 +343,95 @@ mod tests {
             r2.cache_key(&ctx()).unwrap().hash
         );
     }
+
+    #[test]
+    fn docker_build_cache_store_and_second_hit() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = DockerBuildRecipe::new("build", "testimg:v1");
+        let key = r.cache_key(&ctx).unwrap();
+        let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
+        cache.store(&key, &[]).unwrap();
+        drop(cache);
+        let out1 = r.execute(&ctx).unwrap();
+        assert!(out1.from_cache);
+    }
+
+    #[test]
+    fn docker_build_with_custom_dockerfile_and_context() {
+        let mut r = DockerBuildRecipe::new("custom", "myapp:v2");
+        r.dockerfile = "Dockerfile.prod".to_string();
+        r.context = "deploy".to_string();
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("Dockerfile.prod"));
+        assert!(out.stdout.contains("deploy"));
+    }
+
+    #[test]
+    fn docker_build_with_build_args_dry_run() {
+        let mut r = DockerBuildRecipe::new("build", "app:latest");
+        r.build_args = vec!["VERSION=1.0".to_string(), "ENV=prod".to_string()];
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert!(out.stdout.contains("app:latest"));
+    }
+
+    #[test]
+    fn docker_push_name_and_image() {
+        let r = DockerPushRecipe::new("push", "myregistry/myapp:v1");
+        assert_eq!(r.name(), "push");
+        assert_eq!(r.image, "myregistry/myapp:v1");
+    }
+
+    #[test]
+    fn docker_push_inputs_outputs_empty() {
+        let r = DockerPushRecipe::new("push", "img");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn docker_push_deps_empty() {
+        let r = DockerPushRecipe::new("push", "img");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn docker_build_with_env_dry_run() {
+        let mut r = DockerBuildRecipe::new("build", "app:test");
+        r.env = HashMap::from([("DOCKER_BUILDKIT".to_string(), "1".to_string())]);
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+    }
+
+    #[test]
+    fn docker_push_with_env_dry_run() {
+        let mut r = DockerPushRecipe::new("push", "app:test");
+        r.env = HashMap::from([("DOCKER_HOST".to_string(), "tcp://localhost:2375".to_string())]);
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+    }
+
+    #[test]
+    fn docker_build_inputs_empty() {
+        let r = DockerBuildRecipe::new("build", "img");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
 }

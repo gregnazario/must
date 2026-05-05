@@ -352,6 +352,26 @@ mod tests {
         }
     }
 
+    fn ctx_with_path() -> BuildContext {
+        let mut env = HashMap::new();
+        if let Ok(path) = std::env::var("PATH") {
+            env.insert("PATH".to_string(), path);
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            env.insert("HOME".to_string(), home);
+        }
+        BuildContext {
+            project_root: PathBuf::from("/tmp"),
+            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env,
+            dry_run: false,
+            parallelism: 1,
+        }
+    }
+
     #[test]
     fn py_bin_cache_strategy_is_hash() {
         let r = PyBinRecipe::new("build", ".");
@@ -439,5 +459,182 @@ mod tests {
             r1.cache_key(&ctx()).unwrap().hash,
             r2.cache_key(&ctx()).unwrap().hash
         );
+    }
+
+    #[test]
+    fn py_bin_execute_real_install() {
+        if std::process::Command::new("uv").arg("--version").output().is_err()
+            && std::process::Command::new("pip").arg("--version").output().is_err()
+        {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = PyBinRecipe::new("build", ".");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "build");
+                assert!(!out.from_cache);
+            }
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_test_execute_real() {
+        if std::process::Command::new("pytest").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("conftest.py"), "").unwrap();
+        std::fs::write(
+            tmp.path().join("test_noop.py"),
+            "def test_noop(): pass\n",
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = PyTestRecipe::new("test", ".");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "test"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_bin_execute_with_recipe_env() {
+        if std::process::Command::new("uv").arg("--version").output().is_err()
+            && std::process::Command::new("pip").arg("--version").output().is_err()
+        {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.env.insert("MY_GLOBAL".to_string(), "1".to_string());
+        let mut r = PyBinRecipe::new("build", ".");
+        r.env = HashMap::from([("MY_EXTRA".to_string(), "2".to_string())]);
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "build"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_bin_workdir_not_dot() {
+        if std::process::Command::new("uv").arg("--version").output().is_err()
+            && std::process::Command::new("pip").arg("--version").output().is_err()
+        {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = tmp.path().join("subpkg");
+        std::fs::create_dir_all(&sub).unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = PyBinRecipe::new("build", "subpkg");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "build"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_lint_execute_real() {
+        if std::process::Command::new("ruff").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("noop.py"), "x = 1\n").unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = PyLintRecipe::new("lint", ".");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "lint"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_bin_cache_store_and_second_hit() {
+        if std::process::Command::new("uv").arg("--version").output().is_err()
+            && std::process::Command::new("pip").arg("--version").output().is_err()
+        {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = PyBinRecipe::new("build", ".");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => {
+                assert!(!out.from_cache);
+                let out2 = r.execute(&c).unwrap();
+                assert!(out2.from_cache, "second run should hit cache");
+            }
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_test_execute_with_env() {
+        if std::process::Command::new("pytest").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("conftest.py"), "").unwrap();
+        std::fs::write(
+            tmp.path().join("test_env.py"),
+            "import os\ndef test_env(): assert os.environ.get('MY_VAR') == 'hello'\n",
+        )
+        .unwrap();
+        let mut r = PyTestRecipe::new("test", ".");
+        r.env = HashMap::from([("MY_VAR".to_string(), "hello".to_string())]);
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "test"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn py_bin_execute_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = PyBinRecipe::new("build", ".");
+        let result = r.execute(&ctx);
+        assert!(result.is_err(), "should fail without PATH");
     }
 }

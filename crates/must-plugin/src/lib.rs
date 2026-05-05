@@ -646,4 +646,182 @@ end
         assert!(output.stdout.contains("false"), "got: {}", output.stdout);
         assert!(output.stdout.contains("code=42"), "got: {}", output.stdout);
     }
+
+    #[test]
+    fn test_stdlib_glob_no_matches() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("glob_empty.lua");
+        std::fs::write(
+            &plugin_path,
+            &format!(
+                r#"
+function execute(ctx)
+    local files = glob("{base}/*.nonexistent")
+    return {{ stdout = tostring(#files), stderr = "", success = true }}
+end
+"#,
+                base = dir.path().display()
+            ),
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("glob_empty", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "0");
+    }
+
+    #[test]
+    fn test_stdlib_env_get_missing() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("env_missing.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    local val = env_get("MUST_DEFINITELY_NOT_SET_XYZ123")
+    local result = val == nil and "nil" or val
+    return { stdout = result, stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("env_missing", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "nil");
+    }
+
+    #[test]
+    fn test_stdlib_set_env() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("setenv.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    set_env("MUST_SET_TEST", "hello")
+    local val = env_get("MUST_SET_TEST") or "missing"
+    return { stdout = val, stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("setenv", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "hello");
+    }
+
+    #[test]
+    fn test_stdlib_log_info() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("loginfo.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    log_info("test info message")
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("loginfo", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "ok");
+    }
+
+    #[test]
+    fn test_stdlib_log_warn() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("logwarn.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    log_warn("test warning message")
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("logwarn", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "ok");
+    }
+
+    #[test]
+    fn test_stdlib_read_file_missing() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("readmissing.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    local ok, err = pcall(read_file, "/nonexistent/path/file.txt")
+    if ok then
+        return { stdout = "unexpected success", stderr = "", success = true }
+    else
+        return { stdout = "error", stderr = err, success = true }
+    end
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("readmissing", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "error");
+    }
+
+    #[test]
+    fn test_stdlib_write_and_read_roundtrip() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let target = dir.path().join("output.txt");
+        let plugin_path = dir.path().join("roundtrip.lua");
+        std::fs::write(
+            &plugin_path,
+            &format!(
+                r#"
+function execute(ctx)
+    write_file("{path}", "hello world")
+    local content = read_file("{path}")
+    return {{ stdout = content, stderr = "", success = true }}
+end
+"#,
+                path = target.display()
+            ),
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("roundtrip", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "hello world");
+    }
+
+    #[test]
+    fn test_stdlib_mkdir_nested() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let nested = dir.path().join("a/b/c");
+        let plugin_path = dir.path().join("mkdir_nested.lua");
+        std::fs::write(
+            &plugin_path,
+            &format!(
+                r#"
+function execute(ctx)
+    mkdir("{path}")
+    return {{ stdout = tostring(file_exists("{path}")), stderr = "", success = true }}
+end
+"#,
+                path = nested.display()
+            ),
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("mkdir_nested", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout.trim(), "true");
+    }
 }
