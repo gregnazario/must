@@ -30,6 +30,7 @@ must-recipe-swift = { path = "../must-recipe-swift" }
 must-recipe-dart = { path = "../must-recipe-dart" }
 must-recipe-dotnet = { path = "../must-recipe-dotnet" }
 must-recipe-ruby = { path = "../must-recipe-ruby" }
+must-recipe-elixir = { path = "../must-recipe-elixir" }
 must-import = { path = "../must-import" }
 must-plugin = { path = "../must-plugin" }
 tokio = { workspace = true }

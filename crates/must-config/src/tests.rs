@@ -979,6 +979,23 @@ type = "dart-bin"
 }
 
 #[test]
+fn test_validation_elixir_build_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "elixir-build"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+}
+
+#[test]
 fn test_validation_docker_build_missing_image() {
     let cfg = parse(
         r#"
@@ -1393,4 +1410,38 @@ package = "test/"
 "#,
     );
     assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::DartTest);
+}
+
+// ── Elixir recipe types ─────────────────────────────────────────────────────
+
+#[test]
+fn test_elixir_build_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "elixir-build"
+package = "."
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::ElixirBuild);
+    assert_eq!(r.package.as_deref(), Some("."));
+}
+
+#[test]
+fn test_elixir_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "elixir-test"
+package = "apps/api"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::ElixirTest);
 }

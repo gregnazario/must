@@ -24,6 +24,7 @@ members = [
     "crates/must-recipe-dotnet",
     "crates/must-recipe-ruby",
     "crates/must-recipe-dart",
+    "crates/must-recipe-elixir",
 ]
 
 [workspace.package]

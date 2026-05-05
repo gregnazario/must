@@ -8,6 +8,7 @@ use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_dart::{DartBinRecipe, DartTestRecipe};
 use must_recipe_docker::{DockerBuildRecipe, DockerPushRecipe};
 use must_recipe_dotnet::{DotnetBuildRecipe, DotnetPublishRecipe, DotnetTestRecipe};
+use must_recipe_elixir::{ElixirBuildRecipe, ElixirTestRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_java::{JavaBinRecipe, JavaTestRecipe};
 use must_recipe_kotlin::{KotlinBinRecipe, KotlinTestRecipe};
@@ -1518,8 +1519,26 @@ async fn execute_recipes(
                  };
                  recipe_map.insert(name.clone(), Arc::new(r));
              }
-             RecipeType::DartTest => {
-                 let r = DartTestRecipe {
+              RecipeType::DartTest => {
+                  let r = DartTestRecipe {
+                      name: name.clone(),
+                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                      deps: recipe_cfg.deps.clone(),
+                      env,
+                  };
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
+             RecipeType::ElixirBuild => {
+                 let r = ElixirBuildRecipe {
+                     name: name.clone(),
+                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                     deps: recipe_cfg.deps.clone(),
+                     env,
+                 };
+                 recipe_map.insert(name.clone(), Arc::new(r));
+             }
+             RecipeType::ElixirTest => {
+                 let r = ElixirTestRecipe {
                      name: name.clone(),
                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
                      deps: recipe_cfg.deps.clone(),
@@ -2100,6 +2119,14 @@ fn explain_recipe(
             "dart test (in {})",
             recipe.package.as_deref().unwrap_or(".")
         ),
+        RecipeType::ElixirBuild => format!(
+            "mix deps.get && mix compile (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::ElixirTest => format!(
+            "mix test (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -2280,6 +2307,8 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::RubyTest => "ruby-test",
         RecipeType::DartBin => "dart-bin",
         RecipeType::DartTest => "dart-test",
+        RecipeType::ElixirBuild => "elixir-build",
+        RecipeType::ElixirTest => "elixir-test",
     }
 }
 
@@ -2492,6 +2521,7 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::DotnetBuild | RecipeType::DotnetTest | RecipeType::DotnetPublish => ("c#", "\x1b[35m"),
         RecipeType::RubyBin | RecipeType::RubyTest => ("rb", "\x1b[31m"),
         RecipeType::DartBin | RecipeType::DartTest => ("dart", "\x1b[36m"),
+        RecipeType::ElixirBuild | RecipeType::ElixirTest => ("ex", "\x1b[35m"),
     }
 }
 
@@ -2966,6 +2996,8 @@ mod tests {
             RecipeType::RubyTest,
             RecipeType::DartBin,
             RecipeType::DartTest,
+            RecipeType::ElixirBuild,
+            RecipeType::ElixirTest,
         ];
         for rtype in types {
             let mut config = make_config();

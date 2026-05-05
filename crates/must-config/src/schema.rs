@@ -120,6 +120,8 @@ pub enum RecipeType {
     RubyTest,
     DartBin,
     DartTest,
+    ElixirBuild,
+    ElixirTest,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

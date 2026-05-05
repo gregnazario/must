@@ -61,6 +61,9 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::DartBin | RecipeType::DartTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
+            RecipeType::ElixirBuild | RecipeType::ElixirTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
         };
 
         if let Some(err) = missing {

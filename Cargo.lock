@@ -970,6 +970,7 @@ dependencies = [
  "must-recipe-dart",
  "must-recipe-docker",
  "must-recipe-dotnet",
+ "must-recipe-elixir",
  "must-recipe-go",
  "must-recipe-java",
  "must-recipe-kotlin",
@@ -1084,6 +1085,15 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-dotnet"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-elixir"
 version = "0.1.0"
 dependencies = [
  "must-cache",
