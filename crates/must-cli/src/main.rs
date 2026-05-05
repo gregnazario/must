@@ -128,6 +128,8 @@ enum Commands {
         #[command(subcommand)]
         action: CacheAction,
     },
+    /// Show which recipes have stale or missing caches
+    Outdated,
     /// Run a recipe by name directly (e.g. `must lint` → `must run lint`)
     #[command(external_subcommand)]
     External(Vec<String>),
@@ -391,10 +393,8 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                         println!("Invalidated {count} cache entries.");
                     } else if let Some(name) = recipe {
                         let entries = cache.list_entries()?;
-                        let matching: Vec<_> = entries
-                            .iter()
-                            .filter(|(r, _, _, _)| r == &name)
-                            .collect();
+                        let matching: Vec<_> =
+                            entries.iter().filter(|(r, _, _, _)| r == &name).collect();
                         if matching.is_empty() {
                             println!("No cache entries for '{name}'.");
                             return Ok(());
@@ -431,6 +431,71 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                     }
                 }
             }
+        }
+        Commands::Outdated => {
+            let project_root = mustfile_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            let cache_dir = project_root.join(".mustfile").join("cache");
+
+            if !cache_dir.exists() {
+                println!("No cache directory found. Run a build first.");
+                return Ok(());
+            }
+
+            let cache = must_cache::store::DiskCache::open(&cache_dir)?;
+            use must_core::Cache;
+
+            let mut stale_count = 0;
+            let mut fresh_count = 0;
+            let mut miss_count = 0;
+
+            for (name, recipe_cfg) in &config.recipe {
+                let rts = recipe_type_tag(&recipe_cfg.recipe_type);
+                let env = must_engine::compose_env(
+                    &config,
+                    name,
+                    &cli.profile,
+                    &HashMap::new(),
+                );
+                let env_btree: std::collections::BTreeMap<String, String> = env
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+                let hash = must_cache::hash::compute_hash(
+                    name,
+                    rts,
+                    &[],
+                    &env_btree,
+                    "",
+                    &std::collections::BTreeMap::new(),
+                );
+                let key = must_core::CacheKey {
+                    recipe: name.clone(),
+                    target: "host".to_string(),
+                    profile: cli.profile.clone(),
+                    hash,
+                };
+
+                let (status, icon, color) = match cache.lookup(&key) {
+                    Ok(must_core::CacheLookup::Hit) => {
+                        fresh_count += 1;
+                        ("fresh", "✓", "\x1b[32m")
+                    }
+                    Ok(must_core::CacheLookup::Stale) => {
+                        stale_count += 1;
+                        ("stale", "⚠", "\x1b[33m")
+                    }
+                    _ => {
+                        miss_count += 1;
+                        ("miss", "✗", "\x1b[31m")
+                    }
+                };
+                let reset = "\x1b[0m";
+                println!("{color}{icon}{reset} {name:<20} \x1b[2m[{status}]\x1b[0m");
+            }
+
+            println!("\n{fresh_count} fresh, {stale_count} stale, {miss_count} missing");
         }
     }
 
@@ -1194,27 +1259,7 @@ fn explain_recipe(
     }
 
     // Compute cache key
-    let recipe_type_str = match recipe.recipe_type {
-        RecipeType::Shell => "shell",
-        RecipeType::RustBin => "rust-bin",
-        RecipeType::RustLib => "rust-lib",
-        RecipeType::RustTest => "rust-test",
-        RecipeType::GoBin => "go-bin",
-        RecipeType::GoTest => "go-test",
-        RecipeType::CBin => "c-bin",
-        RecipeType::CLib => "c-lib",
-        RecipeType::TsBin => "ts-bin",
-        RecipeType::TsCheck => "ts-check",
-        RecipeType::TsLint => "ts-lint",
-        RecipeType::Npm => "npm",
-        RecipeType::PyBin => "py-bin",
-        RecipeType::PyTest => "py-test",
-        RecipeType::PyLint => "py-lint",
-        RecipeType::ZigBin => "zig-bin",
-        RecipeType::ZigTest => "zig-test",
-        RecipeType::DockerBuild => "docker-build",
-        RecipeType::DockerPush => "docker-push",
-    };
+    let recipe_type_str = recipe_type_tag(&recipe.recipe_type);
     let env_btree: BTreeMap<String, String> = relevant_env
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -1299,6 +1344,30 @@ fn dir_size(path: &std::path::Path) -> std::io::Result<u64> {
         }
     }
     Ok(total)
+}
+
+fn recipe_type_tag(rt: &RecipeType) -> &'static str {
+    match rt {
+        RecipeType::Shell => "shell",
+        RecipeType::RustBin => "rust-bin",
+        RecipeType::RustLib => "rust-lib",
+        RecipeType::RustTest => "rust-test",
+        RecipeType::GoBin => "go-bin",
+        RecipeType::GoTest => "go-test",
+        RecipeType::CBin => "c-bin",
+        RecipeType::CLib => "c-lib",
+        RecipeType::TsBin => "ts-bin",
+        RecipeType::TsCheck => "ts-check",
+        RecipeType::TsLint => "ts-lint",
+        RecipeType::Npm => "npm",
+        RecipeType::PyBin => "py-bin",
+        RecipeType::PyTest => "py-test",
+        RecipeType::PyLint => "py-lint",
+        RecipeType::ZigBin => "zig-bin",
+        RecipeType::ZigTest => "zig-test",
+        RecipeType::DockerBuild => "docker-build",
+        RecipeType::DockerPush => "docker-push",
+    }
 }
 
 fn run_doctor() {
