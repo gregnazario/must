@@ -69,6 +69,16 @@ enum Commands {
         /// Specific recipes to test (default: "test")
         recipes: Vec<String>,
     },
+    /// Run the default 'fmt' recipe
+    Fmt {
+        /// Specific recipes to format (default: "fmt")
+        recipes: Vec<String>,
+    },
+    /// Run the default 'lint' recipe
+    Lint {
+        /// Specific recipes to lint (default: "lint")
+        recipes: Vec<String>,
+    },
     /// List all recipes
     List {
         /// Output only recipe names (one per line, for shell completions)
@@ -300,6 +310,46 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             )
             .await?;
         }
+        Commands::Fmt { recipes } => {
+            let target_recipes = if recipes.is_empty() {
+                vec!["fmt".to_string()]
+            } else {
+                recipes
+            };
+            execute_recipes(
+                &config,
+                &mustfile_path,
+                RunOpts {
+                    profile: &cli.profile,
+                    parallelism: cli.parallelism,
+                    dry_run: cli.dry_run,
+                    fail_fast: cli.fail_fast,
+                    target_recipes,
+                    targets: &targets,
+                },
+            )
+            .await?;
+        }
+        Commands::Lint { recipes } => {
+            let target_recipes = if recipes.is_empty() {
+                vec!["lint".to_string()]
+            } else {
+                recipes
+            };
+            execute_recipes(
+                &config,
+                &mustfile_path,
+                RunOpts {
+                    profile: &cli.profile,
+                    parallelism: cli.parallelism,
+                    dry_run: cli.dry_run,
+                    fail_fast: cli.fail_fast,
+                    target_recipes,
+                    targets: &targets,
+                },
+            )
+            .await?;
+        }
         Commands::Explain { recipe } => {
             explain_recipe(&config, &mustfile_path, &cli.profile, &recipe)?;
         }
@@ -452,16 +502,9 @@ async fn run(cli: Cli) -> must_core::Result<()> {
 
             for (name, recipe_cfg) in &config.recipe {
                 let rts = recipe_type_tag(&recipe_cfg.recipe_type);
-                let env = must_engine::compose_env(
-                    &config,
-                    name,
-                    &cli.profile,
-                    &HashMap::new(),
-                );
-                let env_btree: std::collections::BTreeMap<String, String> = env
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
+                let env = must_engine::compose_env(&config, name, &cli.profile, &HashMap::new());
+                let env_btree: std::collections::BTreeMap<String, String> =
+                    env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
                 let hash = must_cache::hash::compute_hash(
                     name,
                     rts,
