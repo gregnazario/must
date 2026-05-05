@@ -615,10 +615,15 @@ async fn execute_recipes(
             continue;
         }
         let env = compose_env(config, name, profile, &HashMap::new());
+
+        let expand = |s: &str| -> String { expand_env_vars(s, &env) };
+
         match recipe_cfg.recipe_type {
             RecipeType::Shell => {
-                let mut shell =
-                    ShellRecipe::new(name.clone(), recipe_cfg.script.clone().unwrap_or_default());
+                let mut shell = ShellRecipe::new(
+                    name.clone(),
+                    expand(&recipe_cfg.script.clone().unwrap_or_default()),
+                );
                 shell.deps = recipe_cfg.deps.clone();
                 shell.inputs = recipe_cfg.inputs.clone();
                 shell.outputs = recipe_cfg.outputs.clone();
@@ -667,7 +672,7 @@ async fn execute_recipes(
                         .clone()
                         .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
-                    ldflags: recipe_cfg.ldflags.clone(),
+                    ldflags: recipe_cfg.ldflags.as_deref().map(&expand),
                     build_tags: Vec::new(),
                     env,
                 };
@@ -751,7 +756,7 @@ async fn execute_recipes(
             RecipeType::Npm => {
                 let mut r = NpmRecipe::new(
                     name.clone(),
-                    recipe_cfg.script.clone().unwrap_or_else(|| name.clone()),
+                    expand(&recipe_cfg.script.clone().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.workdir = recipe_cfg
@@ -824,25 +829,27 @@ async fn execute_recipes(
             RecipeType::DockerBuild => {
                 let mut r = DockerBuildRecipe::new(
                     name.clone(),
-                    recipe_cfg.image.clone().unwrap_or_else(|| name.clone()),
+                    expand(&recipe_cfg.image.clone().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
-                r.dockerfile = recipe_cfg
-                    .dockerfile
-                    .clone()
-                    .unwrap_or_else(|| ".".to_string());
+                r.dockerfile = expand(
+                    &recipe_cfg
+                        .dockerfile
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                );
                 r.context = recipe_cfg
                     .package
                     .clone()
                     .unwrap_or_else(|| ".".to_string());
-                r.build_args = recipe_cfg.build_args.clone();
+                r.build_args = recipe_cfg.build_args.iter().map(|a| expand(a)).collect();
                 r.env = env;
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
             RecipeType::DockerPush => {
                 let mut r = DockerPushRecipe::new(
                     name.clone(),
-                    recipe_cfg.image.clone().unwrap_or_else(|| name.clone()),
+                    expand(&recipe_cfg.image.clone().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.env = env;
@@ -1084,6 +1091,15 @@ fn resolve_targets(raw_targets: &[String], config: &Config) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     resolved.retain(|t| seen.insert(t.clone()));
     resolved
+}
+
+fn expand_env_vars(s: &str, env: &HashMap<String, String>) -> String {
+    let mut result = s.to_string();
+    for (key, value) in env {
+        let pattern = format!("${{{key}}}");
+        result = result.replace(&pattern, value);
+    }
+    result
 }
 
 fn print_check(label: &str, ok: bool, hint: &str) {
@@ -1919,5 +1935,35 @@ mod tests {
             "writer always quotes recipe names"
         );
         assert_eq!(result.todo_count, 0);
+    }
+
+    #[test]
+    fn test_expand_env_vars_basic() {
+        let env = HashMap::from([
+            ("REGISTRY".to_string(), "ghcr.io/myorg".to_string()),
+            ("TAG".to_string(), "v1.0".to_string()),
+        ]);
+        assert_eq!(
+            expand_env_vars("${REGISTRY}/api:${TAG}", &env),
+            "ghcr.io/myorg/api:v1.0"
+        );
+    }
+
+    #[test]
+    fn test_expand_env_vars_no_match() {
+        let env = HashMap::new();
+        assert_eq!(
+            expand_env_vars("${MISSING}/api", &env),
+            "${MISSING}/api"
+        );
+    }
+
+    #[test]
+    fn test_expand_env_vars_partial() {
+        let env = HashMap::from([("REGISTRY".to_string(), "ghcr.io/myorg".to_string())]);
+        assert_eq!(
+            expand_env_vars("${REGISTRY}/api:${TAG}", &env),
+            "ghcr.io/myorg/api:${TAG}"
+        );
     }
 }

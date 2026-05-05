@@ -10,35 +10,35 @@ REGISTRY = "ghcr.io/myorg"
 
 [recipe.api-image]
 type       = "docker-build"
-image      = "{{ env.REGISTRY }}/api:latest"
+image      = "${REGISTRY}/api:latest"
 dockerfile = "services/api/Dockerfile"
 package    = "."
 
 [recipe.web-image]
 type       = "docker-build"
-image      = "{{ env.REGISTRY }}/web:latest"
+image      = "${REGISTRY}/web:latest"
 dockerfile = "services/web/Dockerfile"
 package    = "."
 
 [recipe.worker-image]
 type       = "docker-build"
-image      = "{{ env.REGISTRY }}/worker:latest"
+image      = "${REGISTRY}/worker:latest"
 dockerfile = "services/worker/Dockerfile"
 package    = "."
 
 [recipe.push-api]
 type    = "docker-push"
-image   = "{{ env.REGISTRY }}/api:latest"
+image   = "${REGISTRY}/api:latest"
 deps    = ["api-image"]
 
 [recipe.push-web]
 type    = "docker-push"
-image   = "{{ env.REGISTRY }}/web:latest"
+image   = "${REGISTRY}/web:latest"
 deps    = ["web-image"]
 
 [recipe.push-worker]
 type    = "docker-push"
-image   = "{{ env.REGISTRY }}/worker:latest"
+image   = "${REGISTRY}/worker:latest"
 deps    = ["worker-image"]
 
 [recipe.push-all]
@@ -50,7 +50,7 @@ script = "echo All images pushed"
 [recipe.test-api]
 type   = "shell"
 phony  = true
-script = "docker run --rm {{ env.REGISTRY }}/api:latest /app/test"
+script = "docker run --rm ${REGISTRY}/api:latest /app/test"
 
 [recipe.ci]
 type   = "shell"
