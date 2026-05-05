@@ -931,20 +931,129 @@ fn print_graph(config: &Config, format: &str) -> must_core::Result<()> {
                 }
             }
         }
+        "dag" => {
+            print_dag_graph(config, &dep_map, &order);
+        }
         _ => {
-            // text (default)
-            println!("Recipe dependency graph:\n");
-            for name in &order {
-                let deps = dep_map.get(name).map(|d| d.as_slice()).unwrap_or(&[]);
-                if deps.is_empty() {
-                    println!("  {name}");
-                } else {
-                    println!("  {name} <- [{}]", deps.join(", "));
-                }
-            }
+            print_tree_graph(config, &dag, &dep_map)?;
         }
     }
     Ok(())
+}
+
+fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
+    match recipe_type {
+        RecipeType::Shell => ("sh", "\x1b[37m"),
+        RecipeType::RustBin | RecipeType::RustLib | RecipeType::RustTest => ("rs", "\x1b[31m"),
+        RecipeType::GoBin | RecipeType::GoTest => ("go", "\x1b[34m"),
+        RecipeType::CBin | RecipeType::CLib => ("cc", "\x1b[32m"),
+        RecipeType::TsBin | RecipeType::TsCheck => ("ts", "\x1b[33m"),
+        RecipeType::TsLint => ("bi", "\x1b[36m"),
+        RecipeType::Npm => ("npm", "\x1b[35m"),
+    }
+}
+
+fn print_tree_graph(
+    config: &Config,
+    dag: &Dag,
+    dep_map: &HashMap<String, Vec<String>>,
+) -> must_core::Result<()> {
+    let waves = dag.waves()?;
+    let reset = "\x1b[0m";
+    let bold = "\x1b[1m";
+    let dim = "\x1b[2m";
+
+    println!("{bold}Recipe dependency graph{reset}\n");
+
+    for (wi, wave) in waves.iter().enumerate() {
+        if waves.len() > 1 {
+            let label = if wi == 0 {
+                "leaf"
+            } else if wi == waves.len() - 1 {
+                "root"
+            } else {
+                "mid"
+            };
+            println!("{dim}  wave {} ({label}){reset}", wi + 1);
+        }
+
+        for (i, name) in wave.iter().enumerate() {
+            let recipe = config.recipe.get(name).unwrap();
+            let (tag, color) = recipe_badge(&recipe.recipe_type);
+            let connector = if wave.len() == 1 {
+                "  "
+            } else if i + 1 < wave.len() {
+                "  ├─ "
+            } else {
+                "  └─ "
+            };
+
+            let deps = dep_map.get(name).map(|d| d.as_slice()).unwrap_or(&[]);
+            let deps_str = if deps.is_empty() {
+                String::new()
+            } else {
+                format!(" {dim}← {}{reset}", deps.join(", "))
+            };
+
+            println!(
+                "{connector}{color}{bold}{name:<20}{reset} {dim}[{tag}]{reset}{deps_str}",
+            );
+        }
+        if waves.len() > 1 && wi + 1 < waves.len() {
+            println!();
+        }
+    }
+    Ok(())
+}
+
+fn print_dag_graph(
+    config: &Config,
+    dep_map: &HashMap<String, Vec<String>>,
+    order: &[String],
+) {
+    let reset = "\x1b[0m";
+    let bold = "\x1b[1m";
+    let dim = "\x1b[2m";
+
+    let max_name_len = order.iter().map(|n| n.len()).max().unwrap_or(0);
+    let node_width = max_name_len + 8;
+
+    let nodes: HashMap<&str, (&str, &str)> = config
+        .recipe
+        .iter()
+        .map(|(name, r)| {
+            let (tag, color) = recipe_badge(&r.recipe_type);
+            (name.as_str(), (tag, color))
+        })
+        .collect();
+
+    println!("{bold}Recipe DAG{reset}\n");
+
+    for name in order {
+        let (tag, color) = nodes.get(name.as_str()).copied().unwrap_or(("?", reset));
+        let pad = node_width.saturating_sub(name.len() + tag.len() + 4);
+        let top = format!("╔{}╗", "═".repeat(node_width));
+        let mid = format!("║ {color}{bold}{name}{reset} {dim}[{tag}]{reset}{}║", " ".repeat(pad));
+        let bot = format!("╚{}╝", "═".repeat(node_width));
+
+        println!("  {top}");
+        println!("  {mid}");
+        println!("  {bot}");
+
+        if let Some(deps) = dep_map.get(name.as_str())
+            && !deps.is_empty()
+        {
+            let dep_labels: Vec<String> = deps
+                .iter()
+                .map(|d| {
+                    let (_, dc) = nodes.get(d.as_str()).copied().unwrap_or(("?", reset));
+                    format!("{dc}{d}{reset}")
+                })
+                .collect();
+            println!("  {dim}  ↓ depends on: {}{reset}", dep_labels.join(", "));
+        }
+        println!();
+    }
 }
 
 fn generate_completions(shell: clap_complete::Shell) -> Vec<u8> {
