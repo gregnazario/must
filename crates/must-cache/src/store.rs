@@ -86,6 +86,42 @@ impl Cache for DiskCache {
     }
 }
 
+impl DiskCache {
+    pub fn list_entries(&self) -> Result<Vec<(String, String, String, String)>> {
+        let mut entries = Vec::new();
+        for item in self.db.iter() {
+            let (key_bytes, value_bytes) = item.map_err(|e| Error::Cache(e.to_string()))?;
+            let key_str = String::from_utf8_lossy(&key_bytes);
+            let parts: Vec<&str> = key_str.split(':').collect();
+            if parts.len() == 3 {
+                let hash = String::from_utf8_lossy(&value_bytes).to_string();
+                entries.push((
+                    parts[0].to_string(),
+                    parts[1].to_string(),
+                    parts[2].to_string(),
+                    hash,
+                ));
+            }
+        }
+        Ok(entries)
+    }
+
+    pub fn invalidate_all(&self) -> Result<usize> {
+        let entries = self.list_entries()?;
+        let count = entries.len();
+        for (recipe, target, profile, hash) in &entries {
+            let key = CacheKey {
+                recipe: recipe.clone(),
+                target: target.clone(),
+                profile: profile.clone(),
+                hash: hash.clone(),
+            };
+            self.invalidate(&key)?;
+        }
+        Ok(count)
+    }
+}
+
 pub fn hash_string(s: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(s.as_bytes());

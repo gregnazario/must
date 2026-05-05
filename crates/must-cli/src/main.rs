@@ -123,9 +123,30 @@ enum Commands {
         /// Recipes to watch and re-run
         recipes: Vec<String>,
     },
+    /// Manage the build cache
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
     /// Run a recipe by name directly (e.g. `must lint` → `must run lint`)
     #[command(external_subcommand)]
     External(Vec<String>),
+}
+
+#[derive(Subcommand)]
+enum CacheAction {
+    /// List cached recipes
+    List,
+    /// Invalidate cache for a specific recipe (or --all)
+    Invalidate {
+        /// Recipe name to invalidate
+        recipe: Option<String>,
+        /// Invalidate all cache entries
+        #[arg(long)]
+        all: bool,
+    },
+    /// Show cache disk usage
+    Du,
 }
 
 #[tokio::main]
@@ -324,6 +345,92 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 &targets_owned,
             )
             .await?;
+        }
+        Commands::Cache { action } => {
+            let cache_dir = mustfile_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join(".mustfile")
+                .join("cache");
+            match action {
+                CacheAction::List => {
+                    if !cache_dir.exists() {
+                        println!("No cache directory found.");
+                        return Ok(());
+                    }
+                    let cache = must_cache::store::DiskCache::open(&cache_dir)?;
+                    let entries = cache.list_entries()?;
+                    if entries.is_empty() {
+                        println!("Cache is empty.");
+                        return Ok(());
+                    }
+                    let bold = "\x1b[1m";
+                    let dim = "\x1b[2m";
+                    let reset = "\x1b[0m";
+                    println!(
+                        "{bold}{:<20} {:<15} {:<12} {reset}{dim}hash{reset}",
+                        "recipe", "target", "profile"
+                    );
+                    for (recipe, target, profile, hash) in &entries {
+                        let hash_short = if hash.len() > 12 { &hash[..12] } else { hash };
+                        println!(
+                            "{:<20} {:<15} {:<12} {dim}{hash_short}{reset}",
+                            recipe, target, profile
+                        );
+                    }
+                    println!("\n{} entries", entries.len());
+                }
+                CacheAction::Invalidate { recipe, all } => {
+                    if !cache_dir.exists() {
+                        println!("No cache directory found.");
+                        return Ok(());
+                    }
+                    let cache = must_cache::store::DiskCache::open(&cache_dir)?;
+                    if all {
+                        let count = cache.invalidate_all()?;
+                        println!("Invalidated {count} cache entries.");
+                    } else if let Some(name) = recipe {
+                        let entries = cache.list_entries()?;
+                        let matching: Vec<_> = entries
+                            .iter()
+                            .filter(|(r, _, _, _)| r == &name)
+                            .collect();
+                        if matching.is_empty() {
+                            println!("No cache entries for '{name}'.");
+                            return Ok(());
+                        }
+                        use must_core::Cache;
+                        for (r, t, p, h) in matching {
+                            let key = must_core::CacheKey {
+                                recipe: r.clone(),
+                                target: t.clone(),
+                                profile: p.clone(),
+                                hash: h.clone(),
+                            };
+                            cache.invalidate(&key)?;
+                        }
+                        println!("Invalidated cache for '{name}'.");
+                    } else {
+                        println!("Specify a recipe name or --all.");
+                    }
+                }
+                CacheAction::Du => {
+                    if !cache_dir.exists() {
+                        println!("No cache directory found.");
+                        return Ok(());
+                    }
+                    let bytes = dir_size(&cache_dir).unwrap_or(0);
+                    if bytes < 1024 {
+                        println!("Cache: {bytes} B");
+                    } else if bytes < 1024 * 1024 {
+                        println!("Cache: {:.1} KB", bytes as f64 / 1024.0);
+                    } else if bytes < 1024 * 1024 * 1024 {
+                        println!("Cache: {:.1} MB", bytes as f64 / (1024.0 * 1024.0));
+                    } else {
+                        println!("Cache: {:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0));
+                    }
+                }
+            }
         }
     }
 
@@ -976,11 +1083,7 @@ fn explain_recipe(
     let expand = |s: &str| -> String { expand_env_vars(s, &env) };
 
     let command_preview = match &recipe.recipe_type {
-        RecipeType::Shell => recipe
-            .script
-            .as_deref()
-            .map(&expand)
-            .unwrap_or_default(),
+        RecipeType::Shell => recipe.script.as_deref().map(&expand).unwrap_or_default(),
         RecipeType::RustBin | RecipeType::RustLib => format!(
             "cargo build -p {}{}",
             recipe.package.as_deref().unwrap_or(recipe_name),
