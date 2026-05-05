@@ -1,7 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_status,
+    run_command,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -28,26 +28,22 @@ fn run_cmd_in(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = run_status(
-        cmd.status(),
-        program,
-        "Install Python 3: https://python.org",
-    )?;
+    let out = run_command(&mut cmd, program, "Install Python 3: https://python.org")?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !status.success() {
+    if !out.status.success() {
         return Err(Error::RecipeFailed {
             name: program.to_string(),
-            code: status.code().unwrap_or(-1),
-            stderr: String::new(),
+            code: out.status.code().unwrap_or(-1),
+            stderr: out.stderr,
         });
     }
     Ok(RecipeOutput {
         recipe_name: program.to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout: String::new(),
-        stderr: String::new(),
+        stdout: out.stdout,
+        stderr: out.stderr,
         duration_ms,
     })
 }
@@ -314,26 +310,26 @@ impl Recipe for PyLintRecipe {
             cmd.env(k, v);
         }
         let start = Instant::now();
-        let status = run_status(
-            cmd.status(),
+        let out = run_command(
+            &mut cmd,
             "sh",
             "A POSIX shell is required (install bash or zsh)",
         )?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
-        if !status.success() {
+        if !out.status.success() {
             return Err(Error::RecipeFailed {
                 name: self.name.clone(),
-                code: status.code().unwrap_or(-1),
-                stderr: String::new(),
+                code: out.status.code().unwrap_or(-1),
+                stderr: out.stderr,
             });
         }
         Ok(RecipeOutput {
             recipe_name: self.name.clone(),
             from_cache: false,
             outputs: Vec::new(),
-            stdout: String::new(),
-            stderr: String::new(),
+            stdout: out.stdout,
+            stderr: out.stderr,
             duration_ms,
         })
     }

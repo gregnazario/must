@@ -2,7 +2,7 @@ use glob::glob;
 use must_cache::mtime::check_mtime;
 use must_core::{
     BuildContext, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_status,
+    run_command,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -169,14 +169,14 @@ impl Recipe for ShellRecipe {
             cmd.env(k, v);
         }
 
-        let status = run_status(cmd.status(), "sh", "A POSIX shell is required")?;
+        let out = run_command(&mut cmd, "sh", "A POSIX shell is required")?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
-        if !status.success() {
+        if !out.status.success() {
             return Err(Error::RecipeFailed {
                 name: self.name.clone(),
-                code: status.code().unwrap_or(-1),
-                stderr: String::new(),
+                code: out.status.code().unwrap_or(-1),
+                stderr: out.stderr,
             });
         }
 
@@ -219,8 +219,8 @@ impl Recipe for ShellRecipe {
             recipe_name: self.name.clone(),
             from_cache: false,
             outputs,
-            stdout: String::new(),
-            stderr: String::new(),
+            stdout: out.stdout,
+            stderr: out.stderr,
             duration_ms,
         })
     }
@@ -296,7 +296,7 @@ mod tests {
     fn execute_runs_script_and_returns_ok() {
         let r = ShellRecipe::new("greet", "echo hello");
         let out = r.execute(&ctx()).unwrap();
-        assert!(out.stdout.is_empty());
+        assert!(out.stdout.contains("hello"));
     }
 
     #[test]
@@ -364,7 +364,7 @@ mod tests {
         };
 
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.is_empty());
+        assert!(out.stdout.contains("hello"));
     }
 
     #[test]

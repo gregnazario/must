@@ -1,7 +1,8 @@
 use must_cache::hash::compute_hash;
 use must_config::schema::{CrossBackend, CrossConfig};
 use must_core::{
-    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_status,
+    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    run_command as run_captured,
 };
 use must_toolchain::{
     ContainerToolchain, Triple, c_cross_env, c_install_hint, discover_c_compiler,
@@ -78,53 +79,52 @@ fn run_cc(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = run_status(
-        cmd.status(),
+    let out = run_captured(
+        &mut cmd,
         &compiler.display().to_string(),
         "Install a C compiler (Xcode CLI tools or build-essential)",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !status.success() {
+    if !out.status.success() {
         return Err(Error::RecipeFailed {
             name: compiler.display().to_string(),
-            code: status.code().unwrap_or(-1),
-            stderr: String::new(),
+            code: out.status.code().unwrap_or(-1),
+            stderr: out.stderr,
         });
     }
     Ok(RecipeOutput {
         recipe_name: compiler.display().to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout: String::new(),
-        stderr: String::new(),
+        stdout: out.stdout,
+        stderr: out.stderr,
         duration_ms,
     })
 }
 
-/// Run a pre-built command (used for the container execution path).
-fn run_command(mut cmd: Command) -> Result<RecipeOutput> {
+fn run_cc_command(mut cmd: Command) -> Result<RecipeOutput> {
     let start = Instant::now();
-    let status = run_status(
-        cmd.status(),
+    let out = run_captured(
+        &mut cmd,
         "cc",
         "Install a C compiler (Xcode CLI tools or build-essential)",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !status.success() {
+    if !out.status.success() {
         return Err(Error::RecipeFailed {
             name: "cc".to_string(),
-            code: status.code().unwrap_or(-1),
-            stderr: String::new(),
+            code: out.status.code().unwrap_or(-1),
+            stderr: out.stderr,
         });
     }
     Ok(RecipeOutput {
         recipe_name: "cc".to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout: String::new(),
-        stderr: String::new(),
+        stdout: out.stdout,
+        stderr: out.stderr,
         duration_ms,
     })
 }
@@ -275,7 +275,7 @@ impl Recipe for CBinRecipe {
 
             let arg_refs: Vec<&str> = translated_args.iter().map(String::as_str).collect();
             let cmd = tc.wrap_command("cc", &arg_refs);
-            let mut result = run_command(cmd)?;
+            let mut result = run_cc_command(cmd)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
             Ok(result)
@@ -506,7 +506,7 @@ impl Recipe for CLibRecipe {
 
                     let arg_refs: Vec<&str> = cc_args.iter().map(String::as_str).collect();
                     let cmd = tc.wrap_command("cc", &arg_refs);
-                    run_command(cmd)?;
+                    run_cc_command(cmd)?;
                     object_paths.push(obj_container);
                 }
 
@@ -520,7 +520,7 @@ impl Recipe for CLibRecipe {
                 }
                 let ar_refs: Vec<&str> = ar_args.iter().map(String::as_str).collect();
                 let cmd = tc.wrap_command("ar", &ar_refs);
-                let mut result = run_command(cmd)?;
+                let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
                 Ok(result)
@@ -547,7 +547,7 @@ impl Recipe for CLibRecipe {
 
                 let arg_refs: Vec<&str> = cc_args.iter().map(String::as_str).collect();
                 let cmd = tc.wrap_command("cc", &arg_refs);
-                let mut result = run_command(cmd)?;
+                let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
                 Ok(result)
@@ -629,25 +629,29 @@ impl Recipe for CLibRecipe {
                     cmd.arg(a);
                 }
                 cmd.current_dir(&ctx.project_root);
-                let status = run_status(
-                    cmd.status(),
+                cmd.env_clear();
+                for (k, v) in &ctx.env {
+                    cmd.env(k, v);
+                }
+                let out = run_captured(
+                    &mut cmd,
                     "docker",
                     "Install Docker: https://docs.docker.com/get-docker/ or Podman: https://podman.io/",
                 )?;
                 let duration_ms = start.elapsed().as_millis() as u64;
-                if !status.success() {
+                if !out.status.success() {
                     return Err(Error::RecipeFailed {
                         name: "ar".to_string(),
-                        code: status.code().unwrap_or(-1),
-                        stderr: String::new(),
+                        code: out.status.code().unwrap_or(-1),
+                        stderr: out.stderr,
                     });
                 }
                 Ok(RecipeOutput {
                     recipe_name: self.name.clone(),
                     from_cache: false,
                     outputs: vec![output_path],
-                    stdout: String::new(),
-                    stderr: String::new(),
+                    stdout: out.stdout,
+                    stderr: out.stderr,
                     duration_ms,
                 })
             } else {
@@ -1114,14 +1118,14 @@ mod tests {
     #[test]
     fn test_run_command_success() {
         let cmd = std::process::Command::new("true");
-        let result = run_command(cmd).unwrap();
+        let result = run_cc_command(cmd).unwrap();
         assert!(result.stdout.is_empty());
     }
 
     #[test]
     fn test_run_command_failure() {
         let cmd = std::process::Command::new("false");
-        let result = run_command(cmd);
+        let result = run_cc_command(cmd);
         assert!(result.is_err());
         match result.unwrap_err() {
             must_core::Error::RecipeFailed { name, code, .. } => {

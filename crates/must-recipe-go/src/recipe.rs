@@ -1,6 +1,6 @@
 use must_cache::hash::compute_hash;
 use must_core::{
-    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_status,
+    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_command,
 };
 use must_toolchain::{Triple, go_cross_env, go_install_hint, go_installed};
 use std::collections::{BTreeMap, HashMap};
@@ -44,22 +44,22 @@ fn run_go(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = run_status(cmd.status(), "go", "Install Go: https://go.dev/dl/")?;
+    let out = run_command(&mut cmd, "go", "Install Go: https://go.dev/dl/")?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !status.success() {
+    if !out.status.success() {
         return Err(Error::RecipeFailed {
             name: name.to_string(),
-            code: status.code().unwrap_or(-1),
-            stderr: String::new(),
+            code: out.status.code().unwrap_or(-1),
+            stderr: out.stderr,
         });
     }
     Ok(RecipeOutput {
         recipe_name: name.to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout: String::new(),
-        stderr: String::new(),
+        stdout: out.stdout,
+        stderr: out.stderr,
         duration_ms,
     })
 }

@@ -1,7 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_status,
+    run_command,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -26,26 +26,26 @@ fn run_cmd(
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    let status = run_status(
-        cmd.status(),
+    let out = run_command(
+        &mut cmd,
         "zig",
         "Install Zig: https://ziglang.org/learn/getting-started/",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    if !status.success() {
+    if !out.status.success() {
         return Err(Error::RecipeFailed {
             name: "zig".to_string(),
-            code: status.code().unwrap_or(-1),
-            stderr: String::new(),
+            code: out.status.code().unwrap_or(-1),
+            stderr: out.stderr,
         });
     }
     Ok(RecipeOutput {
         recipe_name: "zig".to_string(),
         from_cache: false,
         outputs: Vec::new(),
-        stdout: String::new(),
-        stderr: String::new(),
+        stdout: out.stdout,
+        stderr: out.stderr,
         duration_ms,
     })
 }
