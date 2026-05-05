@@ -24,6 +24,9 @@ must-recipe-ts = { path = "../must-recipe-ts" }
 must-recipe-py = { path = "../must-recipe-py" }
 must-recipe-zig = { path = "../must-recipe-zig" }
 must-recipe-docker = { path = "../must-recipe-docker" }
+must-recipe-java = { path = "../must-recipe-java" }
+must-recipe-kotlin = { path = "../must-recipe-kotlin" }
+must-recipe-swift = { path = "../must-recipe-swift" }
 must-import = { path = "../must-import" }
 must-plugin = { path = "../must-plugin" }
 tokio = { workspace = true }

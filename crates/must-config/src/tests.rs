@@ -868,6 +868,66 @@ type = "zig-bin"
 }
 
 #[test]
+fn test_validation_java_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "java-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_kotlin_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "kotlin-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
+fn test_validation_swift_bin_missing_package() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "swift-bin"
+"#,
+    );
+    let result = validate(&cfg, Path::new("Mustfile.toml"));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
+}
+
+#[test]
 fn test_validation_docker_build_missing_image() {
     let cfg = parse(
         r#"
@@ -1063,4 +1123,106 @@ script = "echo hi"
         msg.contains("include"),
         "error should mention include: {msg}"
     );
+}
+
+// ── Java recipe types ───────────────────────────────────────────────────────
+
+#[test]
+fn test_java_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "java-bin"
+package = "."
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::JavaBin);
+    assert_eq!(r.package.as_deref(), Some("."));
+}
+
+#[test]
+fn test_java_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "java-test"
+package = "services/api"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::JavaTest);
+}
+
+// ── Kotlin recipe types ─────────────────────────────────────────────────────
+
+#[test]
+fn test_kotlin_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "kotlin-bin"
+package = "."
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::KotlinBin);
+    assert_eq!(r.package.as_deref(), Some("."));
+}
+
+#[test]
+fn test_kotlin_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "kotlin-test"
+package = "libs/core"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::KotlinTest);
+}
+
+// ── Swift recipe types ──────────────────────────────────────────────────────
+
+#[test]
+fn test_swift_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "swift-bin"
+package = "."
+"#,
+    );
+    let r = &cfg.recipe["build"];
+    assert_eq!(r.recipe_type, RecipeType::SwiftBin);
+    assert_eq!(r.package.as_deref(), Some("."));
+}
+
+#[test]
+fn test_swift_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "swift-test"
+package = "MyPackage"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::SwiftTest);
 }

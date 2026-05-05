@@ -107,6 +107,12 @@ pub enum RecipeType {
     DockerBuild,
     DockerPush,
     Plugin,
+    JavaBin,
+    JavaTest,
+    KotlinBin,
+    KotlinTest,
+    SwiftBin,
+    SwiftTest,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

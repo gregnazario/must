@@ -7,9 +7,12 @@ use must_graph::Dag;
 use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_docker::{DockerBuildRecipe, DockerPushRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
+use must_recipe_java::{JavaBinRecipe, JavaTestRecipe};
+use must_recipe_kotlin::{KotlinBinRecipe, KotlinTestRecipe};
 use must_recipe_py::{PyBinRecipe, PyLintRecipe, PyTestRecipe};
 use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
+use must_recipe_swift::{SwiftBinRecipe, SwiftTestRecipe};
 use must_recipe_ts::{NpmRecipe, TsBinRecipe, TsCheckRecipe, TsLintRecipe};
 use must_recipe_zig::{ZigBinRecipe, ZigTestRecipe};
 use std::collections::HashMap;
@@ -1404,6 +1407,60 @@ async fn execute_recipes(
                 let lua_recipe = must_plugin::LuaRecipe::load(plugin_name, &plugin_path)?;
                 recipe_map.insert(name.clone(), Arc::new(lua_recipe));
             }
+            RecipeType::JavaBin => {
+                let r = JavaBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::JavaTest => {
+                let r = JavaTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::KotlinBin => {
+                let r = KotlinBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::KotlinTest => {
+                let r = KotlinTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::SwiftBin => {
+                let r = SwiftBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::SwiftTest => {
+                let r = SwiftTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
         }
     }
 
@@ -1925,6 +1982,30 @@ fn explain_recipe(
             "lua .mustfile/plugins/{}.lua",
             recipe.plugin.as_deref().unwrap_or(recipe_name)
         ),
+        RecipeType::JavaBin => format!(
+            "./gradlew build (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::JavaTest => format!(
+            "./gradlew test (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::KotlinBin => format!(
+            "./gradlew build (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::KotlinTest => format!(
+            "./gradlew test (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::SwiftBin => format!(
+            "swift build -c release (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::SwiftTest => format!(
+            "swift test (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -2092,6 +2173,12 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::DockerBuild => "docker-build",
         RecipeType::DockerPush => "docker-push",
         RecipeType::Plugin => "plugin",
+        RecipeType::JavaBin => "java-bin",
+        RecipeType::JavaTest => "java-test",
+        RecipeType::KotlinBin => "kotlin-bin",
+        RecipeType::KotlinTest => "kotlin-test",
+        RecipeType::SwiftBin => "swift-bin",
+        RecipeType::SwiftTest => "swift-test",
     }
 }
 
@@ -2298,6 +2385,9 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::ZigBin | RecipeType::ZigTest => ("zig", "\x1b[33m"),
         RecipeType::DockerBuild | RecipeType::DockerPush => ("docker", "\x1b[32m"),
         RecipeType::Plugin => ("lua", "\x1b[36m"),
+        RecipeType::JavaBin | RecipeType::JavaTest => ("java", "\x1b[33m"),
+        RecipeType::KotlinBin | RecipeType::KotlinTest => ("kt", "\x1b[35m"),
+        RecipeType::SwiftBin | RecipeType::SwiftTest => ("swift", "\x1b[31m"),
     }
 }
 
@@ -2759,6 +2849,12 @@ mod tests {
             RecipeType::ZigTest,
             RecipeType::DockerBuild,
             RecipeType::DockerPush,
+            RecipeType::JavaBin,
+            RecipeType::JavaTest,
+            RecipeType::KotlinBin,
+            RecipeType::KotlinTest,
+            RecipeType::SwiftBin,
+            RecipeType::SwiftTest,
         ];
         for rtype in types {
             let mut config = make_config();

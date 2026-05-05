@@ -43,6 +43,15 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::Plugin => {
                 require_field("plugin", recipe.plugin.as_ref(), name)
             }
+            RecipeType::JavaBin | RecipeType::JavaTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::KotlinBin | RecipeType::KotlinTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::SwiftBin | RecipeType::SwiftTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
         };
 
         if let Some(err) = missing {

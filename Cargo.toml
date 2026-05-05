@@ -18,6 +18,9 @@ members = [
     "crates/must-recipe-docker",
     "crates/must-import",
     "crates/must-plugin",
+    "crates/must-recipe-java",
+    "crates/must-recipe-kotlin",
+    "crates/must-recipe-swift",
 ]
 
 [workspace.package]

@@ -501,7 +501,7 @@ end
         let plugin_path = dir.path().join("fio.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     write_file("{path}", "hello world")
@@ -527,7 +527,7 @@ end
         let plugin_path = dir.path().join("exists.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     local a = file_exists("{path}")
@@ -552,7 +552,7 @@ end
         let plugin_path = dir.path().join("mkdir.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     mkdir("{path}")
@@ -578,7 +578,7 @@ end
         let plugin_path = dir.path().join("glob.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     local files = glob("{base}/*.txt")
@@ -653,7 +653,7 @@ end
         let plugin_path = dir.path().join("glob_empty.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     local files = glob("{base}/*.nonexistent")
@@ -783,7 +783,7 @@ end
         let plugin_path = dir.path().join("roundtrip.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     write_file("{path}", "hello world")
@@ -808,7 +808,7 @@ end
         let plugin_path = dir.path().join("mkdir_nested.lua");
         std::fs::write(
             &plugin_path,
-            &format!(
+            format!(
                 r#"
 function execute(ctx)
     mkdir("{path}")

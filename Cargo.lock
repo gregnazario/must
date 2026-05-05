@@ -969,9 +969,12 @@ dependencies = [
  "must-recipe-cc",
  "must-recipe-docker",
  "must-recipe-go",
+ "must-recipe-java",
+ "must-recipe-kotlin",
  "must-recipe-py",
  "must-recipe-rust",
  "must-recipe-shell",
+ "must-recipe-swift",
  "must-recipe-ts",
  "must-recipe-zig",
  "must-toolchain",
@@ -1078,6 +1081,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-recipe-java"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-kotlin"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
 name = "must-recipe-py"
 version = "0.1.0"
 dependencies = [
@@ -1100,6 +1121,15 @@ name = "must-recipe-shell"
 version = "0.1.0"
 dependencies = [
  "glob",
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-swift"
+version = "0.1.0"
+dependencies = [
  "must-cache",
  "must-core",
  "tempfile",
