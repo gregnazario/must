@@ -966,13 +966,87 @@ fn explain_recipe(
         println!("Deps:     {}", recipe.deps.join(", "));
     }
 
-    // Expand and show input files with their hashes
     let env = must_engine::compose_env(
         config,
         recipe_name,
         profile,
         &std::collections::HashMap::new(),
     );
+
+    let expand = |s: &str| -> String { expand_env_vars(s, &env) };
+
+    let command_preview = match &recipe.recipe_type {
+        RecipeType::Shell => recipe
+            .script
+            .as_deref()
+            .map(&expand)
+            .unwrap_or_default(),
+        RecipeType::RustBin | RecipeType::RustLib => format!(
+            "cargo build -p {}{}",
+            recipe.package.as_deref().unwrap_or(recipe_name),
+            if profile == "release" {
+                " --release"
+            } else {
+                ""
+            }
+        ),
+        RecipeType::RustTest => format!(
+            "cargo test -p {}",
+            recipe.package.as_deref().unwrap_or(recipe_name)
+        ),
+        RecipeType::GoBin => format!(
+            "go build {}{}",
+            recipe
+                .ldflags
+                .as_deref()
+                .map(|f| format!("-ldflags {f} "))
+                .unwrap_or_default(),
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::GoTest => format!("go test {}", recipe.package.as_deref().unwrap_or("./...")),
+        RecipeType::CBin | RecipeType::CLib => {
+            format!("cc {} -o {}", recipe.sources.join(" "), recipe_name)
+        }
+        RecipeType::TsBin => format!("npx tsc -p {}", recipe.package.as_deref().unwrap_or(".")),
+        RecipeType::TsCheck => format!(
+            "tsc --noEmit -p {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::TsLint => format!("eslint {}", recipe.package.as_deref().unwrap_or(".")),
+        RecipeType::Npm => format!("npm {}", recipe.script.as_deref().unwrap_or("run")),
+        RecipeType::PyBin => format!(
+            "python -m build {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::PyTest => format!("pytest {}", recipe.package.as_deref().unwrap_or(".")),
+        RecipeType::PyLint => "ruff check . && mypy .".to_string(),
+        RecipeType::ZigBin => format!(
+            "zig build {} -Doptimize=ReleaseSafe",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::ZigTest => "zig build test".to_string(),
+        RecipeType::DockerBuild => format!(
+            "docker build -t {} -f {} {}",
+            expand(recipe.image.as_deref().unwrap_or(recipe_name)),
+            recipe.dockerfile.as_deref().unwrap_or("Dockerfile"),
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::DockerPush => format!(
+            "docker push {}",
+            expand(recipe.image.as_deref().unwrap_or(recipe_name))
+        ),
+    };
+
+    if !command_preview.is_empty() {
+        let preview = if command_preview.len() > 120 {
+            format!("{}...", &command_preview[..120])
+        } else {
+            command_preview
+        };
+        println!("Command:  {preview}");
+    }
+
+    // Expand and show input files with their hashes
 
     if !recipe.inputs.is_empty() {
         println!("\nInputs:");
@@ -1952,10 +2026,7 @@ mod tests {
     #[test]
     fn test_expand_env_vars_no_match() {
         let env = HashMap::new();
-        assert_eq!(
-            expand_env_vars("${MISSING}/api", &env),
-            "${MISSING}/api"
-        );
+        assert_eq!(expand_env_vars("${MISSING}/api", &env), "${MISSING}/api");
     }
 
     #[test]
