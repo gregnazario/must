@@ -34,6 +34,7 @@ pub enum CacheLookup {
 pub struct BuildContext {
     pub project_root: PathBuf,
     pub cache_dir: PathBuf,
+    pub log_dir: PathBuf,
     pub target: String,
     pub profile: String,
     pub env: HashMap<String, String>,
@@ -44,9 +45,11 @@ pub struct BuildContext {
 impl BuildContext {
     pub fn new(project_root: PathBuf) -> Self {
         let cache_dir = project_root.join(".mustfile").join("cache");
+        let log_dir = project_root.join(".mustfile").join("logs");
         Self {
             project_root,
             cache_dir,
+            log_dir,
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),

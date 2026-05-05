@@ -229,6 +229,7 @@ mod tests {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
             cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),
@@ -266,6 +267,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
             env: HashMap::new(),

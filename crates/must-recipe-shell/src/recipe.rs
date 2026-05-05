@@ -2,11 +2,10 @@ use glob::glob;
 use must_cache::mtime::check_mtime;
 use must_core::{
     BuildContext, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_command,
+    run_command, shell_command, shell_program, shell_display,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::Command;
 use std::time::Instant;
 
 pub struct ShellRecipe {
@@ -89,7 +88,7 @@ impl Recipe for ShellRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!("[dry-run] would run: sh -c '{}'", self.script),
+                stdout: format!("[dry-run] would run: {}", shell_display(&self.script)),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -156,20 +155,8 @@ impl Recipe for ShellRecipe {
         }
 
         let start = Instant::now();
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&self.script);
-        cmd.current_dir(&ctx.project_root);
-
-        // Compose env: inherit from ctx, then recipe-level overrides
-        cmd.env_clear();
-        for (k, v) in &ctx.env {
-            cmd.env(k, v);
-        }
-        for (k, v) in &self.env {
-            cmd.env(k, v);
-        }
-
-        let out = run_command(&mut cmd, "sh", "A POSIX shell is required")?;
+        let mut cmd = shell_command(&self.script);
+        let out = run_command(&mut cmd, shell_program(), "A shell is required")?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if !out.status.success() {
@@ -236,6 +223,7 @@ mod tests {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
             cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),
@@ -332,6 +320,7 @@ mod tests {
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),
@@ -356,6 +345,7 @@ mod tests {
         let c = BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
             cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::from([("CTX_VAR".to_string(), "ctx-value".to_string())]),
@@ -378,6 +368,7 @@ mod tests {
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),

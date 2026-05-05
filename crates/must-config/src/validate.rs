@@ -40,6 +40,9 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::DockerBuild | RecipeType::DockerPush => {
                 require_field("image", recipe.image.as_ref(), name)
             }
+            RecipeType::Plugin => {
+                require_field("plugin", recipe.plugin.as_ref(), name)
+            }
         };
 
         if let Some(err) = missing {

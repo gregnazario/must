@@ -79,6 +79,9 @@ pub struct Recipe {
     pub dockerfile: Option<String>,
     #[serde(default)]
     pub build_args: Vec<String>,
+    // plugin fields
+    #[serde(default)]
+    pub plugin: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -103,6 +106,7 @@ pub enum RecipeType {
     ZigTest,
     DockerBuild,
     DockerPush,
+    Plugin,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

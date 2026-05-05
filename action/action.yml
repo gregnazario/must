@@ -1,0 +1,56 @@
+name: "Must Build"
+description: "Run must build/test/lint in CI"
+inputs:
+  command:
+    description: "Command to run (build, test, lint, ci, etc.)"
+    required: false
+    default: "ci"
+  file:
+    description: "Path to Mustfile.toml"
+    required: false
+    default: ""
+  target:
+    description: "Build target(s) or target group name"
+    required: false
+    default: ""
+  profile:
+    description: "Environment profile"
+    required: false
+    default: "default"
+  parallelism:
+    description: "Number of parallel recipes (-j)"
+    required: false
+    default: ""
+  fail-fast:
+    description: "Cancel on first failure"
+    required: false
+    default: "false"
+  extra-args:
+    description: "Extra args passed through to recipes"
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Install must
+      shell: bash
+      run: |
+        if ! command -v must &> /dev/null; then
+          echo "::group::Installing must"
+          curl -fsSL https://github.com/gregnazario/mustfile/releases/latest/download/must-$(uname -s)-$(uname -m) -o /usr/local/bin/must
+          chmod +x /usr/local/bin/must
+          echo "::endgroup::"
+        fi
+        must --version
+    - name: Run must
+      shell: bash
+      run: |
+        ARGS=()
+        [[ -n "${{ inputs.file }}" ]] && ARGS+=("--file" "${{ inputs.file }}")
+        [[ -n "${{ inputs.target }}" ]] && ARGS+=("--target" "${{ inputs.target }}")
+        [[ -n "${{ inputs.profile }}" ]] && ARGS+=("--profile" "${{ inputs.profile }}")
+        [[ -n "${{ inputs.parallelism }}" ]] && ARGS+=("-j" "${{ inputs.parallelism }}")
+        [[ "${{ inputs.fail-fast }}" == "true" ]] && ARGS+=("--fail-fast")
+        ARGS+=("${{ inputs.command }}")
+        [[ -n "${{ inputs.extra-args }}" ]] && ARGS+=("--" ${{ inputs.extra-args }})
+        must "${ARGS[@]}"

@@ -82,3 +82,33 @@ pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandO
         stderr,
     })
 }
+
+pub fn shell_command(script: &str) -> Command {
+    let mut cmd = Command::new(shell_program());
+    cmd.arg(shell_arg()).arg(script);
+    cmd
+}
+
+pub fn shell_program() -> &'static str {
+    if cfg!(windows) {
+        "cmd"
+    } else {
+        "sh"
+    }
+}
+
+pub fn shell_arg() -> &'static str {
+    if cfg!(windows) {
+        "/C"
+    } else {
+        "-c"
+    }
+}
+
+pub fn shell_display(script: &str) -> String {
+    if cfg!(windows) {
+        format!("cmd /C \"{script}\"")
+    } else {
+        format!("sh -c '{script}'")
+    }
+}

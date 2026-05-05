@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mustfile — Polyglot Build Orchestrator</title>
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922; --mono: 'SF Mono', 'Fira Code', monospace; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  pre, code { font-family: var(--mono); font-size: 14px; }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; }
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  header { border-bottom: 1px solid var(--border); padding: 20px 0; }
+  header .container { display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header nav { display: flex; gap: 24px; font-size: 14px; }
+
+  .hero { padding: 80px 0 60px; text-align: center; }
+  .hero h2 { font-size: 48px; font-weight: 800; margin-bottom: 16px; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { font-size: 20px; color: var(--dim); max-width: 640px; margin: 0 auto 32px; }
+  .hero .install { display: inline-block; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 24px; font-family: var(--mono); font-size: 16px; }
+  .hero .install span { color: var(--dim); }
+
+  .features { padding: 60px 0; }
+  .features h3 { font-size: 28px; margin-bottom: 32px; text-align: center; }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .feature h4 { font-size: 16px; margin-bottom: 8px; color: var(--accent); }
+  .feature p { font-size: 14px; color: var(--dim); }
+
+  .demo { padding: 60px 0; }
+  .demo h3 { font-size: 28px; margin-bottom: 32px; text-align: center; }
+  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .demo-card h4 { font-size: 14px; color: var(--dim); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .demo-card pre { margin-bottom: 0; }
+  .demo-card .output { background: #0a0e14; border-color: #1a2030; }
+  .demo-card .output::before { content: '$ '; color: var(--green); }
+
+  .types { padding: 60px 0; }
+  .types h3 { font-size: 28px; margin-bottom: 32px; text-align: center; }
+  .types-table { width: 100%; border-collapse: collapse; }
+  .types-table th, .types-table td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .types-table th { color: var(--dim); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 12px; }
+  .types-table code { background: var(--surface); padding: 2px 8px; border-radius: 4px; font-size: 13px; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+  .badge-rs { background: #2d1b00; color: #f87429; }
+  .badge-go { background: #002d1b; color: #00add8; }
+  .badge-cc { background: #002d00; color: #3fb950; }
+  .badge-ts { background: #2d2d00; color: #d29922; }
+  .badge-py { background: #001a2d; color: #58a6ff; }
+  .badge-zig { background: #2d2d00; color: #f7df1e; }
+  .badge-docker { background: #002d2d; color: #2496ed; }
+  .badge-sh { background: #1a1a2d; color: #8b949e; }
+  .badge-lua { background: #1a002d; color: #a371f7; }
+
+  .commands { padding: 60px 0; }
+  .commands h3 { font-size: 28px; margin-bottom: 32px; text-align: center; }
+  .cmd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .cmd { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .cmd code { color: var(--green); white-space: nowrap; }
+  .cmd span { color: var(--dim); font-size: 14px; }
+
+  .plugin { padding: 60px 0; }
+  .plugin h3 { font-size: 28px; margin-bottom: 32px; text-align: center; }
+  .plugin-split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .plugin-split h4 { font-size: 14px; color: var(--dim); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+
+  footer { border-top: 1px solid var(--border); padding: 32px 0; text-align: center; color: var(--dim); font-size: 14px; }
+
+  @media (max-width: 768px) {
+    .features-grid { grid-template-columns: 1fr; }
+    .demo-grid, .plugin-split, .cmd-grid { grid-template-columns: 1fr; }
+    .hero h2 { font-size: 32px; }
+    .hero p { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>must</h1>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#demo">Demo</a>
+      <a href="#types">Types</a>
+      <a href="#plugins">Plugins</a>
+      <a href="https://github.com/gregnazario/mustfile">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <h2>One config. Every language.</h2>
+    <p>A polyglot build orchestrator with first-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, and Lua plugins.</p>
+    <div class="install"><span>$ </span>cargo install --path crates/must-cli</div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="container">
+    <h3>Why must?</h3>
+    <div class="features-grid">
+      <div class="feature">
+        <h4>Consistent Verbs</h4>
+        <p><code>must build</code>, <code>must test</code>, <code>must outdated</code> — same commands for every language. No more remembering whether it's <code>npm run</code> or <code>cargo run</code>.</p>
+      </div>
+      <div class="feature">
+        <h4>20 Recipe Types</h4>
+        <p>First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, shell, and extensible Lua plugins. Each type knows how to build, cache, and cross-compile.</p>
+      </div>
+      <div class="feature">
+        <h4>Smart Caching</h4>
+        <p>Content-hash caching for compiled recipes, mtime for shell. Branch-switch safe. <code>must outdated</code> shows what's stale at a glance.</p>
+      </div>
+      <div class="feature">
+        <h4>Cross-Compilation</h4>
+        <p>Automatic GOOS/GOARCH for Go, cross-rs containers for Rust, C cross-compilers. Define targets once, build everywhere.</p>
+      </div>
+      <div class="feature">
+        <h4>Lua Plugins</h4>
+        <p>Extend must with <code>.lua</code> scripts. Shell exec, file I/O, glob, env access — all built in. Drop a file in <code>.mustfile/plugins/</code> and go.</p>
+      </div>
+      <div class="feature">
+        <h4>Build Logs</h4>
+        <p><code>must log &lt;recipe&gt;</code> shows the last build output. <code>--follow</code> streams in real time. <code>--clear</code> wipes old logs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="demo" id="demo">
+  <div class="container">
+    <h3>See it in action</h3>
+    <div class="demo-grid">
+      <div class="demo-card">
+        <h4>Mustfile.toml</h4>
+<pre><span style="color:#8b949e">[project]</span>
+name = <span style="color:#a5d6ff">"myapp"</span>
+
+<span style="color:#8b949e">[recipe.build]</span>
+type    = <span style="color:#a5d6ff">"rust-bin"</span>
+package = <span style="color:#a5d6ff">"myapp"</span>
+
+<span style="color:#8b949e">[recipe.test]</span>
+type    = <span style="color:#a5d6ff">"rust-test"</span>
+package = <span style="color:#a5d6ff">"myapp"</span>
+deps    = [<span style="color:#a5d6ff">"build"</span>]
+
+<span style="color:#8b949e">[recipe.lint]</span>
+type   = <span style="color:#a5d6ff">"shell"</span>
+phony  = <span style="color:#79c0ff">true</span>
+script = <span style="color:#a5d6ff">"cargo clippy -- -D warnings"</span></pre>
+      </div>
+      <div class="demo-card">
+        <h4>Terminal</h4>
+<pre class="output">must build
+must test
+must outdated
+must explain build</pre>
+      </div>
+      <div class="demo-card">
+        <h4>Polyglot project</h4>
+<pre><span style="color:#8b949e">[recipe.api]</span>
+type    = <span style="color:#a5d6ff">"go-bin"</span>
+package = <span style="color:#a5d6ff">"./cmd/api"</span>
+
+<span style="color:#8b949e">[recipe.frontend]</span>
+type    = <span style="color:#a5d6ff">"ts-bin"</span>
+package = <span style="color:#a5d6ff">"web"</span>
+
+<span style="color:#8b949e">[recipe.image]</span>
+type    = <span style="color:#a5d6ff">"docker-build"</span>
+image   = <span style="color:#a5d6ff">"${REGISTRY}/api:latest"</span>
+deps    = [<span style="color:#a5d6ff">"api"</span>]</pre>
+      </div>
+      <div class="demo-card">
+        <h4>Output</h4>
+<pre class="output">must build api frontend image
+
+3 built, 0 cached, 0 failed — 4.2s
+
+must outdated
+✓ api                [fresh]
+⚠ frontend           [stale]
+✗ image              [miss]</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="types" id="types">
+  <div class="container">
+    <h3>All recipe types</h3>
+    <table class="types-table">
+      <tr><th>Type</th><th>Language</th><th>What it does</th></tr>
+      <tr><td><code><span class="badge badge-sh">sh</span> shell</code></td><td>Any</td><td>Generic shell script with mtime/hash caching</td></tr>
+      <tr><td><code><span class="badge badge-rs">rs</span> rust-bin</code></td><td>Rust</td><td>cargo build -p &lt;package&gt;</td></tr>
+      <tr><td><code><span class="badge badge-rs">rs</span> rust-lib</code></td><td>Rust</td><td>cargo build --lib -p &lt;package&gt;</td></tr>
+      <tr><td><code><span class="badge badge-rs">rs</span> rust-test</code></td><td>Rust</td><td>cargo test -p &lt;package&gt;</td></tr>
+      <tr><td><code><span class="badge badge-go">go</span> go-bin</code></td><td>Go</td><td>go build with optional ldflags</td></tr>
+      <tr><td><code><span class="badge badge-go">go</span> go-test</code></td><td>Go</td><td>go test</td></tr>
+      <tr><td><code><span class="badge badge-cc">cc</span> c-bin</code></td><td>C</td><td>Compile and link binary</td></tr>
+      <tr><td><code><span class="badge badge-cc">cc</span> c-lib</code></td><td>C</td><td>Build static/shared library</td></tr>
+      <tr><td><code><span class="badge badge-ts">ts</span> ts-bin</code></td><td>TypeScript</td><td>TypeScript compilation</td></tr>
+      <tr><td><code><span class="badge badge-ts">ts</span> ts-check</code></td><td>TypeScript</td><td>tsc --noEmit type checking</td></tr>
+      <tr><td><code><span class="badge badge-ts">ts</span> ts-lint</code></td><td>TypeScript</td><td>ESLint</td></tr>
+      <tr><td><code><span class="badge badge-ts">ts</span> npm</code></td><td>JS/TS</td><td>Run npm scripts</td></tr>
+      <tr><td><code><span class="badge badge-py">py</span> py-bin</code></td><td>Python</td><td>Build Python package</td></tr>
+      <tr><td><code><span class="badge badge-py">py</span> py-test</code></td><td>Python</td><td>Run pytest</td></tr>
+      <tr><td><code><span class="badge badge-py">py</span> py-lint</code></td><td>Python</td><td>Ruff + mypy</td></tr>
+      <tr><td><code><span class="badge badge-zig">zig</span> zig-bin</code></td><td>Zig</td><td>zig build</td></tr>
+      <tr><td><code><span class="badge badge-zig">zig</span> zig-test</code></td><td>Zig</td><td>zig build test</td></tr>
+      <tr><td><code><span class="badge badge-docker">docker</span> docker-build</code></td><td>Docker</td><td>docker build with tag and args</td></tr>
+      <tr><td><code><span class="badge badge-docker">docker</span> docker-push</code></td><td>Docker</td><td>docker push</td></tr>
+      <tr><td><code><span class="badge badge-lua">lua</span> plugin</code></td><td>Lua</td><td>User-defined recipe via Lua script</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="commands">
+  <div class="container">
+    <h3>Commands</h3>
+    <div class="cmd-grid">
+      <div class="cmd"><code>must build [recipes]</code> <span>Build one or more recipes</span></div>
+      <div class="cmd"><code>must test [recipes]</code> <span>Run test recipes</span></div>
+      <div class="cmd"><code>must explain &lt;recipe&gt;</code> <span>Show cache key, inputs, env, command preview</span></div>
+      <div class="cmd"><code>must outdated</code> <span>Show cache status for all recipes</span></div>
+      <div class="cmd"><code>must list</code> <span>List all recipes with types and deps</span></div>
+      <div class="cmd"><code>must graph</code> <span>Visualize the dependency graph</span></div>
+      <div class="cmd"><code>must log &lt;recipe&gt;</code> <span>Show last build output</span></div>
+      <div class="cmd"><code>must log --follow</code> <span>Stream logs in real time</span></div>
+      <div class="cmd"><code>must plugin list</code> <span>List and validate plugins</span></div>
+      <div class="cmd"><code>must plugin check</code> <span>Validate a single plugin</span></div>
+      <div class="cmd"><code>must watch</code> <span>Watch files and rebuild on change</span></div>
+      <div class="cmd"><code>must doctor</code> <span>Check toolchains and environment</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="plugin" id="plugins">
+  <div class="container">
+    <h3>Extend with Lua</h3>
+    <div class="plugin-split">
+      <div>
+        <h4>Plugin (.mustfile/plugins/protoc.lua)</h4>
+<pre><span style="color:#ff7b72">function</span> <span style="color:#d2a8ff">execute</span>(ctx)
+    <span style="color:#ff7b72">local</span> protos = <span style="color:#d2a8ff">glob</span>(<span style="color:#a5d6ff">"proto/*.proto"</span>)
+    <span style="color:#ff7b72">for</span> _, p <span style="color:#ff7b72">in</span> <span style="color:#d2a8ff">ipairs</span>(protos) <span style="color:#ff7b72">do</span>
+        <span style="color:#d2a8ff">shell_exec</span>(<span style="color:#a5d6ff">"protoc --rust_out=src "</span> .. p)
+    <span style="color:#ff7b72">end</span>
+    <span style="color:#ff7b72">return</span> {
+        stdout = <span style="color:#a5d6ff">"generated "</span> .. #protos .. <span style="color:#a5d6ff">" files"</span>,
+        stderr = <span style="color:#a5d6ff">""</span>,
+        success = <span style="color:#79c0ff">true</span>,
+    }
+<span style="color:#ff7b72">end</span></pre>
+      </div>
+      <div>
+        <h4>Config (Mustfile.toml)</h4>
+<pre><span style="color:#8b949e">[recipe.codegen]</span>
+type   = <span style="color:#a5d6ff">"plugin"</span>
+plugin = <span style="color:#a5d6ff">"protoc"</span></pre>
+        <br>
+        <h4>Built-in stdlib</h4>
+<pre><span style="color:#d2a8ff">shell_exec</span>(cmd)     <span style="color:#8b949e">-- run shell command</span>
+<span style="color:#d2a8ff">read_file</span>(path)    <span style="color:#8b949e">-- read file contents</span>
+<span style="color:#d2a8ff">write_file</span>(path,s) <span style="color:#8b949e">-- write to file</span>
+<span style="color:#d2a8ff">file_exists</span>(path)  <span style="color:#8b949e">-- check existence</span>
+<span style="color:#d2a8ff">mkdir</span>(path)        <span style="color:#8b949e">-- create dirs</span>
+<span style="color:#d2a8ff">glob</span>(pattern)      <span style="color:#8b949e">-- match files</span>
+<span style="color:#d2a8ff">env_get</span>(key)       <span style="color:#8b949e">-- get env var</span>
+<span style="color:#d2a8ff">log_info</span>(msg)      <span style="color:#8b949e">-- structured log</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>MIT License. Built with must. <a href="https://github.com/gregnazario/mustfile">View on GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

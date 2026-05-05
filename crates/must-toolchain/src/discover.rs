@@ -49,10 +49,15 @@ pub fn go_install_hint() -> String {
 
 /// Search PATH for a binary with the given name. Returns the full path if found.
 fn which_in_path(name: &str) -> Option<PathBuf> {
+    let candidates = if cfg!(windows) {
+        vec![name.to_string(), format!("{name}.exe"), format!("{name}.cmd"), format!("{name}.bat")]
+    } else {
+        vec![name.to_string()]
+    };
     std::env::var_os("PATH")
         .iter()
         .flat_map(|p| std::env::split_paths(p))
-        .map(|dir| dir.join(name))
+        .flat_map(|dir| candidates.iter().map(move |c| dir.join(c)))
         .find(|p| p.is_file())
 }
 
@@ -72,12 +77,17 @@ pub fn discover_c_compiler(triple: &Triple) -> Option<PathBuf> {
     ];
 
     let search_dirs: Vec<PathBuf> = {
+        #[cfg(unix)]
         let mut dirs = vec![
             PathBuf::from("/usr/bin"),
             PathBuf::from("/usr/local/bin"),
             PathBuf::from("/opt/homebrew/bin"),
             PathBuf::from("/opt/homebrew/opt/llvm/bin"),
         ];
+        #[cfg(windows)]
+        let mut dirs: Vec<PathBuf> = Vec::new();
+
+        #[cfg(unix)]
         for version in 14..=17u32 {
             dirs.push(PathBuf::from(format!("/usr/lib/llvm-{}/bin", version)));
         }

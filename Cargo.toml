@@ -17,6 +17,7 @@ members = [
     "crates/must-recipe-zig",
     "crates/must-recipe-docker",
     "crates/must-import",
+    "crates/must-plugin",
 ]
 
 [workspace.package]

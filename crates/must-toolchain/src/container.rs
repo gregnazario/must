@@ -121,11 +121,12 @@ impl ContainerToolchain {
     ///   `<runtime> run --rm -v <project_root>:/work -w /work <image> <cmd> <args...>`
     pub fn wrap_command(&self, cmd: &str, args: &[&str]) -> Command {
         let mut command = Command::new(self.runtime.binary());
+        let host_path = self.project_root.display().to_string();
         command
             .arg("run")
             .arg("--rm")
             .arg("-v")
-            .arg(format!("{}:/work", self.project_root.display()))
+            .arg(format!("{host_path}:/work"))
             .arg("-w")
             .arg("/work")
             .arg(&self.image)

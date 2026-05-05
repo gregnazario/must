@@ -140,6 +140,41 @@ enum Commands {
     },
     /// Show which recipes have stale or missing caches
     Outdated,
+    /// Compare two build states (inputs, cache keys, results)
+    Diff {
+        /// Compare against a specific previous build (default: last build)
+        revision: Option<String>,
+    },
+    /// Show last build output for a recipe
+    Log {
+        /// Recipe name (omit to list available logs)
+        recipe: Option<String>,
+        /// Follow log output (tail -f style, re-read on change)
+        #[arg(short, long)]
+        follow: bool,
+        /// Clear all stored logs
+        #[arg(long)]
+        clear: bool,
+    },
+    /// Manage Lua plugins
+    Plugin {
+        #[command(subcommand)]
+        action: PluginAction,
+    },
+    /// Run a command in each sub-project (monorepo support)
+    Foreach {
+        /// Command to run in each sub-project (e.g. "build", "test", "lint")
+        command: Vec<String>,
+        /// Only run in directories matching this glob pattern
+        #[arg(long)]
+        filter: Option<String>,
+        /// Maximum parallel sub-projects
+        #[arg(short = 'j', long, default_value = "1")]
+        parallelism: usize,
+        /// Continue on failure
+        #[arg(long)]
+        keep_going: bool,
+    },
     /// Run a recipe by name directly (e.g. `must lint` → `must run lint`)
     #[command(external_subcommand)]
     External(Vec<String>),
@@ -159,6 +194,30 @@ enum CacheAction {
     },
     /// Show cache disk usage
     Du,
+}
+
+#[derive(Subcommand)]
+enum PluginAction {
+    /// List discovered plugins
+    List,
+    /// Validate a plugin without executing it
+    Check {
+        /// Plugin name to check
+        plugin: String,
+    },
+    /// Install a plugin from a URL or git repository
+    Install {
+        /// URL to a .lua file, or git repository URL
+        url: String,
+        /// Name for the plugin (default: derived from URL filename)
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Remove an installed plugin
+    Remove {
+        /// Plugin name to remove
+        plugin: String,
+    },
 }
 
 #[tokio::main]
@@ -223,6 +282,10 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             .unwrap_or_else(|| PathBuf::from("Mustfile.toml"));
         run_init(&out, name.as_deref(), template)?;
         return Ok(());
+    }
+
+    if let Commands::Foreach { command, filter, parallelism, keep_going } = &cli.command {
+        return run_foreach(command, filter.as_deref(), *parallelism, *keep_going).await;
     }
 
     // Find and load Mustfile.toml
@@ -375,7 +438,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             )
             .await?;
         }
-        Commands::Doctor | Commands::Init { .. } | Commands::Completions { .. } => {
+        Commands::Doctor | Commands::Init { .. } | Commands::Completions { .. } | Commands::Foreach { .. } => {
             // handled before config loading above
             unreachable!()
         }
@@ -539,6 +602,270 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             }
 
             println!("\n{fresh_count} fresh, {stale_count} stale, {miss_count} missing");
+        }
+        Commands::Diff { revision } => {
+            let project_root = mustfile_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            run_diff(project_root, revision.as_deref())?;
+        }
+        Commands::Log { recipe, follow, clear } => {
+            let project_root = mustfile_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            let log_dir = project_root.join(".mustfile").join("logs");
+
+            if clear {
+                if log_dir.exists() {
+                    if let Ok(entries) = std::fs::read_dir(&log_dir) {
+                        let mut count = 0u64;
+                        for entry in entries.flatten() {
+                            let p = entry.path();
+                            if p.extension().is_some_and(|ext| ext == "log") {
+                                let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+                                std::fs::remove_file(&p).map_err(Error::Io)?;
+                                count += 1;
+                                let _ = size;
+                            }
+                        }
+                        println!("Cleared {count} log(s).");
+                    }
+                } else {
+                    println!("No logs to clear.");
+                }
+                return Ok(());
+            }
+
+            if let Some(name) = recipe {
+                let log_path = log_dir.join(format!("{name}.log"));
+                if !log_path.exists() {
+                    return Err(Error::Config {
+                        path: log_path,
+                        message: format!("no log found for recipe '{name}'"),
+                    });
+                }
+                if follow {
+                    let mut last_len = 0u64;
+                    let mut printed = 0u64;
+                    loop {
+                        let metadata = std::fs::metadata(&log_path).map_err(Error::Io)?;
+                        let len = metadata.len();
+                        if len != last_len {
+                            if len < last_len {
+                                printed = 0;
+                            }
+                            let content = std::fs::read_to_string(&log_path)
+                                .map_err(Error::Io)?;
+                            let bytes = content.as_bytes();
+                            if (printed as usize) < bytes.len() {
+                                let new_content = String::from_utf8_lossy(&bytes[printed as usize..]);
+                                print!("{new_content}");
+                                printed = bytes.len() as u64;
+                            }
+                            last_len = len;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                    }
+                } else {
+                    let content = std::fs::read_to_string(&log_path).map_err(Error::Io)?;
+                    print!("{content}");
+                }
+            } else {
+                if !log_dir.exists() {
+                    println!("No logs found. Run a build first.");
+                    return Ok(());
+                }
+                let mut entries: Vec<(String, u64)> = std::fs::read_dir(&log_dir)
+                    .map_err(Error::Io)?
+                    .filter_map(|e| e.ok())
+                    .filter_map(|e| {
+                        let p = e.path();
+                        if p.extension().is_some_and(|ext| ext == "log") {
+                            let name = p.file_stem().map(|s| s.to_string_lossy().into_owned())?;
+                            let size = std::fs::metadata(&p).map(|m| m.len()).ok()?;
+                            Some((name, size))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                entries.sort_by(|a, b| a.0.cmp(&b.0));
+                if entries.is_empty() {
+                    println!("No logs found.");
+                } else {
+                    for (name, size) in &entries {
+                        let human = if *size < 1024 {
+                            format!("{size}B")
+                        } else if *size < 1024 * 1024 {
+                            format!("{}KB", size / 1024)
+                        } else {
+                            format!("{}MB", size / (1024 * 1024))
+                        };
+                        println!("{name:<20} {human}");
+                    }
+                }
+            }
+        }
+        Commands::Plugin { action } => {
+            let project_root = mustfile_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            let plugin_dir = project_root.join(".mustfile").join("plugins");
+
+            match action {
+                PluginAction::List => {
+                    if !plugin_dir.exists() {
+                        println!("No plugins directory found. Create .mustfile/plugins/*.lua");
+                        return Ok(());
+                    }
+                    let mut found = false;
+                    let mut entries: Vec<(String, bool)> = Vec::new();
+                    if let Ok(dir) = std::fs::read_dir(&plugin_dir) {
+                        for entry in dir.flatten() {
+                            let path = entry.path();
+                            if path.extension().is_some_and(|ext| ext == "lua") {
+                                let name = path
+                                    .file_stem()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string();
+                                let valid = must_plugin::LuaRecipe::load(&name, &path).is_ok();
+                                entries.push((name, valid));
+                                found = true;
+                            }
+                        }
+                    }
+                    if !found {
+                        println!("No plugins found in .mustfile/plugins/");
+                    } else {
+                        println!("{:<20} STATUS", "NAME");
+                        println!("{}", "-".repeat(30));
+                        for (name, valid) in &entries {
+                            let status = if *valid {
+                                "\x1b[32mok\x1b[0m"
+                            } else {
+                                "\x1b[31minvalid\x1b[0m"
+                            };
+                            println!("{name:<20} {status}");
+                        }
+                        println!();
+                        let valid_count = entries.iter().filter(|(_, v)| *v).count();
+                        println!("{valid_count}/{} valid", entries.len());
+                    }
+                }
+                PluginAction::Check { ref plugin } => {
+                    let plugin_path = plugin_dir.join(format!("{plugin}.lua"));
+                    match must_plugin::LuaRecipe::load(plugin, &plugin_path) {
+                        Ok(_) => println!("Plugin '{plugin}' is valid."),
+                        Err(e) => {
+                            return Err(Error::Config {
+                                path: plugin_path,
+                                message: format!("plugin '{plugin}' validation failed: {e}"),
+                            });
+                        }
+                    }
+                }
+                PluginAction::Install { url, name } => {
+                    let plugin_name = name.clone().unwrap_or_else(|| {
+                        let url_path = url.trim_end_matches('/');
+                        let filename = url_path.rsplit('/').next().unwrap_or("plugin");
+                        filename.strip_suffix(".lua").unwrap_or(filename).to_string()
+                    });
+
+                    if !plugin_dir.exists() {
+                        std::fs::create_dir_all(&plugin_dir).map_err(Error::Io)?;
+                    }
+
+                    let dest = plugin_dir.join(format!("{plugin_name}.lua"));
+
+                    if url.starts_with("http://") || url.starts_with("https://") {
+                        let response = reqwest::get(&url).await
+                            .map_err(|e| Error::Config {
+                                path: dest.clone(),
+                                message: format!("failed to fetch {url}: {e}"),
+                            })?;
+                        if !response.status().is_success() {
+                            return Err(Error::Config {
+                                path: dest,
+                                message: format!("HTTP {} fetching {url}", response.status()),
+                            });
+                        }
+                        let content = response.text().await
+                            .map_err(|e| Error::Config {
+                                path: dest.clone(),
+                                message: format!("failed to read response: {e}"),
+                            })?;
+                        std::fs::write(&dest, &content).map_err(Error::Io)?;
+                    } else if url.contains("://") || url.ends_with(".git") {
+                        let tmp_dir = std::env::temp_dir().join(format!("must-plugin-install-{}", std::process::id()));
+                        let _ = std::fs::create_dir_all(&tmp_dir);
+                        let status = std::process::Command::new("git")
+                            .args(["clone", "--depth", "1", &url])
+                            .arg(&tmp_dir)
+                            .status()
+                            .map_err(|e| Error::Config {
+                                path: dest.clone(),
+                                message: format!("failed to run git: {e}"),
+                            })?;
+                        if !status.success() {
+                            return Err(Error::Config {
+                                path: dest,
+                                message: format!("git clone failed for {url}"),
+                            });
+                        }
+                        let mut found = false;
+                        if let Ok(entries) = std::fs::read_dir(&tmp_dir) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.extension().is_some_and(|ext| ext == "lua") {
+                                    let content = std::fs::read_to_string(&p).map_err(Error::Io)?;
+                                    let target = plugin_dir.join(p.file_name().unwrap_or_default());
+                                    std::fs::write(&target, &content).map_err(Error::Io)?;
+                                    println!("Installed {}", target.file_name().unwrap_or_default().to_string_lossy());
+                                    found = true;
+                                }
+                            }
+                        }
+                        if !found {
+                            return Err(Error::Config {
+                                path: dest,
+                                message: format!("no .lua files found in {url}"),
+                            });
+                        }
+                        println!("Installed plugins from {url}");
+                        return Ok(());
+                    } else {
+                        let src = PathBuf::from(&url);
+                        if !src.exists() {
+                            return Err(Error::Config {
+                                path: src,
+                                message: "source file not found".to_string(),
+                            });
+                        }
+                        std::fs::copy(&src, &dest).map_err(Error::Io)?;
+                    }
+
+                    match must_plugin::LuaRecipe::load(&plugin_name, &dest) {
+                        Ok(_) => println!("Installed plugin '{plugin_name}' from {url}"),
+                        Err(e) => {
+                            let _ = std::fs::remove_file(&dest);
+                            return Err(Error::Config {
+                                path: dest,
+                                message: format!("installed plugin failed validation: {e}"),
+                            });
+                        }
+                    }
+                }
+                PluginAction::Remove { plugin } => {
+                    let plugin_path = plugin_dir.join(format!("{plugin}.lua"));
+                    if !plugin_path.exists() {
+                        println!("Plugin '{plugin}' not found.");
+                        return Ok(());
+                    }
+                    std::fs::remove_file(&plugin_path).map_err(Error::Io)?;
+                    println!("Removed plugin '{plugin}'.");
+                }
+            }
         }
     }
 
@@ -1070,6 +1397,13 @@ async fn execute_recipes(
                 r.env = env;
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
+            RecipeType::Plugin => {
+                let plugin_name = recipe_cfg.plugin.as_deref().unwrap_or(name);
+                let plugin_dir = project_root.join(".mustfile").join("plugins");
+                let plugin_path = plugin_dir.join(format!("{plugin_name}.lua"));
+                let lua_recipe = must_plugin::LuaRecipe::load(plugin_name, &plugin_path)?;
+                recipe_map.insert(name.clone(), Arc::new(lua_recipe));
+            }
         }
     }
 
@@ -1109,7 +1443,52 @@ async fn execute_recipes(
         ctx.parallelism = j;
 
         let engine = Engine::new(j, fail_fast);
-        let report = engine.execute(&sub_dag, &recipe_map, &ctx).await?;
+        let total_recipes = recipe_map.len();
+
+        let pb = indicatif::ProgressBar::new(total_recipes as u64);
+        pb.set_style(
+            indicatif::ProgressStyle::with_template(
+                "{spinner:.green} [{wide_bar:.cyan/blue}] {pos}/{len} ({msg})",
+            )
+            .unwrap()
+            .progress_chars("#>-")
+        );
+        pb.set_message("starting...");
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<must_engine::ProgressEvent>(64);
+
+        let pb_clone = pb.clone();
+        let progress_task = tokio::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                match event {
+                    must_engine::ProgressEvent::Starting { recipe, .. } => {
+                        pb_clone.set_message(format!("running {recipe}"));
+                    }
+                    must_engine::ProgressEvent::Completed { recipe, success, from_cache, .. } => {
+                        pb_clone.inc(1);
+                        let icon = if success {
+                            if from_cache { "✓ (cached)" } else { "✓" }
+                        } else {
+                            "✗"
+                        };
+                        pb_clone.println(format!("  {icon} {recipe}"));
+                    }
+                    must_engine::ProgressEvent::WaveDone { completed, total } => {
+                        pb_clone.set_position(completed as u64);
+                        if completed < total {
+                            pb_clone.set_message(format!("{completed}/{total}"));
+                        }
+                    }
+                }
+            }
+        });
+
+        let report = engine.execute_with_progress(&sub_dag, &recipe_map, &ctx, tx).await;
+        progress_task.await.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+        pb.finish_and_clear();
+        let report = report?;
+
+        save_build_manifest(&project_root, &report);
 
         // Print summary
         println!(
@@ -1139,6 +1518,302 @@ async fn execute_recipes(
     }
 
     Ok(())
+}
+
+async fn run_foreach(
+    command: &[String],
+    filter: Option<&str>,
+    parallelism: usize,
+    keep_going: bool,
+) -> must_core::Result<()> {
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+
+    let mut subprojects: Vec<PathBuf> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&cwd) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && path.join("Mustfile.toml").exists() {
+                subprojects.push(path);
+            }
+        }
+    }
+    subprojects.sort();
+
+    if let Some(pattern) = filter {
+        subprojects.retain(|p| {
+            let name = p.file_name().unwrap_or_default().to_string_lossy();
+            glob::Pattern::new(pattern)
+                .map(|pat| pat.matches(&name))
+                .unwrap_or(false)
+        });
+    }
+
+    if subprojects.is_empty() {
+        println!("No sub-projects found (no subdirectories with Mustfile.toml).");
+        return Ok(());
+    }
+
+    let binary = std::env::current_exe().map_err(Error::Io)?;
+    let total = subprojects.len();
+    let mut succeeded = 0usize;
+    let mut failed = 0usize;
+
+    let sem = Arc::new(tokio::sync::Semaphore::new(parallelism));
+    let mut handles = Vec::new();
+
+    for dir in subprojects {
+        let sem = sem.clone();
+        let binary = binary.clone();
+        let command: Vec<String> = command.to_vec();
+        let dir_name = dir.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+        handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.expect("semaphore closed");
+            let mut cmd = tokio::process::Command::new(&binary);
+            cmd.args(&command).current_dir(&dir);
+
+            let output = cmd.output().await;
+            match output {
+                Ok(out) => {
+                    let name = dir_name.clone();
+                    (name, out.status.success(), out.stdout, out.stderr)
+                }
+                Err(e) => {
+                    (dir_name.clone(), false, Vec::new(), format!("failed to spawn: {e}").into_bytes())
+                }
+            }
+        }));
+    }
+
+    for handle in handles {
+        let (name, success, stdout, stderr) = handle.await.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+        if success {
+            succeeded += 1;
+            println!("\x1b[32m✓\x1b[0m {name}");
+        } else {
+            failed += 1;
+            println!("\x1b[31m✗\x1b[0m {name}");
+            if !stderr.is_empty() {
+                let err_str = String::from_utf8_lossy(&stderr);
+                for line in err_str.lines().take(5) {
+                    println!("  {}", line);
+                }
+                if err_str.lines().count() > 5 {
+                    println!("  ... ({} more lines)", err_str.lines().count() - 5);
+                }
+            }
+            if !keep_going {
+                eprintln!("\n{}/{} succeeded, {} failed (stopped early)", succeeded, total, failed);
+                return Err(Error::RecipeFailed {
+                    name: "foreach".to_string(),
+                    code: 1,
+                    stderr: format!("sub-project '{name}' failed"),
+                });
+            }
+        }
+        if !stdout.is_empty() {
+            let out_str = String::from_utf8_lossy(&stdout);
+            for line in out_str.lines() {
+                println!("  {}", line);
+            }
+        }
+    }
+
+    println!("\n{succeeded}/{total} succeeded, {failed} failed");
+    if failed > 0 {
+        return Err(Error::RecipeFailed {
+            name: "foreach".to_string(),
+            code: 1,
+            stderr: format!("{failed} sub-project(s) failed"),
+        });
+    }
+
+    Ok(())
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+struct BuildEntry {
+    recipe: String,
+    success: bool,
+    from_cache: bool,
+    duration_ms: u64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct BuildManifest {
+    timestamp: String,
+    target: String,
+    profile: String,
+    entries: Vec<BuildEntry>,
+}
+
+fn history_dir(project_root: &Path) -> PathBuf {
+    project_root.join(".mustfile").join("history")
+}
+
+fn save_build_manifest(project_root: &Path, report: &must_engine::ExecutionReport) {
+    let dir = history_dir(project_root);
+    let _ = std::fs::create_dir_all(&dir);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let manifest = BuildManifest {
+        timestamp: now.to_string(),
+        target: "host".to_string(),
+        profile: "default".to_string(),
+        entries: report
+            .results
+            .iter()
+            .map(|r| BuildEntry {
+                recipe: r.recipe_name.clone(),
+                success: r.success,
+                from_cache: r.from_cache,
+                duration_ms: r.duration_ms,
+            })
+            .collect(),
+    };
+    let path = dir.join(format!("{now}.json"));
+    let _ = std::fs::write(&path, serde_json::to_string_pretty(&manifest).unwrap_or_default());
+
+    let _ = prune_history(&dir, 10);
+}
+
+fn prune_history(dir: &Path, keep: usize) -> std::io::Result<()> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|ext| ext == "json"))
+        .collect();
+    files.sort();
+    while files.len() > keep {
+        let old = files.remove(0);
+        let _ = std::fs::remove_file(old);
+    }
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn load_latest_manifest(dir: &Path) -> Option<BuildManifest> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir).ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|ext| ext == "json"))
+        .collect();
+    files.sort();
+    let path = files.last()?;
+    let content = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn load_manifest_by_offset(dir: &Path, offset: usize) -> Option<BuildManifest> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir).ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|ext| ext == "json"))
+        .collect();
+    files.sort();
+    if offset >= files.len() { return None; }
+    let path = &files[files.len() - 1 - offset];
+    let content = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn run_diff(project_root: &Path, revision: Option<&str>) -> must_core::Result<()> {
+    let dir = history_dir(project_root);
+    if !dir.exists() {
+        println!("No build history found. Run a build first.");
+        return Ok(());
+    }
+
+    let offset = match revision {
+        Some(r) => r.parse::<usize>().map_err(|_| Error::Config {
+            path: dir.clone(),
+            message: "revision must be a number (0 = latest, 1 = previous, etc.)".to_string(),
+        })?,
+        None => 1,
+    };
+
+    let current = load_manifest_by_offset(&dir, 0)
+        .ok_or_else(|| Error::Config {
+            path: dir.clone(),
+            message: "no build manifest found".to_string(),
+        })?;
+    let previous = load_manifest_by_offset(&dir, offset)
+        .ok_or_else(|| Error::Config {
+            path: dir.clone(),
+            message: format!("no build manifest found at offset {offset}"),
+        })?;
+
+    let prev_map: HashMap<String, &BuildEntry> = previous.entries.iter()
+        .map(|e| (e.recipe.clone(), e))
+        .collect();
+    let curr_map: HashMap<String, &BuildEntry> = current.entries.iter()
+        .map(|e| (e.recipe.clone(), e))
+        .collect();
+
+    let all_names: std::collections::BTreeSet<&str> = prev_map.keys()
+        .chain(curr_map.keys())
+        .map(|s| s.as_str())
+        .collect();
+
+    let mut added = 0usize;
+    let mut removed = 0usize;
+    let mut changed = 0usize;
+    let mut unchanged = 0usize;
+
+    println!("{:<20} {:<12} {:<12} CHANGE", "RECIPE", "PREVIOUS", "CURRENT");
+    println!("{}", "-".repeat(65));
+
+    for name in &all_names {
+        let prev = prev_map.get(*name);
+        let curr = curr_map.get(*name);
+
+        match (prev, curr) {
+            (None, Some(c)) => {
+                added += 1;
+                let status = if c.success { "ok" } else { "FAIL" };
+                println!("{name:<20} {:<12} \x1b[32m{status:<12}\x1b[0m +added", "-");
+            }
+            (Some(_), None) => {
+                removed += 1;
+                println!("{name:<20} \x1b[31m-removed\x1b[0m");
+            }
+            (Some(p), Some(c)) => {
+                let prev_status = status_label(p);
+                let curr_status = status_label(c);
+                if p.success != c.success || p.from_cache != c.from_cache {
+                    changed += 1;
+                    let delta = if !p.success && c.success { "\x1b[32m+fixed\x1b[0m" }
+                                else if p.success && !c.success { "\x1b[31m+broke\x1b[0m" }
+                                else if !p.from_cache && c.from_cache { "\x1b[36m+cached\x1b[0m" }
+                                else if p.from_cache && !c.from_cache { "\x1b[33m+rebuilt\x1b[0m" }
+                                else { "\x1b[33m+changed\x1b[0m" };
+                    println!("{name:<20} {prev_status:<12} {curr_status:<12} {delta}");
+                } else {
+                    unchanged += 1;
+                    let dur_delta = if c.duration_ms > p.duration_ms {
+                        format!("+{}ms", c.duration_ms - p.duration_ms)
+                    } else if c.duration_ms < p.duration_ms {
+                        format!("-{}ms", p.duration_ms - c.duration_ms)
+                    } else {
+                        "=0ms".to_string()
+                    };
+                    println!("{name:<20} {prev_status:<12} {curr_status:<12} {dur_delta}");
+                }
+            }
+            (None, None) => {}
+        }
+    }
+
+    println!("\n{added} added, {removed} removed, {changed} changed, {unchanged} unchanged");
+    Ok(())
+}
+
+fn status_label(entry: &BuildEntry) -> &'static str {
+    if !entry.success { "failed" }
+    else if entry.from_cache { "cached" }
+    else { "built" }
 }
 
 fn explain_recipe(
@@ -1246,6 +1921,10 @@ fn explain_recipe(
             "docker push {}",
             expand(recipe.image.as_deref().unwrap_or(recipe_name))
         ),
+        RecipeType::Plugin => format!(
+            "lua .mustfile/plugins/{}.lua",
+            recipe.plugin.as_deref().unwrap_or(recipe_name)
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -1284,6 +1963,8 @@ fn explain_recipe(
             !matches!(
                 k.as_str(),
                 "PATH" | "HOME" | "USER" | "SHELL" | "TERM" | "COLORTERM" | "TMPDIR"
+                    | "SystemRoot" | "COMSPEC" | "ProgramFiles" | "ProgramData"
+                    | "LOCALAPPDATA" | "APPDATA" | "HOMEDRIVE" | "HOMEPATH" | "OS"
             )
         })
         .map(|(k, v)| (k.as_str(), v.as_str()))
@@ -1410,6 +2091,7 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::ZigTest => "zig-test",
         RecipeType::DockerBuild => "docker-build",
         RecipeType::DockerPush => "docker-push",
+        RecipeType::Plugin => "plugin",
     }
 }
 
@@ -1615,6 +2297,7 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::PyBin | RecipeType::PyTest | RecipeType::PyLint => ("py", "\x1b[34m"),
         RecipeType::ZigBin | RecipeType::ZigTest => ("zig", "\x1b[33m"),
         RecipeType::DockerBuild | RecipeType::DockerPush => ("docker", "\x1b[32m"),
+        RecipeType::Plugin => ("lua", "\x1b[36m"),
     }
 }
 
@@ -1892,6 +2575,7 @@ mod tests {
             image: None,
             dockerfile: None,
             build_args: vec![],
+            plugin: None,
         }
     }
 

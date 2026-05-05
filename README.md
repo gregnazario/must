@@ -5,10 +5,12 @@
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
-- **19 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, and shell
+- **20 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, shell, and Lua plugins
 - **Pragmatic caching:** Content-hash caching for compiled recipes; mtime for shell; `must cache` for management
 - **Cross-compilation:** Automatic GOOS/GOARCH, cross-rs containers, and C cross-compilers
 - **Env interpolation:** `${VAR}` expansion in scripts, images, and flags from layered env config
+- **Lua plugins:** Extend must with `.lua` files — shell exec, file I/O, glob, env access
+- **Build logs:** `must log <recipe>` shows last build output; `must log --follow` streams in real time
 - **Migration-friendly:** `must import` converts existing Makefiles
 
 ## Install
@@ -100,6 +102,7 @@ script = "echo CI passed"
 | `zig-test` | Zig | `zig build test` |
 | `docker-build` | Docker | `docker build` with tag and build args |
 | `docker-push` | Docker | `docker push` |
+| `plugin` | Lua | User-defined recipe via Lua script |
 
 ## Commands
 
@@ -116,6 +119,12 @@ script = "echo CI passed"
 | `must cache invalidate <recipe>` | Clear cache for a recipe |
 | `must cache invalidate --all` | Clear all cache |
 | `must cache du` | Show cache disk usage |
+| `must log <recipe>` | Show last build output for a recipe |
+| `must log` | List all recipes with stored logs and sizes |
+| `must log --follow <recipe>` | Stream log output in real time |
+| `must log --clear` | Clear all stored logs |
+| `must plugin list` | List discovered plugins with validation status |
+| `must plugin check <name>` | Validate a plugin without executing it |
 | `must clean [--cache]` | Remove outputs and optionally cache |
 | `must init [--template]` | Create a Mustfile.toml from a template |
 | `must watch [recipes]` | Watch files and rebuild on change |
@@ -177,6 +186,80 @@ outputs = ["src/generated.rs"]
 script  = "protoc --rust_out=src proto/*.proto"
 ```
 
+## Lua Plugins
+
+Extend must with custom recipe types written in Lua. Place `.lua` files in `.mustfile/plugins/`:
+
+```lua
+-- .mustfile/plugins/protoc.lua
+function execute(ctx)
+    local protos = glob("proto/*.proto")
+    for _, p in ipairs(protos) do
+        shell_exec("protoc --rust_out=src " .. p)
+    end
+    return { stdout = "generated " .. #protos .. " files", stderr = "", success = true }
+end
+```
+
+Reference it in your config:
+
+```toml
+[recipe.codegen]
+type   = "plugin"
+plugin = "protoc"
+deps   = ["setup"]
+```
+
+### Plugin API
+
+Every plugin receives a `ctx` table with:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ctx.project_root` | string | Project root directory |
+| `ctx.cache_dir` | string | Cache directory path |
+| `ctx.target` | string | Build target triple |
+| `ctx.profile` | string | Active profile |
+| `ctx.dry_run` | boolean | Whether dry-run is active |
+| `ctx.env` | table | Environment variables |
+
+### Built-in Functions
+
+Plugins have access to a standard library:
+
+| Function | Description |
+|----------|-------------|
+| `shell_exec(cmd)` | Run a shell command, returns `{success, exit_code, stdout, stderr}` |
+| `read_file(path)` | Read file contents as string |
+| `write_file(path, content)` | Write string to file |
+| `file_exists(path)` | Check if file or directory exists |
+| `mkdir(path)` | Create directory (recursive) |
+| `glob(pattern)` | Return matching file paths as array |
+| `env_get(key)` | Get environment variable |
+| `set_env(key, value)` | Set environment variable |
+| `log_info(msg)` | Log info message |
+| `log_warn(msg)` | Log warning message |
+
+### Optional Hooks
+
+Plugins can define optional functions:
+
+```lua
+deps = {"codegen", "compile"}
+
+function inputs(ctx)
+    return { "src/main.lua", "config.toml" }
+end
+
+function outputs(ctx)
+    return { "dist/app.js" }
+end
+
+function cache_key(ctx)
+    return "custom-key-" .. ctx.profile
+end
+```
+
 ## Templates
 
 `must init` supports 7 templates: `minimal`, `rust`, `go`, `python`, `zig`, `docker`, `polyglot`.
@@ -192,6 +275,8 @@ See the [`examples/`](examples/) directory for complete project setups:
 - `ts-monorepo/` — TypeScript monorepo with ts-bin, ts-check, npm
 - `docker-monorepo/` — Multi-service Docker builds with env interpolation
 - `zig-tool/` — Zig binary and test recipes
+
+Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml) for a real-world example.
 
 ## Documentation
 

@@ -1445,3 +1445,706 @@ dockerfile = "Dockerfile"
         "docker-build should succeed\nstdout: {stdout}\nstderr: {stderr}"
     );
 }
+
+#[test]
+fn test_log_no_logs_found() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#,
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "log",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("No logs found"), "unexpected: {stdout}");
+}
+
+#[test]
+fn test_log_after_build() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo hello_from_build"
+"#,
+    )
+    .unwrap();
+
+    let build = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(build.status.success(), "build should succeed");
+
+    let log = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "log",
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(log.status.success(), "log build should succeed");
+    let stdout = String::from_utf8_lossy(&log.stdout);
+    assert!(
+        stdout.contains("hello_from_build"),
+        "log should contain build output, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_log_lists_recipes() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "test"
+
+[recipe.alpha]
+type = "shell"
+script = "echo alpha"
+
+[recipe.beta]
+type = "shell"
+script = "echo beta"
+"#,
+    )
+    .unwrap();
+
+    let build = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+            "alpha",
+            "beta",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(build.status.success());
+
+    let log = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "log",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(log.status.success());
+    let stdout = String::from_utf8_lossy(&log.stdout);
+    assert!(stdout.contains("alpha"), "should list alpha log");
+    assert!(stdout.contains("beta"), "should list beta log");
+}
+
+#[test]
+fn test_log_missing_recipe_exits_nonzero() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#,
+    )
+    .unwrap();
+
+    let log = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "log",
+            "nonexistent",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        !log.status.success(),
+        "log nonexistent should exit nonzero"
+    );
+}
+
+#[test]
+fn test_plugin_recipe_execution() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+    std::fs::create_dir_all(&plugin_dir).unwrap();
+    std::fs::write(
+        plugin_dir.join("hello.lua"),
+        r#"
+function execute(ctx)
+    return { stdout = "plugin-output:" .. ctx.project_root, stderr = "", success = true }
+end
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-test"
+
+[recipe.build]
+type = "plugin"
+plugin = "hello"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "plugin build should succeed\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("plugin-output:"),
+        "should contain plugin output, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_plugin_recipe_list() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+    std::fs::create_dir_all(&plugin_dir).unwrap();
+    std::fs::write(
+        plugin_dir.join("greet.lua"),
+        r#"
+function execute(ctx)
+    return { stdout = "hello", stderr = "", success = true }
+end
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-list"
+
+[recipe.greet]
+type = "plugin"
+plugin = "greet"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "list",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("greet"), "should list greet recipe: {stdout}");
+    assert!(stdout.contains("plugin"), "should show plugin type: {stdout}");
+}
+
+#[test]
+fn test_log_clear() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo hello"
+"#,
+    )
+    .unwrap();
+
+    let build = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(build.status.success());
+
+    let clear = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "log", "--clear"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(clear.status.success());
+    let stdout = String::from_utf8_lossy(&clear.stdout);
+    assert!(stdout.contains("Cleared"), "should confirm cleared: {stdout}");
+
+    let log = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "log"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(log.status.success());
+    let stdout = String::from_utf8_lossy(&log.stdout);
+    assert!(stdout.contains("No logs found"), "logs should be empty after clear: {stdout}");
+}
+
+#[test]
+fn test_plugin_list_command() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+    std::fs::create_dir_all(&plugin_dir).unwrap();
+    std::fs::write(
+        plugin_dir.join("hello.lua"),
+        r#"
+function execute(ctx)
+    return { stdout = "hi", stderr = "", success = true }
+end
+"#,
+    )
+    .unwrap();
+    std::fs::write(plugin_dir.join("bad.lua"), "not valid lua {{{{").unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-list-test"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "plugin", "list"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("hello"), "should list hello plugin: {stdout}");
+    assert!(stdout.contains("bad"), "should list bad plugin: {stdout}");
+    assert!(stdout.contains("ok"), "hello should be valid: {stdout}");
+    assert!(stdout.contains("invalid"), "bad should be invalid: {stdout}");
+}
+
+#[test]
+fn test_plugin_check_valid() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+    std::fs::create_dir_all(&plugin_dir).unwrap();
+    std::fs::write(
+        plugin_dir.join("valid.lua"),
+        r#"
+function execute(ctx)
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-check"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "plugin", "check", "valid"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("valid"), "should confirm valid: {stdout}");
+}
+
+#[test]
+fn test_plugin_check_invalid_exits_nonzero() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+    std::fs::create_dir_all(&plugin_dir).unwrap();
+    std::fs::write(plugin_dir.join("broken.lua"), "bad lua {{{{").unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-check"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "plugin", "check", "broken"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(!output.status.success(), "invalid plugin should fail");
+}
+
+#[test]
+fn test_foreach_discovers_subprojects() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let alpha = root.join("alpha");
+    let beta = root.join("beta");
+    let gamma = root.join("gamma");
+    std::fs::create_dir_all(&alpha).unwrap();
+    std::fs::create_dir_all(&beta).unwrap();
+    std::fs::create_dir_all(&gamma).unwrap();
+
+    std::fs::write(
+        alpha.join("Mustfile.toml"),
+        r#"
+[project]
+name = "alpha"
+
+[recipe.build]
+type = "shell"
+script = "echo alpha-built"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        beta.join("Mustfile.toml"),
+        r#"
+[project]
+name = "beta"
+
+[recipe.build]
+type = "shell"
+script = "echo beta-built"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["foreach", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "foreach should succeed\nstdout: {stdout}\nstderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(stdout.contains("alpha"), "should mention alpha: {stdout}");
+    assert!(stdout.contains("beta"), "should mention beta: {stdout}");
+    assert!(!stdout.contains("gamma"), "should not mention gamma (no Mustfile.toml): {stdout}");
+}
+
+#[test]
+fn test_foreach_with_filter() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let lib_a = root.join("lib-a");
+    let lib_b = root.join("lib-b");
+    let app = root.join("app");
+    std::fs::create_dir_all(&lib_a).unwrap();
+    std::fs::create_dir_all(&lib_b).unwrap();
+    std::fs::create_dir_all(&app).unwrap();
+
+    for (subdir, name) in [(&lib_a, "lib-a"), (&lib_b, "lib-b"), (&app, "app")] {
+        std::fs::write(
+            subdir.join("Mustfile.toml"),
+            format!(
+                r#"
+[project]
+name = "{name}"
+
+[recipe.build]
+type = "shell"
+script = "echo {name}-built"
+"#,
+            ),
+        )
+        .unwrap();
+    }
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["foreach", "build", "--filter", "lib-*"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "foreach with filter should succeed\nstdout: {stdout}");
+    assert!(stdout.contains("lib-a"), "should contain lib-a: {stdout}");
+    assert!(stdout.contains("lib-b"), "should contain lib-b: {stdout}");
+    assert!(!stdout.contains("app"), "should not contain app (filtered out): {stdout}");
+}
+
+#[test]
+fn test_foreach_no_subprojects() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["foreach", "build"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("No sub-projects found"), "should report no sub-projects: {stdout}");
+}
+
+#[test]
+fn test_foreach_failure_propagates() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let good = root.join("good");
+    let bad = root.join("bad");
+    std::fs::create_dir_all(&good).unwrap();
+    std::fs::create_dir_all(&bad).unwrap();
+
+    std::fs::write(
+        good.join("Mustfile.toml"),
+        r#"
+[project]
+name = "good"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        bad.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bad"
+
+[recipe.build]
+type = "shell"
+script = "exit 1"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["foreach", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(!output.status.success(), "foreach should fail when sub-project fails");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("✗"), "should show failure icon: {stdout}");
+}
+
+#[test]
+fn test_diff_after_two_builds() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "diff-test"
+
+[recipe.build]
+type = "shell"
+script = "echo ok"
+"#,
+    )
+    .unwrap();
+
+    let build1 = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(build1.status.success());
+
+    let build2 = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(build2.status.success());
+
+    let diff = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "diff"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(diff.status.success());
+    let stdout = String::from_utf8_lossy(&diff.stdout);
+    assert!(stdout.contains("build"), "should mention build recipe: {stdout}");
+    assert!(stdout.contains("unchanged") || stdout.contains("changed"), "should have diff output: {stdout}");
+}
+
+#[test]
+fn test_must_args_env_var() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "args-test"
+
+[recipe.build]
+type = "shell"
+script = "echo args=$MUST_ARGS"
+
+[recipe.build.env]
+MUST_ARGS = "${MUST_ARGS}"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .env("MUST_ARGS", "hello world")
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("args=hello world"),
+        "should contain MUST_ARGS, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_plugin_install_from_local_file() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let src = root.join("my-plugin.lua");
+    std::fs::write(&src, r#"
+function execute(ctx)
+    return { stdout = "installed!", stderr = "", success = true }
+end
+"#).unwrap();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-install-test"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file", &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin", "install", &src.to_string_lossy(),
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "plugin install should succeed");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Installed"), "should confirm install: {stdout}");
+
+    assert!(plugin_dir.join("my-plugin.lua").exists(), "plugin file should exist");
+}
+
+#[test]
+fn test_plugin_remove() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let plugin_dir = root.join(".mustfile").join("plugins");
+    std::fs::create_dir_all(&plugin_dir).unwrap();
+    std::fs::write(
+        plugin_dir.join("temp.lua"),
+        r#"
+function execute(ctx)
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "plugin-remove-test"
+"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args([
+            "--file", &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin", "remove", "temp",
+        ])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(!plugin_dir.join("temp.lua").exists(), "plugin should be removed");
+}

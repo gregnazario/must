@@ -1,9 +1,17 @@
 use must_core::{BuildContext, Error, Recipe, Result};
 use must_graph::Dag;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
+
+#[derive(Debug, Clone, Serialize)]
+pub enum ProgressEvent {
+    Starting { recipe: String, total: usize, completed: usize },
+    Completed { recipe: String, success: bool, from_cache: bool, duration_ms: u64 },
+    WaveDone { completed: usize, total: usize },
+}
 
 #[derive(Debug, Clone)]
 pub struct ExecutionResult {
@@ -11,6 +19,8 @@ pub struct ExecutionResult {
     pub from_cache: bool,
     pub success: bool,
     pub duration_ms: u64,
+    pub stdout: String,
+    pub stderr: String,
     pub error: Option<String>,
 }
 
@@ -92,11 +102,31 @@ impl Engine {
                                 duration_ms,
                                 "recipe complete"
                             );
+
+                            if !output.stdout.is_empty() || !output.stderr.is_empty() {
+                                let _ = std::fs::create_dir_all(&ctx.log_dir);
+                                let log_path = ctx.log_dir.join(format!("{name}.log"));
+                                let mut log_content = String::new();
+                                if !output.stdout.is_empty() {
+                                    log_content.push_str(&output.stdout);
+                                }
+                                if !output.stderr.is_empty() {
+                                    if !log_content.is_empty() {
+                                        log_content.push('\n');
+                                    }
+                                    log_content.push_str("--- stderr ---\n");
+                                    log_content.push_str(&output.stderr);
+                                }
+                                let _ = std::fs::write(&log_path, &log_content);
+                            }
+
                             ExecutionResult {
                                 recipe_name: name,
                                 from_cache: output.from_cache,
                                 success: true,
                                 duration_ms,
+                                stdout: output.stdout,
+                                stderr: output.stderr,
                                 error: None,
                             }
                         }
@@ -108,6 +138,8 @@ impl Engine {
                                 from_cache: false,
                                 success: false,
                                 duration_ms,
+                                stdout: String::new(),
+                                stderr: String::new(),
                                 error: Some(e.to_string()),
                             }
                         }
@@ -136,6 +168,8 @@ impl Engine {
                             from_cache: false,
                             success: false,
                             duration_ms: 0,
+                            stdout: String::new(),
+                            stderr: String::new(),
                             error: Some(format!("task panicked: {e}")),
                         });
                     }
@@ -147,6 +181,157 @@ impl Engine {
             }
         }
 
+        let total_duration_ms = start.elapsed().as_millis() as u64;
+        Ok(ExecutionReport {
+            success: !failed,
+            results: all_results,
+            total_duration_ms,
+        })
+    }
+
+    pub async fn execute_with_progress(
+        &self,
+        dag: &Dag,
+        recipes: &HashMap<String, Arc<dyn Recipe>>,
+        ctx: &BuildContext,
+        progress_tx: tokio::sync::mpsc::Sender<ProgressEvent>,
+    ) -> Result<ExecutionReport> {
+        let start = std::time::Instant::now();
+        let waves = dag.waves()?;
+        let semaphore = Arc::new(Semaphore::new(self.parallelism));
+        let mut all_results: Vec<ExecutionResult> = Vec::new();
+        let mut failed = false;
+        let total_recipes: usize = waves.iter().map(|w| w.len()).sum();
+        let mut completed = 0usize;
+
+        'waves: for wave in waves {
+            if failed && self.fail_fast {
+                break 'waves;
+            }
+
+            let mut handles = Vec::new();
+
+            for recipe_name in wave {
+                let recipe = match recipes.get(&recipe_name) {
+                    Some(r) => Arc::clone(r),
+                    None => return Err(Error::UnknownRecipe { name: recipe_name }),
+                };
+                let ctx = ctx.clone();
+                let sem = Arc::clone(&semaphore);
+                let tx = progress_tx.clone();
+
+                let handle = tokio::spawn(async move {
+                    let _permit = sem.acquire().await.expect("semaphore closed");
+                    let name = recipe.name().to_string();
+                    let _ = tx.send(ProgressEvent::Starting {
+                        recipe: name.clone(),
+                        total: 0,
+                        completed: 0,
+                    }).await;
+                    info!(recipe = %recipe.name(), "starting recipe");
+                    let exec_start = std::time::Instant::now();
+                    let result = match recipe.execute(&ctx) {
+                        Ok(output) => {
+                            let duration_ms = exec_start.elapsed().as_millis() as u64;
+                            info!(
+                                recipe = %name,
+                                from_cache = output.from_cache,
+                                duration_ms,
+                                "recipe complete"
+                            );
+
+                            if !output.stdout.is_empty() || !output.stderr.is_empty() {
+                                let _ = std::fs::create_dir_all(&ctx.log_dir);
+                                let log_path = ctx.log_dir.join(format!("{name}.log"));
+                                let mut log_content = String::new();
+                                if !output.stdout.is_empty() {
+                                    log_content.push_str(&output.stdout);
+                                }
+                                if !output.stderr.is_empty() {
+                                    if !log_content.is_empty() {
+                                        log_content.push('\n');
+                                    }
+                                    log_content.push_str("--- stderr ---\n");
+                                    log_content.push_str(&output.stderr);
+                                }
+                                let _ = std::fs::write(&log_path, &log_content);
+                            }
+
+                            ExecutionResult {
+                                recipe_name: name.clone(),
+                                from_cache: output.from_cache,
+                                success: true,
+                                duration_ms,
+                                stdout: output.stdout,
+                                stderr: output.stderr,
+                                error: None,
+                            }
+                        }
+                        Err(e) => {
+                            let duration_ms = exec_start.elapsed().as_millis() as u64;
+                            error!(recipe = %name, error = %e, "recipe failed");
+                            ExecutionResult {
+                                recipe_name: name.clone(),
+                                from_cache: false,
+                                success: false,
+                                duration_ms,
+                                stdout: String::new(),
+                                stderr: String::new(),
+                                error: Some(e.to_string()),
+                            }
+                        }
+                    };
+                    let _ = tx.send(ProgressEvent::Completed {
+                        recipe: name,
+                        success: result.success,
+                        from_cache: result.from_cache,
+                        duration_ms: result.duration_ms,
+                    }).await;
+                    result
+                });
+                handles.push(handle);
+            }
+
+            let mut wave_failed = false;
+            for handle in handles {
+                match handle.await {
+                    Ok(result) => {
+                        completed += 1;
+                        if !result.success {
+                            wave_failed = true;
+                            failed = true;
+                        }
+                        all_results.push(result);
+                    }
+                    Err(e) => {
+                        completed += 1;
+                        warn!("task panicked: {e}");
+                        failed = true;
+                        wave_failed = true;
+                        all_results.push(ExecutionResult {
+                            recipe_name: "unknown".to_string(),
+                            from_cache: false,
+                            success: false,
+                            duration_ms: 0,
+                            stdout: String::new(),
+                            stderr: String::new(),
+                            error: Some(format!("task panicked: {e}")),
+                        });
+                    }
+                }
+            }
+
+            let _ = progress_tx.send(ProgressEvent::WaveDone {
+                completed,
+                total: total_recipes,
+            }).await;
+
+            if wave_failed && self.fail_fast {
+                break 'waves;
+            }
+        }
+
+        drop(progress_tx);
         let total_duration_ms = start.elapsed().as_millis() as u64;
         Ok(ExecutionReport {
             success: !failed,
@@ -256,6 +441,7 @@ mod tests {
         BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
             cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
             env: HashMap::new(),
@@ -417,6 +603,8 @@ mod tests {
                     from_cache: true,
                     success: true,
                     duration_ms: 0,
+                    stdout: String::new(),
+                    stderr: String::new(),
                     error: None,
                 },
                 ExecutionResult {
@@ -424,6 +612,8 @@ mod tests {
                     from_cache: false,
                     success: true,
                     duration_ms: 1,
+                    stdout: String::new(),
+                    stderr: String::new(),
                     error: None,
                 },
             ],

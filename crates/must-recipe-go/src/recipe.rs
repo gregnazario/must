@@ -294,6 +294,7 @@ mod tests {
         BuildContext {
             project_root: std::path::PathBuf::from("/tmp/test"),
             cache_dir: std::path::PathBuf::from("/tmp/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
             env: HashMap::new(),
@@ -444,6 +445,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: root.to_owned(),
             cache_dir: root.join(".mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
             env: std::env::vars().collect(),
@@ -480,6 +482,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: root.to_owned(),
             cache_dir: root.join(".mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
             env: std::env::vars().collect(),
@@ -512,6 +515,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: root.to_owned(),
             cache_dir: root.join(".mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
             env: std::env::vars().collect(),
@@ -540,6 +544,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: root.to_owned(),
             cache_dir: root.join(".mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
             env: std::env::vars().collect(),
@@ -569,6 +574,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: root.to_owned(),
             cache_dir: root.join(".mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "aarch64-unknown-linux-gnu".to_string(),
             profile: "debug".to_string(),
             env: std::env::vars().collect(),
@@ -601,6 +607,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: root.to_owned(),
             cache_dir: root.join(".mustfile/cache"),
+            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
             env: std::env::vars().collect(),

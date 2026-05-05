@@ -1,17 +1,16 @@
 [package]
-name = "must-engine"
+name = "must-plugin"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 
 [dependencies]
 must-core = { path = "../must-core" }
-must-graph = { path = "../must-graph" }
 must-cache = { path = "../must-cache" }
-must-config = { path = "../must-config" }
-tokio.workspace = true
+mlua = { version = "0.10", features = ["lua54", "vendored", "send"] }
+glob = { workspace = true }
 tracing.workspace = true
-serde = { workspace = true }
 
 [dev-dependencies]
-toml.workspace = true
+tempfile.workspace = true

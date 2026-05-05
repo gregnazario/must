@@ -1,81 +1,50 @@
-# Mustfile builds itself.
-# Run `cargo run -p must-cli -- build` to bootstrap,
-# then `must build` once the binary is in PATH.
-
 [project]
-name    = "mustfile"
-version = "0.1.0"
+name = "mustfile"
+version = "0.2.0"
 
 [env]
 RUST_LOG = "warn"
 
-[env.dev]
-RUST_LOG = "info"
+[env.release]
+RUST_LOG = "error"
 
-# ── Targets ───────────────────────────────────────────────────────────────────
-
-[targets]
-default = ["x86_64-unknown-linux-gnu"]
-release = [
-    "x86_64-unknown-linux-gnu",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "aarch64-apple-darwin",
-]
-
-# ── Recipes ───────────────────────────────────────────────────────────────────
-
-# Build the must binary (debug).
 [recipe.build]
-type    = "rust-bin"
-package = "must-cli"
+type    = "shell"
+cache   = "hash"
+inputs  = ["crates/*/src/**/*.rs", "crates/*/Cargo.toml", "Cargo.toml"]
+outputs = ["target/debug/must"]
+script  = "cargo build"
 
-# Build release binary.
-[recipe.build-release]
-type    = "rust-bin"
-package = "must-cli"
+[recipe.release]
+type    = "shell"
+cache   = "hash"
+inputs  = ["crates/*/src/**/*.rs", "crates/*/Cargo.toml", "Cargo.toml"]
+outputs = ["target/release/must"]
+deps    = ["build"]
+script  = "cargo build --release"
 
-[recipe.build-release.env]
-CARGO_PROFILE = "release"
-
-# Run the full test suite.
 [recipe.test]
-type    = "rust-test"
-package = "must-cli"
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "cargo test"
 
-# Lint the workspace.
 [recipe.lint]
 type   = "shell"
 phony  = true
-script = "cargo clippy --workspace -- -D warnings"
+script = "cargo clippy -- -D warnings"
 
-# Format check.
 [recipe.fmt]
 type   = "shell"
 phony  = true
 script = "cargo fmt --check"
 
-# CI: everything that must pass before merge.
 [recipe.ci]
 type   = "shell"
 deps   = ["fmt", "lint", "test"]
 phony  = true
-script = "echo CI passed"
+script = "echo 'CI passed'"
 
-# Full release: lint + test + release build.
-[recipe.release]
-type   = "shell"
-deps   = ["ci", "build-release"]
-phony  = true
-script = "echo Release build complete"
-
-# Install the must binary to ~/.cargo/bin.
-[recipe.install]
-type   = "shell"
-phony  = true
-script = "cargo install --path crates/must-cli"
-
-# Clean.
 [recipe.clean]
 type   = "shell"
 phony  = true

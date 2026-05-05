@@ -1,7 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_command,
+    run_command, shell_command, shell_program,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -298,10 +298,8 @@ impl Recipe for PyLintRecipe {
             });
         }
         let dir = workdir_path(ctx, &self.package);
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c")
-            .arg("ruff check . && mypy .")
-            .current_dir(&dir);
+        let mut cmd = shell_command("ruff check . && mypy .");
+        cmd.current_dir(&dir);
         cmd.env_clear();
         for (k, v) in &ctx.env {
             cmd.env(k, v);
@@ -312,8 +310,8 @@ impl Recipe for PyLintRecipe {
         let start = Instant::now();
         let out = run_command(
             &mut cmd,
-            "sh",
-            "A POSIX shell is required (install bash or zsh)",
+            shell_program(),
+            "ruff and mypy are required for linting",
         )?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -345,6 +343,7 @@ mod tests {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
             cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),
@@ -383,6 +382,7 @@ mod tests {
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
             env: HashMap::new(),
