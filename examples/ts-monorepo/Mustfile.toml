@@ -1,0 +1,49 @@
+# TypeScript monorepo example.
+# Demonstrates: ts-bin, ts-check, ts-lint, npm recipes.
+
+[project]
+name = "web-platform"
+version = "0.3.0"
+
+[env]
+NODE_ENV = "development"
+
+[env.release]
+NODE_ENV = "production"
+
+[recipe.install-deps]
+type    = "npm"
+script  = "install"
+package = "."
+
+[recipe.typecheck]
+type    = "ts-check"
+package = "packages/core"
+deps    = ["install-deps"]
+
+[recipe.lint]
+type    = "ts-lint"
+package = "packages/core"
+deps    = ["install-deps"]
+
+[recipe.build-core]
+type    = "ts-bin"
+package = "packages/core"
+deps    = ["typecheck", "lint"]
+
+[recipe.build-cli]
+type    = "ts-bin"
+package = "packages/cli"
+deps    = ["build-core"]
+
+[recipe.test]
+type    = "npm"
+script  = "test"
+package = "."
+deps    = ["build-core"]
+
+[recipe.ci]
+type   = "shell"
+deps   = ["typecheck", "lint", "test"]
+phony  = true
+script = "echo CI passed"

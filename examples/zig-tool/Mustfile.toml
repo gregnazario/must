@@ -1,0 +1,34 @@
+# Zig tool example.
+# Demonstrates: zig-bin, zig-test recipes.
+
+[project]
+name = "zfetch"
+version = "0.1.0"
+
+[env]
+ZIG_GLOBAL_CACHE_DIR = ".zig-cache"
+
+[recipe.build]
+type    = "zig-bin"
+package = "zfetch"
+
+[recipe.test]
+type    = "zig-test"
+package = "zfetch"
+
+[recipe.run]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "./zig-out/bin/zfetch"
+
+[recipe.ci]
+type   = "shell"
+deps   = ["build", "test"]
+phony  = true
+script = "echo CI passed"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf zig-out .zig-cache"

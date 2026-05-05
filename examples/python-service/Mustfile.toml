@@ -1,0 +1,36 @@
+# Python service example.
+# Demonstrates: py-bin, py-test, py-lint recipes with virtual env support.
+
+[project]
+name = "data-pipeline"
+version = "1.0.0"
+
+[env]
+PYTHONDONTWRITEBYTECODE = "1"
+
+[recipe.install]
+type    = "py-bin"
+package = "."
+script  = "uv pip install -e ."
+
+[recipe.test]
+type    = "py-test"
+package = "tests"
+deps    = ["install"]
+
+[recipe.lint]
+type    = "py-lint"
+package = "."
+deps    = ["install"]
+
+[recipe.run]
+type   = "shell"
+deps   = ["install"]
+phony  = true
+script = "python -m data_pipeline.main"
+
+[recipe.ci]
+type   = "shell"
+deps   = ["lint", "test"]
+phony  = true
+script = "echo CI passed"
