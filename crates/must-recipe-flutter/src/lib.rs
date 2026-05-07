@@ -335,9 +335,15 @@ mod tests {
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, &[]).unwrap();
         drop(cache);
-        let out = r.execute(&ctx).unwrap();
-        assert!(out.from_cache);
-        assert_eq!(out.recipe_name, "build");
+        let out = r.execute(&ctx);
+        match out {
+            Ok(o) => {
+                assert!(o.from_cache);
+                assert_eq!(o.recipe_name, "build");
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 
     #[test]

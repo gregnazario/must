@@ -1,0 +1,127 @@
+# Dart pub.dev publishing example.
+# Demonstrates: dart-bin/dart-test + shell recipes for pub.dev package publishing.
+#
+# Project layout:
+#   pubspec.yaml       Package manifest
+#   lib/               Dart library source
+#   test/              Test files
+#   CHANGELOG.md       Changelog
+
+[project]
+name = "my-dart-package"
+version = "1.0.0"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "dart-bin"
+package = "bin/main.dart"
+
+[recipe.test]
+type    = "dart-test"
+package = "."
+deps    = ["build"]
+
+[recipe.test-coverage]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = """
+    dart test --coverage=coverage
+    dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --packages=.dart_tool/package_config.json --report-on=lib
+    echo 'Coverage report in coverage/lcov.info'
+"""
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+
+[recipe.analyze]
+type   = "shell"
+phony  = true
+script = "dart analyze --fatal-infos"
+
+[recipe.format]
+type   = "shell"
+phony  = true
+script = "dart format --output=none --set-exit-if-changed ."
+
+[recipe.format-fix]
+type   = "shell"
+phony  = true
+script = "dart format ."
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+
+[recipe.doc]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "dart doc ."
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.dry-run]
+type   = "shell"
+deps   = ["analyze", "format", "test"]
+phony  = true
+script = "dart pub publish --dry-run"
+
+[recipe.check-publish]
+type   = "shell"
+deps   = ["analyze", "format", "test"]
+phony  = true
+script = """
+    # Verify pubspec fields
+    dart pub publish --dry-run 2>&1 | head -20
+    echo ''
+    echo 'Package ready for publishing'
+"""
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.publish]
+type   = "shell"
+deps   = ["analyze", "format", "test", "check-publish"]
+phony  = true
+script = """
+    dart pub publish --force
+    echo 'Published to pub.dev'
+"""
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = """
+    sed -i '' 's/^version: .*/version: \"'$(dart --version | head -1)'\"/' pubspec.yaml
+    echo 'Bump version in pubspec.yaml manually, or use tools/pub_bump.dart'
+"""
+
+[recipe.bump-dev]
+type   = "shell"
+phony  = true
+script = """
+    VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+    DEV_VERSION="${VERSION}-dev.$(date +%s)"
+    sed -i '' \"s/^version: .*/version: \\\"${DEV_VERSION}\\\"/\" pubspec.yaml
+    echo "Set version to ${DEV_VERSION}"
+"""
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["analyze", "format", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "publish"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "dart pub cache clean && rm -rf coverage/ .dart_tool/"

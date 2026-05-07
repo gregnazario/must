@@ -1,0 +1,172 @@
+# Go module publishing example.
+# Demonstrates: go-bin/go-test + shell recipes for Go module release, multi-platform
+# binary builds, and container registry publishing.
+#
+# Project layout:
+#   go.mod             Go module manifest
+#   cmd/api/main.go    API server entrypoint
+#   internal/          Internal packages
+#   api_test.go        Tests
+
+[project]
+name = "my-go-service"
+version = "1.0.0"
+
+[env]
+CGO_ENABLED = "0"
+GOFLAGS     = "-trimpath"
+
+[env.release]
+CGO_ENABLED = "0"
+GOFLAGS     = "-trimpath"
+LDFLAGS     = "-s -w -X main.version=${VERSION:-dev} -X main.commit=$(git rev-parse --short HEAD)"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "go-bin"
+package = "./cmd/api"
+
+[recipe.test]
+type    = "go-test"
+package = "./..."
+deps    = ["build"]
+
+[recipe.test-race]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "go test -race ./..."
+
+[recipe.test-cover]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = """
+    go test -coverprofile=coverage.out ./...
+    go tool cover -func=coverage.out
+"""
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+
+[recipe.vet]
+type   = "shell"
+phony  = true
+script = "go vet ./..."
+
+[recipe.lint]
+type   = "shell"
+phony  = true
+script = """
+    if command -v golangci-lint > /dev/null 2>&1; then
+        golangci-lint run ./...
+    else
+        echo "golangci-lint not found, skipping"
+    fi
+"""
+
+[recipe.fmt]
+type   = "shell"
+phony  = true
+script = "gofmt -l ."
+
+# ── Multi-platform binaries ───────────────────────────────────────────────────
+
+[recipe.dist-linux-amd64]
+type   = "shell"
+deps   = ["test"]
+phony  = true
+script = """
+    mkdir -p dist
+    GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/api-linux-amd64 ./cmd/api
+"""
+
+[recipe.dist-linux-arm64]
+type   = "shell"
+deps   = ["test"]
+phony  = true
+script = """
+    mkdir -p dist
+    GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/api-linux-arm64 ./cmd/api
+"""
+
+[recipe.dist-darwin-amd64]
+type   = "shell"
+deps   = ["test"]
+phony  = true
+script = """
+    mkdir -p dist
+    GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/api-darwin-amd64 ./cmd/api
+"""
+
+[recipe.dist-darwin-arm64]
+type   = "shell"
+deps   = ["test"]
+phony  = true
+script = """
+    mkdir -p dist
+    GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/api-darwin-arm64 ./cmd/api
+"""
+
+[recipe.dist-windows]
+type   = "shell"
+deps   = ["test"]
+phony  = true
+script = """
+    mkdir -p dist
+    GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/api-windows-amd64.exe ./cmd/api
+"""
+
+[recipe.dist]
+type   = "shell"
+deps   = ["dist-linux-amd64", "dist-linux-arm64", "dist-darwin-amd64", "dist-darwin-arm64", "dist-windows"]
+phony  = true
+script = """
+    cd dist && sha256sum * > SHA256SUMS
+    echo 'Release binaries:'
+    ls -la dist/
+"""
+
+# ── Docker publishing ─────────────────────────────────────────────────────────
+
+[recipe.docker-build]
+type       = "docker-build"
+image      = "${REGISTRY:-ghcr.io/myorg}/api:${VERSION:-latest}"
+dockerfile = "Dockerfile"
+deps       = ["test"]
+
+[recipe.docker-push]
+type   = "shell"
+deps   = ["docker-build"]
+phony  = true
+script = "docker push ${REGISTRY:-ghcr.io/myorg}/api:${VERSION:-latest}"
+
+# ── Module version tagging ────────────────────────────────────────────────────
+
+[recipe.tag]
+type   = "shell"
+deps   = ["lint", "vet", "test"]
+phony  = true
+script = """
+    git tag -a "v${VERSION:-1.0.0}" -m "Release v${VERSION:-1.0.0}"
+    echo 'Tagged v${VERSION:-1.0.0}. Push with: git push origin --tags'
+"""
+
+# ── CI / Release ──────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["fmt", "vet", "lint", "test-race"]
+phony  = true
+script = "echo 'CI passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "dist", "docker-push", "tag"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "go clean && rm -rf dist/ coverage.out"

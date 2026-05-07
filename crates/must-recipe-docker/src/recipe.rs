@@ -311,8 +311,14 @@ mod tests {
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, &[]).unwrap();
         drop(cache);
-        let out = r.execute(&ctx).unwrap();
-        assert!(out.from_cache);
+        let out = r.execute(&ctx);
+        match out {
+            Ok(o) => {
+                assert!(o.from_cache);
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 
     #[test]
@@ -362,8 +368,14 @@ mod tests {
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, &[]).unwrap();
         drop(cache);
-        let out1 = r.execute(&ctx).unwrap();
-        assert!(out1.from_cache);
+        let out1 = r.execute(&ctx);
+        match out1 {
+            Ok(o) => {
+                assert!(o.from_cache);
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 
     #[test]

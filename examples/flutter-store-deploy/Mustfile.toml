@@ -1,0 +1,227 @@
+# Flutter app store deployment example.
+# Demonstrates: flutter-build/flutter-test + shell recipes for multi-platform
+# deployment (iOS, Android, web, macOS).
+#
+# Project layout:
+#   pubspec.yaml        Flutter manifest
+#   lib/                Dart source
+#   test/               Flutter tests
+#   android/            Android project
+#   ios/                iOS project
+#   web/                Web assets
+#   macos/              macOS project
+
+[project]
+name = "my-flutter-app"
+version = "1.0.0"
+
+[env]
+FLUTTER_BUILD_MODE = "release"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "flutter-build"
+package = "."
+
+[recipe.test]
+type    = "flutter-test"
+package = "."
+deps    = ["build"]
+
+[recipe.test-coverage]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = """
+    flutter test --coverage
+    echo 'Coverage report in coverage/lcov.info'
+"""
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+
+[recipe.analyze]
+type   = "shell"
+phony  = true
+script = "flutter analyze --fatal-infos"
+
+[recipe.format]
+type   = "shell"
+phony  = true
+script = "dart format --output=none --set-exit-if-changed ."
+
+[recipe.format-fix]
+type   = "shell"
+phony  = true
+script = "dart format ."
+
+# ── Platform builds ────────────────────────────────────────────────────────────
+
+[recipe.build-android]
+type    = "flutter-build"
+package = "."
+
+[recipe.build-android.env]
+TARGET = "android"
+
+[recipe.build-ios]
+type    = "flutter-build"
+package = "."
+
+[recipe.build-ios.env]
+TARGET = "ios"
+
+[recipe.build-web]
+type    = "flutter-build"
+package = "."
+
+[recipe.build-web.env]
+TARGET = "web"
+
+[recipe.build-macos]
+type    = "flutter-build"
+package = "."
+
+[recipe.build-macos.env]
+TARGET = "macos"
+
+# ── Android deployment ────────────────────────────────────────────────────────
+
+[recipe.android-bundle]
+type   = "shell"
+deps   = ["test", "build-android"]
+phony  = true
+script = """
+    flutter build appbundle --release
+    echo 'AAB at build/app/outputs/bundle/release/app-release.aab'
+"""
+
+[recipe.android-apk]
+type   = "shell"
+deps   = ["test", "build-android"]
+phony  = true
+script = """
+    flutter build apk --release
+    echo 'APK at build/app/outputs/flutter-apk/app-release.apk'
+"""
+
+[recipe.android-upload]
+type   = "shell"
+deps   = ["android-bundle"]
+phony  = true
+script = """
+    if command -v bundletool > /dev/null 2>&1; then
+        bundletool upload --bundle=build/app/outputs/bundle/release/app-release.aab
+    else
+        echo 'Upload build/app/outputs/bundle/release/app-release.aab to Google Play Console'
+    fi
+"""
+
+# ── iOS deployment ─────────────────────────────────────────────────────────────
+
+[recipe.ios-archive]
+type   = "shell"
+deps   = ["test", "build-ios"]
+phony  = true
+script = """
+    flutter build ipa --release
+    echo 'IPA at build/ios/ipa/my_flutter_app.ipa'
+"""
+
+[recipe.ios-upload]
+type   = "shell"
+deps   = ["ios-archive"]
+phony  = true
+script = """
+    if command -v xcrun > /dev/null 2>&1; then
+        xcrun altool --upload-app --type ios --file build/ios/ipa/*.ipa --apiKey ${APP_STORE_API_KEY}
+    else
+        echo 'Upload build/ios/ipa/*.ipa via App Store Connect or Transporter'
+    fi
+"""
+
+# ── Web deployment ─────────────────────────────────────────────────────────────
+
+[recipe.web-build]
+type   = "shell"
+deps   = ["test", "build-web"]
+phony  = true
+script = """
+    flutter build web --release
+    echo 'Web build in build/web/'
+"""
+
+[recipe.web-deploy-firebase]
+type   = "shell"
+deps   = ["web-build"]
+phony  = true
+script = """
+    if command -v firebase > /dev/null 2>&1; then
+        firebase deploy --only hosting
+    else
+        echo 'Firebase CLI not found, deploy build/web/ manually'
+    fi
+"""
+
+[recipe.web-deploy-gh-pages]
+type   = "shell"
+deps   = ["web-build"]
+phony  = true
+script = """
+    if command -v npx > /dev/null 2>&1; then
+        npx gh-pages -d build/web
+    else
+        echo 'Deploy build/web/ to your hosting provider'
+    fi
+"""
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-version]
+type   = "shell"
+phony  = true
+script = """
+    # Update version in pubspec.yaml
+    echo "Update version in pubspec.yaml, then run:"
+    echo "  flutter pub get"
+    echo ""
+    echo "For Android: also update versionCode/versionName in android/app/build.gradle"
+    echo "For iOS: also update CFBundleVersion in ios/Runner/Info.plist"
+"""
+
+# ── CI / Release ──────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["analyze", "format", "test"]
+phony  = true
+script = "echo 'CI passed'"
+
+[recipe.release-android]
+type   = "shell"
+deps   = ["ci", "android-upload"]
+phony  = true
+script = "echo 'Android release complete'"
+
+[recipe.release-ios]
+type   = "shell"
+deps   = ["ci", "ios-upload"]
+phony  = true
+script = "echo 'iOS release complete'"
+
+[recipe.release-web]
+type   = "shell"
+deps   = ["ci", "web-deploy-firebase"]
+phony  = true
+script = "echo 'Web release complete'"
+
+[recipe.release-all]
+type   = "shell"
+deps   = ["ci", "android-upload", "ios-upload", "web-deploy-firebase"]
+phony  = true
+script = "echo 'All platforms released'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "flutter clean && rm -rf build/ coverage/"

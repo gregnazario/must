@@ -1,0 +1,134 @@
+# Elixir Hex.pm publishing example.
+# Demonstrates: elixir-build/elixir-test + shell recipes for Hex.pm package publishing.
+#
+# Project layout:
+#   mix.exs            Mix project definition
+#   config/            App config
+#   lib/               Elixir source
+#   test/              ExUnit tests
+
+[project]
+name = "my-elixir-lib"
+version = "1.0.0"
+
+[env]
+MIX_ENV = "dev"
+
+[env.ci]
+MIX_ENV = "test"
+
+[env.release]
+MIX_ENV = "prod"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "elixir-build"
+package = "."
+
+[recipe.test]
+type    = "elixir-test"
+package = "."
+deps    = ["build"]
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+
+[recipe.credo]
+type   = "shell"
+phony  = true
+script = "mix credo --strict"
+
+[recipe.dialyzer]
+type   = "shell"
+phony  = true
+script = """
+    if [ ! -d priv/plts ]; then
+        mkdir -p priv/plts
+        mix dialyzer --plt
+    fi
+    mix dialyzer --no-check
+"""
+
+[recipe.format]
+type   = "shell"
+phony  = true
+script = "mix format --check-formatted"
+
+[recipe.format-fix]
+type   = "shell"
+phony  = true
+script = "mix format"
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+
+[recipe.doc]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "mix docs"
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.hex-build]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "mix hex.build"
+
+[recipe.publish-dry]
+type   = "shell"
+deps   = ["credo", "format", "dialyzer", "test"]
+phony  = true
+script = "mix hex.publish --dry-run"
+
+[recipe.publish]
+type   = "shell"
+deps   = ["credo", "format", "dialyzer", "test", "doc"]
+phony  = true
+script = """
+    mix hex.publish --yes
+    echo 'Published to Hex.pm'
+"""
+
+[recipe.publish-docs]
+type   = "shell"
+deps   = ["doc"]
+phony  = true
+script = "mix hex.publish docs --yes"
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = """
+    sed -i '' 's/@version .*/@version \"'$(elixir -e 'IO.puts Version.parse!(List.first(String.split(System.cmd(\"grep\", [\"@version\", \"mix.exs\"], stderr_to_stdio: true) |> elem(0), ~r/\\"/, trim: true)) |> then(fn v -> \"#{v.major}.#{v.minor}.#{v.patch + 1}\" end)')'\"/' mix.exs
+    echo 'Bumped patch version in mix.exs'
+"""
+
+[recipe.bump-minor]
+type   = "shell"
+phony  = true
+script = """
+    sed -i '' 's/@version .*/@version \"'$(elixir -e 'IO.puts Version.parse!(List.first(String.split(System.cmd(\"grep\", [\"@version\", \"mix.exs\"], stderr_to_stdio: true) |> elem(0), ~r/\\"/, trim: true)) |> then(fn v -> \"#{v.major}.#{v.minor + 1}.0\" end)')'\"/' mix.exs
+    echo 'Bumped minor version in mix.exs'
+"""
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["format", "credo", "dialyzer", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "publish"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "mix clean && rm -rf doc/ _build/ priv/plts/"
