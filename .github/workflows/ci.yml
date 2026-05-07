@@ -39,6 +39,39 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install Node.js tools
+        run: npm install -g typescript @biomejs/biome
+      - name: Install Python tools
+        run: pip install pytest ruff
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Install Ruby + Bundler
+        run: |
+          sudo apt-get update && sudo apt-get install -y ruby ruby-bundler
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: master
+      - name: Install Nim
+        run: |
+          curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
+          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+      - name: Install Elixir + Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: 27
+          elixir-version: 1.17
+
       - name: Generate coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: Upload to Codecov
