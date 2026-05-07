@@ -1,0 +1,124 @@
+# Kotlin library publishing example.
+# Demonstrates: Kotlin/Gradle build + test + publish to Maven Central.
+#
+# Project layout:
+#   build.gradle.kts   Gradle Kotlin DSL build file
+#   src/main/kotlin/   Kotlin source
+#   src/test/kotlin/   Tests
+
+[project]
+name = "my-kotlin-lib"
+version = "1.0.0"
+
+[env]
+ORG_GRADLE_PROJECT_signingKey = ""
+ORG_GRADLE_PROJECT_signingPassword = ""
+
+[env.ci]
+ORG_GRADLE_PROJECT_signingKey = "${SIGNING_KEY}"
+ORG_GRADLE_PROJECT_signingPassword = "${SIGNING_PASSWORD}"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "kotlin-bin"
+package = "."
+
+[recipe.test]
+type    = "kotlin-test"
+package = "."
+deps    = ["build"]
+
+[recipe.ktlint]
+type   = "shell"
+phony  = true
+script = """
+    if command -v ktlint > /dev/null 2>&1; then
+        ktlint check src/main/kotlin/**/*.kt
+    else
+        ./gradlew ktlintCheck
+    fi
+"""
+
+[recipe.detekt]
+type   = "shell"
+phony  = true
+script = "./gradlew detekt"
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+
+[recipe.dokka]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "./gradlew dokkaHtml"
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.sources-jar]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "./gradlew sourcesJar"
+
+[recipe.javadoc-jar]
+type   = "shell"
+deps   = ["dokka"]
+phony  = true
+script = "./gradlew dokkaJavadocJar"
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.publish-local]
+type   = "shell"
+deps   = ["test", "ktlint", "sources-jar", "javadoc-jar"]
+phony  = true
+script = "./gradlew publishToMavenLocal"
+
+[recipe.publish-snapshot]
+type   = "shell"
+deps   = ["test", "ktlint", "sources-jar", "javadoc-jar"]
+phony  = true
+script = "./gradlew publish -Psnapshot=true"
+
+[recipe.publish]
+type   = "shell"
+deps   = ["test", "ktlint", "detekt", "sources-jar", "javadoc-jar"]
+phony  = true
+script = "./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository"
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = "./gradlew patchVersion"
+
+[recipe.bump-minor]
+type   = "shell"
+phony  = true
+script = "./gradlew minorVersion"
+
+[recipe.bump-major]
+type   = "shell"
+phony  = true
+script = "./gradlew majorVersion"
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["ktlint", "detekt", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "publish"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "./gradlew clean"

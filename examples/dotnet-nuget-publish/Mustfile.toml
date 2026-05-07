@@ -1,0 +1,153 @@
+# .NET/NuGet publishing example.
+# Demonstrates: dotnet-build/test/publish + shell recipes for NuGet packaging.
+#
+# Project layout:
+#   MyLib.sln              Solution file
+#   src/MyLib/MyLib.csproj Library project
+#   tests/MyLib.Tests/     Test project
+#   nuget.config           NuGet source configuration (optional)
+
+[project]
+name = "my-dotnet-lib"
+version = "1.0.0"
+
+[env]
+DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+DOTNET_NOLOGO               = "true"
+CONFIGURATION               = "Release"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "dotnet-build"
+package = "MyLib.sln"
+
+[recipe.test]
+type    = "dotnet-test"
+package = "tests/MyLib.Tests"
+deps    = ["build"]
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+
+[recipe.format]
+type   = "shell"
+phony  = true
+script = "dotnet format --verify-no-changes"
+
+[recipe.format-fix]
+type   = "shell"
+phony  = true
+script = "dotnet format"
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.pack]
+type   = "shell"
+deps   = ["test", "format"]
+phony  = true
+script = """
+    dotnet pack src/MyLib/MyLib.csproj -c ${CONFIGURATION} -o artifacts/
+    echo 'Created packages:'
+    ls -la artifacts/*.nupkg
+"""
+
+[recipe.pack-preview]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = """
+    dotnet pack src/MyLib/MyLib.csproj -c ${CONFIGURATION} --version-suffix "preview.$(date +%s)" -o artifacts/
+    echo 'Preview packages:'
+    ls -la artifacts/*.nupkg
+"""
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.publish-local]
+type   = "shell"
+deps   = ["pack"]
+phony  = true
+script = """
+    dotnet nuget push artifacts/*.nupkg --source ~/.nuget/local
+    echo 'Published to local feed'
+"""
+
+[recipe.publish-nuget-dry]
+type   = "shell"
+deps   = ["pack"]
+phony  = true
+script = """
+    for pkg in artifacts/*.nupkg; do
+        echo "Would push: $pkg"
+    done
+"""
+
+[recipe.publish-nuget]
+type   = "shell"
+deps   = ["pack"]
+phony  = true
+script = """
+    dotnet nuget push artifacts/*.nupkg --source https://api.nuget.org/v3/index.json
+    echo 'Published to NuGet.org'
+"""
+
+[recipe.publish-github]
+type   = "shell"
+deps   = ["pack"]
+phony  = true
+script = """
+    dotnet nuget push artifacts/*.nupkg --source https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER:-myorg}/index.json
+    echo 'Published to GitHub Packages'
+"""
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = """
+    dotnet setversion src/MyLib/MyLib.csproj patch
+    echo 'Bumped patch version'
+"""
+
+[recipe.bump-minor]
+type   = "shell"
+phony  = true
+script = """
+    dotnet setversion src/MyLib/MyLib.csproj minor
+    echo 'Bumped minor version'
+"""
+
+[recipe.bump-major]
+type   = "shell"
+phony  = true
+script = """
+    dotnet setversion src/MyLib/MyLib.csproj major
+    echo 'Bumped major version'
+"""
+
+# ── Publish target (dotnet publish for self-contained binary) ─────────────────
+
+[recipe.self-contained]
+type    = "dotnet-publish"
+package = "src/MyLib/MyLib.csproj"
+deps    = ["test"]
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["format", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "pack", "publish-nuget"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "dotnet clean && rm -rf artifacts/ bin/ obj/"

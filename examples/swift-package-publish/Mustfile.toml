@@ -1,0 +1,133 @@
+# Swift Package publishing example.
+# Demonstrates: swift-bin/swift-test + shell recipes for SPM and Xcode publishing.
+#
+# Project layout:
+#   Package.swift      Swift Package Manager manifest
+#   Sources/           Swift source
+#   Tests/             XCTest tests
+
+[project]
+name = "my-swift-package"
+version = "1.0.0"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "swift-bin"
+package = "."
+
+[recipe.test]
+type    = "swift-test"
+package = "."
+deps    = ["build"]
+
+[recipe.test-verbose]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "swift test -v"
+
+# ── Code quality ───────────────────────────────────────────────────────────────
+
+[recipe.swiftlint]
+type   = "shell"
+phony  = true
+script = """
+    if command -v swiftlint > /dev/null 2>&1; then
+        swiftlint lint --strict Sources/
+    else
+        echo "SwiftLint not found, skipping"
+    fi
+"""
+
+[recipe.format]
+type   = "shell"
+phony  = true
+script = """
+    if command -v swiftformat > /dev/null 2>&1; then
+        swiftformat Sources/ Tests/ --lint
+    else
+        echo "SwiftFormat not found, skipping"
+    fi
+"""
+
+[recipe.format-fix]
+type   = "shell"
+phony  = true
+script = """
+    if command -v swiftformat > /dev/null 2>&1; then
+        swiftformat Sources/ Tests/
+    else
+        echo "SwiftFormat not found, skipping"
+    fi
+"""
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+
+[recipe.doc]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = """
+    if command -v swift-doc > /dev/null 2>&1; then
+        swift-doc generate Sources/ --output docs/
+    else
+        echo "swift-doc not found, skipping"
+    fi
+"""
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.archive]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = """
+    swift build -c release --arch arm64 --arch x86_64
+    echo 'Built universal binary'
+"""
+
+[recipe.xcframework]
+type   = "shell"
+deps   = ["archive"]
+phony  = true
+script = """
+    mkdir -p build
+    swift build -c release --arch arm64 --build-path build/arm64
+    swift build -c release --arch x86_64 --build-path build/x86_64
+    # Create XCFramework for distribution
+    echo 'XCFramework artifacts in build/'
+"""
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.tag-release]
+type   = "shell"
+deps   = ["swiftlint", "format", "test"]
+phony  = true
+script = """
+    git tag -a "v${VERSION:-1.0.0}" -m "Release v${VERSION:-1.0.0}"
+    echo 'Created tag. Push with: git push origin --tags'
+"""
+
+[recipe.release]
+type   = "shell"
+deps   = ["swiftlint", "format", "test", "tag-release"]
+phony  = true
+script = """
+    echo 'Swift package release complete'
+    echo 'Consumers add: .package(url: \"https://github.com/myorg/my-swift-package\", from: \"${VERSION:-1.0.0}\")'
+"""
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["swiftlint", "format", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "swift package clean && rm -rf build/ docs/ .build/"

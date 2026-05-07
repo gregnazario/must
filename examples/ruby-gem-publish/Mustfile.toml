@@ -1,0 +1,128 @@
+# Ruby gem publishing example.
+# Demonstrates: ruby-bin/ruby-test + shell recipes for gem build and publish.
+#
+# Project layout:
+#   Gemfile           Dependency manifest
+#   my_gem.gemspec    Gem specification
+#   lib/              Ruby source
+#   spec/             RSpec tests
+
+[project]
+name = "my-ruby-gem"
+version = "1.0.0"
+
+[env]
+BUNDLE_WITHOUT = "development:test"
+
+[env.ci]
+BUNDLE_WITHOUT = ""
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "ruby-bin"
+package = "."
+
+[recipe.test]
+type    = "ruby-test"
+package = "."
+deps    = ["build"]
+
+[recipe.rubocop]
+type   = "shell"
+phony  = true
+script = "bundle exec rubocop"
+
+[recipe.steep]
+type   = "shell"
+phony  = true
+script = """
+    if [ -f Steepfile ]; then
+        bundle exec steep check
+    else
+        echo "No Steepfile, skipping type checking"
+    fi
+"""
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+
+[recipe.yard]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "bundle exec yard doc --output-dir doc/"
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.gem-build]
+type   = "shell"
+deps   = ["test", "rubocop"]
+phony  = true
+script = """
+    gem build my_gem.gemspec
+    ls -la *.gem
+"""
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.publish-dry]
+type   = "shell"
+deps   = ["gem-build"]
+phony  = true
+script = "gem push --dry-run *.gem"
+
+[recipe.publish]
+type   = "shell"
+deps   = ["gem-build"]
+phony  = true
+script = """
+    gem push *.gem
+    echo 'Published to RubyGems'
+"""
+
+[recipe.publish-gh]
+type   = "shell"
+deps   = ["gem-build"]
+phony  = true
+script = """
+    mkdir -p pkg
+    cp *.gem pkg/
+    echo 'Gem ready for GitHub Packages'
+"""
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = """
+    sed -i '' 's/VERSION = .*/VERSION = \"'$(ruby -e 'puts Gem::Version.new(ARGV[0]).bump' $(ruby -e 'puts eval(File.read(\"my_gem.gemspec\")).version)')'\"/' lib/my_gem/version.rb
+    echo 'Bumped patch version'
+"""
+
+[recipe.bump-minor]
+type   = "shell"
+phony  = true
+script = """
+    sed -i '' 's/VERSION = .*/VERSION = \"'$(ruby -e 'v=ARGV[0].split(\".\"); v[1]=v[1].to_i+1; v[2]=\"0\"; puts v.join(\".\")' $(ruby -e 'puts eval(File.read(\"my_gem.gemspec\")).version)')'\"/' lib/my_gem/version.rb
+    echo 'Bumped minor version'
+"""
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["rubocop", "steep", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["ci", "yard", "publish"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf doc/ pkg/ *.gem"
