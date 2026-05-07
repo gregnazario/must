@@ -1,0 +1,23 @@
+[project]
+name = "c-app"
+version = "1.0.0"
+
+[env]
+CC = "cc"
+CFLAGS = "-O2 -Wall"
+
+[recipe.build]
+type = "c-bin"
+sources = ["src/main.c", "src/util.c"]
+includes = ["include"]
+
+[recipe.lib]
+type = "c-lib"
+sources = ["src/util.c"]
+includes = ["include"]
+link_libs = ["m"]
+
+[recipe.test]
+type = "shell"
+deps = ["build"]
+script = "./build/myapp --self-test"

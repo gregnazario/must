@@ -1,0 +1,12 @@
+[project]
+name = "go-service"
+version = "1.0.0"
+
+[recipe.build]
+type = "go-bin"
+package = "./cmd/server"
+
+[recipe.test]
+type = "go-test"
+package = "./..."
+deps = ["build"]

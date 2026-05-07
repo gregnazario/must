@@ -368,4 +368,27 @@ mod tests {
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
+
+    #[test]
+    fn kotlin_bin_cache_key_stable() {
+        let r = KotlinBinRecipe::new("build", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn kotlin_test_workdir_not_dot_dry_run() {
+        let r = KotlinTestRecipe::new("test", "services/api");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("services/api"));
+    }
+
+    #[test]
+    fn kotlin_test_deps_empty() {
+        let r = KotlinTestRecipe::new("test", ".");
+        assert!(r.deps().is_empty());
+    }
 }

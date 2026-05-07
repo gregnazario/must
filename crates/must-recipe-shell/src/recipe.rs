@@ -385,4 +385,110 @@ mod tests {
             "second run with same inputs should be a cache hit"
         );
     }
+
+    #[test]
+    fn none_cache_strategy_always_runs() {
+        let mut r = ShellRecipe::new("always", "echo run");
+        r.cache = CacheStrategy::Never;
+        let c = ctx();
+        let first = r.execute(&c).unwrap();
+        assert!(!first.from_cache);
+        let second = r.execute(&c).unwrap();
+        assert!(!second.from_cache);
+    }
+
+    #[test]
+    fn mtime_cache_miss_when_no_outputs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("in.txt"), "input").unwrap();
+
+        let mut r = ShellRecipe::new("gen", "echo new-output");
+        r.inputs = vec!["in.txt".to_string()];
+        r.cache = CacheStrategy::Mtime;
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+
+        let out = r.execute(&c).unwrap();
+        assert!(!out.from_cache, "no outputs exist → should execute");
+    }
+
+    #[test]
+    fn inputs_expand_glob_patterns() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("a.txt"), "").unwrap();
+        std::fs::write(tmp.path().join("b.txt"), "").unwrap();
+        let mut r = ShellRecipe::new("build", "echo");
+        r.inputs = vec!["*.txt".to_string()];
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let inputs = r.inputs(&c).unwrap();
+        assert_eq!(inputs.len(), 2);
+    }
+
+    #[test]
+    fn outputs_expand_glob_patterns() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("out1.log"), "").unwrap();
+        std::fs::write(tmp.path().join("out2.log"), "").unwrap();
+        let mut r = ShellRecipe::new("build", "echo");
+        r.outputs = vec!["*.log".to_string()];
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let outputs = r.outputs(&c).unwrap();
+        assert_eq!(outputs.len(), 2);
+    }
+
+    #[test]
+    fn dry_run_contains_command_display() {
+        let r = ShellRecipe::new("deploy", "scp file user@host:/path");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("scp"));
+    }
+
+    #[test]
+    fn cache_key_differs_by_target() {
+        let r = ShellRecipe::new("build", "echo");
+        let mut c1 = ctx();
+        c1.target = "linux".to_string();
+        let mut c2 = ctx();
+        c2.target = "macos".to_string();
+        assert_ne!(r.cache_key(&c1).unwrap().hash, r.cache_key(&c2).unwrap().hash);
+    }
+
+    #[test]
+    fn cache_key_differs_by_profile() {
+        let r = ShellRecipe::new("build", "echo");
+        let mut c1 = ctx();
+        c1.profile = "debug".to_string();
+        let mut c2 = ctx();
+        c2.profile = "release".to_string();
+        assert_ne!(r.cache_key(&c1).unwrap().hash, r.cache_key(&c2).unwrap().hash);
+    }
 }

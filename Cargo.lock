@@ -971,9 +971,11 @@ dependencies = [
  "must-recipe-docker",
  "must-recipe-dotnet",
  "must-recipe-elixir",
+ "must-recipe-flutter",
  "must-recipe-go",
  "must-recipe-java",
  "must-recipe-kotlin",
+ "must-recipe-nim",
  "must-recipe-py",
  "must-recipe-ruby",
  "must-recipe-rust",
@@ -1102,6 +1104,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-recipe-flutter"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
 name = "must-recipe-go"
 version = "0.1.0"
 dependencies = [
@@ -1122,6 +1133,15 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-kotlin"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
+name = "must-recipe-nim"
 version = "0.1.0"
 dependencies = [
  "must-cache",

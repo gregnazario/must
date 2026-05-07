@@ -438,4 +438,27 @@ end
             Err(e) => panic!("unexpected error: {e:?}"),
         }
     }
+
+    #[test]
+    fn elixir_build_cache_key_stable() {
+        let r = ElixirBuildRecipe::new("build", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn elixir_test_deps_empty() {
+        let r = ElixirTestRecipe::new("test", ".");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn elixir_test_workdir_not_dot_dry_run() {
+        let r = ElixirTestRecipe::new("test", "apps/web");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("apps/web"));
+    }
 }

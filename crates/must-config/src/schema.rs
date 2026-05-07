@@ -122,6 +122,10 @@ pub enum RecipeType {
     DartTest,
     ElixirBuild,
     ElixirTest,
+    FlutterBuild,
+    FlutterTest,
+    NimBin,
+    NimTest,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

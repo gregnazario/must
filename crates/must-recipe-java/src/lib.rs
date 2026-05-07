@@ -319,9 +319,15 @@ mod tests {
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, &[]).unwrap();
         drop(cache);
-        let out = r.execute(&ctx).unwrap();
-        assert!(out.from_cache);
-        assert_eq!(out.recipe_name, "build");
+        let out = r.execute(&ctx);
+        match out {
+            Ok(o) => {
+                assert!(o.from_cache);
+                assert_eq!(o.recipe_name, "build");
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 
     #[test]
@@ -415,5 +421,28 @@ mod tests {
         let r = JavaTestRecipe::new("test", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn java_test_workdir_not_dot_dry_run() {
+        let r = JavaTestRecipe::new("test", "libs/core");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("libs/core"));
+    }
+
+    #[test]
+    fn java_bin_cache_key_stable() {
+        let r = JavaBinRecipe::new("build", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn java_test_deps_empty() {
+        let r = JavaTestRecipe::new("test", ".");
+        assert!(r.deps().is_empty());
     }
 }

@@ -64,6 +64,12 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::ElixirBuild | RecipeType::ElixirTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
+            RecipeType::FlutterBuild | RecipeType::FlutterTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
+            RecipeType::NimBin | RecipeType::NimTest => {
+                require_field("package", recipe.package.as_ref(), name)
+            }
         };
 
         if let Some(err) = missing {

@@ -1,0 +1,12 @@
+[project]
+name = "nim-app"
+version = "1.0.0"
+
+[recipe.build]
+type = "nim-bin"
+package = "src/main.nim"
+
+[recipe.test]
+type = "nim-test"
+package = "tests/test_all.nim"
+deps = ["build"]

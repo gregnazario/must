@@ -1,0 +1,12 @@
+[project]
+name = "flutter-app"
+version = "1.0.0"
+
+[recipe.build]
+type = "flutter-build"
+package = "."
+
+[recipe.test]
+type = "flutter-test"
+package = "."
+deps = ["build"]

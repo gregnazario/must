@@ -8,15 +8,29 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
-fn run_ruby(
+fn nim_version() -> String {
+    Command::new("nim")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            String::from_utf8(o.stdout)
+                .ok()
+                .and_then(|s| s.lines().next().map(str::to_string))
+        })
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn run_nim(
     args: &[&str],
     ctx: &BuildContext,
     extra_env: &HashMap<String, String>,
     workdir: &std::path::Path,
 ) -> Result<RecipeOutput> {
-    let name = args.first().copied().unwrap_or("ruby");
+    let name = args.first().copied().unwrap_or("nim");
     let start = Instant::now();
-    let mut cmd = Command::new("bundle");
+    let mut cmd = Command::new("nim");
     for arg in args {
         cmd.arg(arg);
     }
@@ -30,8 +44,8 @@ fn run_ruby(
     }
     let out = run_command(
         &mut cmd,
-        "bundle",
-        "Install Ruby and Bundler: https://www.ruby-lang.org/en/downloads/",
+        "nim",
+        "Install Nim: https://nim-lang.org/install.html",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -84,22 +98,22 @@ fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     }
 }
 
-fn workdir_path(ctx: &BuildContext, workdir: &str) -> std::path::PathBuf {
-    if workdir == "." {
+fn workdir_path(ctx: &BuildContext, package: &str) -> std::path::PathBuf {
+    if package == "." {
         ctx.project_root.clone()
     } else {
-        ctx.project_root.join(workdir)
+        ctx.project_root.join(package)
     }
 }
 
-pub struct RubyBinRecipe {
+pub struct NimBinRecipe {
     pub name: String,
     pub deps: Vec<String>,
     pub package: String,
     pub env: HashMap<String, String>,
 }
 
-impl RubyBinRecipe {
+impl NimBinRecipe {
     pub fn new(name: impl Into<String>, package: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -110,7 +124,7 @@ impl RubyBinRecipe {
     }
 }
 
-impl Recipe for RubyBinRecipe {
+impl Recipe for NimBinRecipe {
     fn name(&self) -> &str {
         &self.name
     }
@@ -130,7 +144,8 @@ impl Recipe for RubyBinRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ruby-bin", ctx, &flags))
+        flags.insert("nim_version".to_string(), nim_version());
+        Ok(make_cache_key(&self.name, "nim-bin", ctx, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -151,29 +166,30 @@ impl Recipe for RubyBinRecipe {
                 from_cache: false,
                 outputs: Vec::new(),
                 stdout: format!(
-                    "[dry-run] bundle install (in {})",
-                    self.package
+                    "[dry-run] nim c -d:release {} (in {})",
+                    self.package, self.package
                 ),
                 stderr: String::new(),
                 duration_ms: 0,
             });
         }
         let dir = workdir_path(ctx, &self.package);
-        let mut result = run_ruby(&["install"], ctx, &self.env, &dir)?;
+        let args = vec!["c", "-d:release", &self.package];
+        let mut result = run_nim(&args, ctx, &self.env, &dir)?;
         result.recipe_name = self.name.clone();
         store_cache(&key, ctx);
         Ok(result)
     }
 }
 
-pub struct RubyTestRecipe {
+pub struct NimTestRecipe {
     pub name: String,
     pub deps: Vec<String>,
     pub package: String,
     pub env: HashMap<String, String>,
 }
 
-impl RubyTestRecipe {
+impl NimTestRecipe {
     pub fn new(name: impl Into<String>, package: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -184,7 +200,7 @@ impl RubyTestRecipe {
     }
 }
 
-impl Recipe for RubyTestRecipe {
+impl Recipe for NimTestRecipe {
     fn name(&self) -> &str {
         &self.name
     }
@@ -204,7 +220,7 @@ impl Recipe for RubyTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ruby-test", ctx, &flags))
+        Ok(make_cache_key(&self.name, "nim-test", ctx, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -213,13 +229,17 @@ impl Recipe for RubyTestRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: vec![],
-                stdout: format!("[dry-run] bundle exec rspec (in {})", self.package),
+                stdout: format!(
+                    "[dry-run] nim r --hints:off {} (in {})",
+                    self.package, self.package
+                ),
                 stderr: String::new(),
                 duration_ms: 0,
             });
         }
         let dir = workdir_path(ctx, &self.package);
-        let mut result = run_ruby(&["exec", "rspec"], ctx, &self.env, &dir)?;
+        let args = vec!["r", "--hints:off", &self.package];
+        let mut result = run_nim(&args, ctx, &self.env, &dir)?;
         result.recipe_name = self.name.clone();
         Ok(result)
     }
@@ -244,65 +264,46 @@ mod tests {
         }
     }
 
-    fn ctx_with_path() -> BuildContext {
-        let mut env = HashMap::new();
-        if let Ok(path) = std::env::var("PATH") {
-            env.insert("PATH".to_string(), path);
-        }
-        if let Ok(home) = std::env::var("HOME") {
-            env.insert("HOME".to_string(), home);
-        }
-        BuildContext {
-            project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
-            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
-            target: "host".to_string(),
-            profile: "default".to_string(),
-            env,
-            dry_run: false,
-            parallelism: 1,
-        }
-    }
-
     #[test]
-    fn ruby_bin_cache_strategy_is_hash() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn nim_bin_cache_strategy_is_hash() {
+        let r = NimBinRecipe::new("build", ".");
         assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
     }
 
     #[test]
-    fn ruby_bin_name_and_package() {
-        let r = RubyBinRecipe::new("build", "gems/myapp");
+    fn nim_bin_name_and_package() {
+        let r = NimBinRecipe::new("build", "src/main.nim");
         assert_eq!(r.name(), "build");
-        assert_eq!(r.package, "gems/myapp");
+        assert_eq!(r.package, "src/main.nim");
     }
 
     #[test]
-    fn ruby_bin_deps_empty() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn nim_bin_deps_empty() {
+        let r = NimBinRecipe::new("build", ".");
         assert!(r.deps().is_empty());
     }
 
     #[test]
-    fn ruby_bin_inputs_outputs_empty() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn nim_bin_inputs_outputs_empty() {
+        let r = NimBinRecipe::new("build", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 
     #[test]
-    fn ruby_bin_dry_run() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn nim_bin_dry_run() {
+        let r = NimBinRecipe::new("build", "src/main.nim");
         let mut c = ctx();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("bundle install"));
+        assert!(out.stdout.contains("nim c -d:release"));
+        assert!(out.stdout.contains("src/main.nim"));
         assert_eq!(out.duration_ms, 0);
     }
 
     #[test]
-    fn ruby_bin_cache_hit() {
+    fn nim_bin_cache_hit() {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
@@ -314,88 +315,25 @@ mod tests {
             dry_run: false,
             parallelism: 1,
         };
-        let r = RubyBinRecipe::new("build", ".");
+        let r = NimBinRecipe::new("build", ".");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, &[]).unwrap();
         drop(cache);
-        let out = r.execute(&ctx);
-        match out {
-            Ok(o) => assert!(o.from_cache),
-            Err(must_core::Error::ToolNotFound { .. }) => {}
-            Err(must_core::Error::RecipeFailed { .. }) => {}
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.from_cache);
+        assert_eq!(out.recipe_name, "build");
     }
 
     #[test]
-    fn ruby_bin_cache_key_differs_by_package() {
-        let r1 = RubyBinRecipe::new("r", "app-a");
-        let r2 = RubyBinRecipe::new("r", "app-b");
+    fn nim_bin_cache_key_differs_by_package() {
+        let r1 = NimBinRecipe::new("r", "src/a.nim");
+        let r2 = NimBinRecipe::new("r", "src/b.nim");
         assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
     }
 
     #[test]
-    fn ruby_test_cache_strategy_is_never() {
-        let r = RubyTestRecipe::new("test", ".");
-        assert_eq!(r.cache_strategy(), CacheStrategy::Never);
-    }
-
-    #[test]
-    fn ruby_test_name_and_package() {
-        let r = RubyTestRecipe::new("test", "gems/core");
-        assert_eq!(r.name(), "test");
-        assert_eq!(r.package, "gems/core");
-    }
-
-    #[test]
-    fn ruby_test_dry_run() {
-        let r = RubyTestRecipe::new("test", ".");
-        let mut c = ctx();
-        c.dry_run = true;
-        let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("rspec"));
-    }
-
-    #[test]
-    fn ruby_test_workdir_in_dry_run() {
-        let r = RubyTestRecipe::new("test", "libs/api");
-        let mut c = ctx();
-        c.dry_run = true;
-        let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("libs/api"));
-    }
-
-    #[test]
-    fn ruby_bin_execute_real() {
-        if std::process::Command::new("bundle")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
-            return;
-        }
-        let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(tmp.path().join("Gemfile"), "source 'https://rubygems.org'\n").unwrap();
-        let mut c = ctx_with_path();
-        c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
-        let r = RubyBinRecipe::new("build", ".");
-        let result = r.execute(&c);
-        match result {
-            Ok(out) => {
-                assert_eq!(out.recipe_name, "build");
-                assert!(!out.from_cache);
-            }
-            Err(must_core::Error::ToolNotFound { .. }) => {}
-            Err(must_core::Error::RecipeFailed { .. }) => {}
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
-    }
-
-    #[test]
-    fn ruby_bin_tool_not_found() {
+    fn nim_bin_tool_not_found() {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
@@ -407,37 +345,98 @@ mod tests {
             dry_run: false,
             parallelism: 1,
         };
-        let r = RubyBinRecipe::new("build", ".");
+        let r = NimBinRecipe::new("build", ".");
         assert!(r.execute(&ctx).is_err());
     }
 
     #[test]
-    fn ruby_test_inputs_outputs_empty() {
-        let r = RubyTestRecipe::new("test", ".");
+    fn nim_test_cache_strategy_is_never() {
+        let r = NimTestRecipe::new("test", ".");
+        assert_eq!(r.cache_strategy(), CacheStrategy::Never);
+    }
+
+    #[test]
+    fn nim_test_name_and_package() {
+        let r = NimTestRecipe::new("test", "tests/test_all.nim");
+        assert_eq!(r.name(), "test");
+        assert_eq!(r.package, "tests/test_all.nim");
+    }
+
+    #[test]
+    fn nim_test_dry_run() {
+        let r = NimTestRecipe::new("test", "tests/test_all.nim");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert!(out.stdout.contains("nim r"));
+        assert!(out.stdout.contains("tests/test_all.nim"));
+    }
+
+    #[test]
+    fn nim_test_inputs_outputs_empty() {
+        let r = NimTestRecipe::new("test", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 
     #[test]
-    fn ruby_bin_cache_key_stable() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn nim_bin_workdir_dot() {
+        let r = NimBinRecipe::new("build", ".");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("."));
+    }
+
+    #[test]
+    fn nim_bin_cache_key_stable() {
+        let r = NimBinRecipe::new("build", ".");
         let key1 = r.cache_key(&ctx()).unwrap();
         let key2 = r.cache_key(&ctx()).unwrap();
         assert_eq!(key1.hash, key2.hash);
     }
 
     #[test]
-    fn ruby_test_deps_empty() {
-        let r = RubyTestRecipe::new("test", ".");
+    fn nim_test_deps_empty() {
+        let r = NimTestRecipe::new("test", ".");
         assert!(r.deps().is_empty());
     }
 
     #[test]
-    fn ruby_bin_workdir_not_dot_dry_run() {
-        let r = RubyBinRecipe::new("build", "gems/api");
+    fn nim_test_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = NimTestRecipe::new("test", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn nim_bin_dry_run_with_named_package() {
+        let r = NimBinRecipe::new("build", "src/myapp.nim");
         let mut c = ctx();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("gems/api"));
+        assert!(out.stdout.contains("src/myapp.nim"));
+        assert!(out.stdout.contains("-d:release"));
+        assert_eq!(out.duration_ms, 0);
+    }
+
+    #[test]
+    fn nim_test_dry_run_shows_hints_off() {
+        let r = NimTestRecipe::new("test", ".");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("--hints:off"));
     }
 }

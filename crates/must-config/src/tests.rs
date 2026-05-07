@@ -1445,3 +1445,63 @@ package = "apps/api"
     );
     assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::ElixirTest);
 }
+
+#[test]
+fn test_flutter_build_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "flutter-build"
+package = "apps/my_app"
+"#,
+    );
+    assert_eq!(cfg.recipe["build"].recipe_type, RecipeType::FlutterBuild);
+}
+
+#[test]
+fn test_flutter_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "flutter-test"
+package = "apps/my_app"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::FlutterTest);
+}
+
+#[test]
+fn test_nim_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "nim-bin"
+package = "src/main.nim"
+"#,
+    );
+    assert_eq!(cfg.recipe["build"].recipe_type, RecipeType::NimBin);
+}
+
+#[test]
+fn test_nim_test_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.test]
+type = "nim-test"
+package = "tests/test_all.nim"
+"#,
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::NimTest);
+}

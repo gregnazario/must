@@ -1,0 +1,30 @@
+[project]
+name = "shell-scripts"
+version = "1.0.0"
+
+[recipe.lint]
+type = "shell"
+script = "shellcheck **/*.sh"
+inputs = ["**/*.sh"]
+
+[recipe.fmt]
+type = "shell"
+script = "shfmt -w **/*.sh"
+inputs = ["**/*.sh"]
+
+[recipe.test]
+type = "shell"
+deps = ["lint"]
+script = "bats test/*.bats"
+phony = true
+
+[recipe.build]
+type = "shell"
+deps = ["fmt"]
+inputs = ["src/**/*.sh"]
+outputs = ["dist/bundle.sh"]
+script = """
+mkdir -p dist
+cat src/header.sh src/main.sh src/footer.sh > dist/bundle.sh
+chmod +x dist/bundle.sh
+"""

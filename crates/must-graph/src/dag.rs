@@ -215,4 +215,133 @@ mod tests {
         let result = dag.topo_sort();
         assert!(matches!(result, Err(Error::CycleDetected { .. })));
     }
+
+    #[test]
+    fn test_empty_dag() {
+        let dag = Dag::new(HashMap::new());
+        let waves = dag.waves().unwrap();
+        assert!(waves.is_empty());
+        let topo = dag.topo_sort().unwrap();
+        assert!(topo.is_empty());
+    }
+
+    #[test]
+    fn test_single_node_no_deps() {
+        let dag = Dag::new(deps(&[("a", &[])]));
+        let topo = dag.topo_sort().unwrap();
+        assert_eq!(topo, vec!["a"]);
+        let waves = dag.waves().unwrap();
+        assert_eq!(waves.len(), 1);
+        assert_eq!(waves[0], vec!["a"]);
+    }
+
+    #[test]
+    fn test_diamond_dependency() {
+        let dag = Dag::new(deps(&[
+            ("a", &[]),
+            ("b", &["a"]),
+            ("c", &["a"]),
+            ("d", &["b", "c"]),
+        ]));
+        let topo = dag.topo_sort().unwrap();
+        let a = topo.iter().position(|x| x == "a").unwrap();
+        let b = topo.iter().position(|x| x == "b").unwrap();
+        let c = topo.iter().position(|x| x == "c").unwrap();
+        let d = topo.iter().position(|x| x == "d").unwrap();
+        assert!(a < b && a < c);
+        assert!(b < d && c < d);
+        let waves = dag.waves().unwrap();
+        assert_eq!(waves.len(), 3);
+    }
+
+    #[test]
+    fn test_waves_independent_nodes() {
+        let dag = Dag::new(deps(&[("x", &[]), ("y", &[]), ("z", &[])]));
+        let waves = dag.waves().unwrap();
+        assert_eq!(waves.len(), 1);
+        assert_eq!(waves[0].len(), 3);
+    }
+
+    #[test]
+    fn test_linear_chain() {
+        let dag = Dag::new(deps(&[
+            ("a", &[]),
+            ("b", &["a"]),
+            ("c", &["b"]),
+            ("d", &["c"]),
+        ]));
+        let waves = dag.waves().unwrap();
+        assert_eq!(waves.len(), 4);
+        assert_eq!(waves[0], vec!["a"]);
+        assert_eq!(waves[1], vec!["b"]);
+        assert_eq!(waves[2], vec!["c"]);
+        assert_eq!(waves[3], vec!["d"]);
+    }
+
+    #[test]
+    fn test_self_cycle() {
+        let dag = Dag::new(deps(&[("a", &["a"])]));
+        assert!(matches!(dag.topo_sort(), Err(Error::CycleDetected { .. })));
+    }
+
+    #[test]
+    fn test_two_node_cycle() {
+        let dag = Dag::new(deps(&[("a", &["b"]), ("b", &["a"])]));
+        assert!(matches!(dag.topo_sort(), Err(Error::CycleDetected { .. })));
+    }
+
+    #[test]
+    fn test_reachable_from_leaf() {
+        let dag = Dag::new(deps(&[
+            ("a", &[]),
+            ("b", &["a"]),
+            ("c", &["a"]),
+            ("d", &["b", "c"]),
+        ]));
+        let reachable = dag.reachable_from("d").unwrap();
+        assert_eq!(reachable.len(), 4);
+        assert!(reachable.contains(&"a".to_string()));
+        assert!(reachable.contains(&"b".to_string()));
+        assert!(reachable.contains(&"c".to_string()));
+        assert!(reachable.contains(&"d".to_string()));
+    }
+
+    #[test]
+    fn test_reachable_from_root() {
+        let dag = Dag::new(deps(&[
+            ("a", &[]),
+            ("b", &["a"]),
+            ("c", &["a"]),
+            ("d", &["b"]),
+        ]));
+        let reachable = dag.reachable_from("a").unwrap();
+        assert_eq!(reachable, vec!["a"]);
+    }
+
+    #[test]
+    fn test_reachable_from_middle() {
+        let dag = Dag::new(deps(&[
+            ("a", &[]),
+            ("b", &["a"]),
+            ("c", &["b"]),
+        ]));
+        let reachable = dag.reachable_from("c").unwrap();
+        let a_pos = reachable.iter().position(|x| x == "a").unwrap();
+        let b_pos = reachable.iter().position(|x| x == "b").unwrap();
+        let c_pos = reachable.iter().position(|x| x == "c").unwrap();
+        assert!(a_pos < b_pos && b_pos < c_pos);
+    }
+
+    #[test]
+    fn test_cycle_error_message_contains_nodes() {
+        let dag = Dag::new(deps(&[("a", &["b"]), ("b", &["c"]), ("c", &["a"])]));
+        if let Err(Error::CycleDetected { cycle }) = dag.topo_sort() {
+            assert!(cycle.contains("a"));
+            assert!(cycle.contains("b"));
+            assert!(cycle.contains("c"));
+            assert!(cycle.contains("->"));
+        } else {
+            panic!("expected CycleDetected error");
+        }
+    }
 }

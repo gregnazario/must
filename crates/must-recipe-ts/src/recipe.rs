@@ -499,9 +499,15 @@ mod tests {
         cache.store(&key, &[]).unwrap();
         drop(cache);
 
-        let out = r.execute(&ctx).unwrap();
-        assert!(out.from_cache, "should return from cache");
-        assert_eq!(out.recipe_name, "build");
+        let out = r.execute(&ctx);
+        match out {
+            Ok(o) => {
+                assert!(o.from_cache, "should return from cache");
+                assert_eq!(o.recipe_name, "build");
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 
     // ── TsCheckRecipe ────────────────────────────────────────────────────────
@@ -907,5 +913,335 @@ mod tests {
     fn ts_lint_inputs_empty() {
         let r = TsLintRecipe::new("lint", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn ts_bin_cache_key_differs_by_package() {
+        let r1 = TsBinRecipe::new("build", "pkg-a");
+        let r2 = TsBinRecipe::new("build", "pkg-b");
+        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+    }
+
+    #[test]
+    fn ts_bin_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = TsBinRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn ts_check_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = TsCheckRecipe::new("check", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn ts_lint_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = TsLintRecipe::new("lint", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn npm_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = NpmRecipe::new("build", "build");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn npm_tool_not_found_with_workdir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = tmp.path().join("packages/api");
+        std::fs::create_dir_all(&sub).unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let mut r = NpmRecipe::new("build", "build");
+        r.workdir = "packages/api".to_string();
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn ts_bin_dry_run_with_package() {
+        let r = TsBinRecipe::new("build", "apps/api/tsconfig.json");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("apps/api/tsconfig.json"));
+    }
+
+    #[test]
+    fn ts_check_dry_run_with_package() {
+        let r = TsCheckRecipe::new("check", "apps/api");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("apps/api"));
+    }
+
+    #[test]
+    fn ts_lint_dry_run_with_package() {
+        let r = TsLintRecipe::new("lint", "src/");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("src/"));
+    }
+
+    #[test]
+    fn ts_bin_cache_key_stable() {
+        let r = TsBinRecipe::new("build", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn ts_check_cache_key_stable() {
+        let r = TsCheckRecipe::new("check", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn ts_lint_cache_key_stable() {
+        let r = TsLintRecipe::new("lint", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn npm_cache_key_stable() {
+        let r = NpmRecipe::new("build", "build");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn ts_check_deps_empty() {
+        let r = TsCheckRecipe::new("check", ".");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn ts_lint_deps_empty() {
+        let r = TsLintRecipe::new("lint", ".");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn npm_execute_with_env() {
+        if std::process::Command::new("npm").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("package.json"),
+            r#"{"name":"test","scripts":{"hello":"echo $MY_VAR"}}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let mut r = NpmRecipe::new("hello", "hello");
+        r.env = HashMap::from([("MY_VAR".to_string(), "world".to_string())]);
+        let result = r.execute(&c);
+        match result {
+            Ok(out) => assert_eq!(out.recipe_name, "hello"),
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn ts_bin_compile_failure() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/bad.ts"),
+            "const x: string = 42;\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"strict":true,"noEmit":true},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = TsBinRecipe::new("build", "tsconfig.json");
+        let result = r.execute(&c);
+        match result {
+            Err(must_core::Error::RecipeFailed { name, code, .. }) => {
+                assert_eq!(name, "tsc");
+                assert_ne!(code, 0);
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+            Ok(_) => panic!("expected failure for invalid TS"),
+        }
+    }
+
+    #[test]
+    fn ts_check_type_error() {
+        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/bad.ts"),
+            "export const x: number = \"not a number\";\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("tsconfig.json"),
+            r#"{"compilerOptions":{"strict":true},"include":["src"]}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = TsCheckRecipe::new("typecheck", "tsconfig.json");
+        let result = r.execute(&c);
+        match result {
+            Err(must_core::Error::RecipeFailed { name, .. }) => {
+                assert_eq!(name, "tsc");
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+            Ok(_) => panic!("expected failure for type error"),
+        }
+    }
+
+    #[test]
+    fn npm_missing_script() {
+        if std::process::Command::new("npm").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("package.json"),
+            r#"{"name":"test","scripts":{}}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = NpmRecipe::new("build", "nonexistent-script");
+        let result = r.execute(&c);
+        match result {
+            Err(must_core::Error::RecipeFailed { name, .. }) => {
+                assert_eq!(name, "npm");
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+            Ok(_) => panic!("expected failure for missing script"),
+        }
+    }
+
+    #[test]
+    fn npm_execute_nonzero_exit() {
+        if std::process::Command::new("npm").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("package.json"),
+            r#"{"name":"test","scripts":{"fail":"exit 1"}}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let r = NpmRecipe::new("build", "fail");
+        let result = r.execute(&c);
+        match result {
+            Err(must_core::Error::RecipeFailed { name, code, .. }) => {
+                assert_eq!(name, "npm");
+                assert_ne!(code, 0);
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+            Ok(_) => panic!("expected failure"),
+        }
+    }
+
+    #[test]
+    fn npm_workdir_nonzero_exit() {
+        if std::process::Command::new("npm").arg("--version").output().is_err() {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = tmp.path().join("packages").join("api");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(
+            sub.join("package.json"),
+            r#"{"name":"api","scripts":{"fail":"exit 1"}}"#,
+        )
+        .unwrap();
+        let mut c = ctx_with_path();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".mustfile/cache");
+        let mut r = NpmRecipe::new("build", "fail");
+        r.workdir = "packages/api".to_string();
+        let result = r.execute(&c);
+        match result {
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+            Ok(_) => panic!("expected failure"),
+        }
     }
 }

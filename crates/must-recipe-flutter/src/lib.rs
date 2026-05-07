@@ -8,15 +8,29 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
-fn run_ruby(
+fn flutter_version() -> String {
+    Command::new("flutter")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            String::from_utf8(o.stdout)
+                .ok()
+                .and_then(|s| s.lines().next().map(str::to_string))
+        })
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn run_flutter(
     args: &[&str],
     ctx: &BuildContext,
     extra_env: &HashMap<String, String>,
     workdir: &std::path::Path,
 ) -> Result<RecipeOutput> {
-    let name = args.first().copied().unwrap_or("ruby");
+    let name = args.first().copied().unwrap_or("flutter");
     let start = Instant::now();
-    let mut cmd = Command::new("bundle");
+    let mut cmd = Command::new("flutter");
     for arg in args {
         cmd.arg(arg);
     }
@@ -30,8 +44,8 @@ fn run_ruby(
     }
     let out = run_command(
         &mut cmd,
-        "bundle",
-        "Install Ruby and Bundler: https://www.ruby-lang.org/en/downloads/",
+        "flutter",
+        "Install Flutter: https://docs.flutter.dev/get-started/install",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -92,14 +106,26 @@ fn workdir_path(ctx: &BuildContext, workdir: &str) -> std::path::PathBuf {
     }
 }
 
-pub struct RubyBinRecipe {
+fn target_platform(target: &str) -> &str {
+    match target {
+        "android" | "android-arm" | "android-arm64" => "apk",
+        "ios" => "ios",
+        "web" => "web",
+        "macos" => "macos",
+        "windows" => "windows",
+        "linux" => "linux",
+        _ => "apk",
+    }
+}
+
+pub struct FlutterBuildRecipe {
     pub name: String,
     pub deps: Vec<String>,
     pub package: String,
     pub env: HashMap<String, String>,
 }
 
-impl RubyBinRecipe {
+impl FlutterBuildRecipe {
     pub fn new(name: impl Into<String>, package: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -110,7 +136,7 @@ impl RubyBinRecipe {
     }
 }
 
-impl Recipe for RubyBinRecipe {
+impl Recipe for FlutterBuildRecipe {
     fn name(&self) -> &str {
         &self.name
     }
@@ -130,7 +156,9 @@ impl Recipe for RubyBinRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ruby-bin", ctx, &flags))
+        flags.insert("flutter_version".to_string(), flutter_version());
+        flags.insert("target".to_string(), ctx.target.clone());
+        Ok(make_cache_key(&self.name, "flutter-build", ctx, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -145,35 +173,37 @@ impl Recipe for RubyBinRecipe {
                 duration_ms: 0,
             });
         }
+        let platform = target_platform(&ctx.target);
         if ctx.dry_run {
             return Ok(RecipeOutput {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
                 stdout: format!(
-                    "[dry-run] bundle install (in {})",
-                    self.package
+                    "[dry-run] flutter build {} (in {})",
+                    platform, self.package
                 ),
                 stderr: String::new(),
                 duration_ms: 0,
             });
         }
         let dir = workdir_path(ctx, &self.package);
-        let mut result = run_ruby(&["install"], ctx, &self.env, &dir)?;
+        let args = vec!["build", platform];
+        let mut result = run_flutter(&args, ctx, &self.env, &dir)?;
         result.recipe_name = self.name.clone();
         store_cache(&key, ctx);
         Ok(result)
     }
 }
 
-pub struct RubyTestRecipe {
+pub struct FlutterTestRecipe {
     pub name: String,
     pub deps: Vec<String>,
     pub package: String,
     pub env: HashMap<String, String>,
 }
 
-impl RubyTestRecipe {
+impl FlutterTestRecipe {
     pub fn new(name: impl Into<String>, package: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -184,7 +214,7 @@ impl RubyTestRecipe {
     }
 }
 
-impl Recipe for RubyTestRecipe {
+impl Recipe for FlutterTestRecipe {
     fn name(&self) -> &str {
         &self.name
     }
@@ -204,7 +234,7 @@ impl Recipe for RubyTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ruby-test", ctx, &flags))
+        Ok(make_cache_key(&self.name, "flutter-test", ctx, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -213,13 +243,13 @@ impl Recipe for RubyTestRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: vec![],
-                stdout: format!("[dry-run] bundle exec rspec (in {})", self.package),
+                stdout: format!("[dry-run] flutter test (in {})", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
         }
         let dir = workdir_path(ctx, &self.package);
-        let mut result = run_ruby(&["exec", "rspec"], ctx, &self.env, &dir)?;
+        let mut result = run_flutter(&["test"], ctx, &self.env, &dir)?;
         result.recipe_name = self.name.clone();
         Ok(result)
     }
@@ -244,200 +274,186 @@ mod tests {
         }
     }
 
-    fn ctx_with_path() -> BuildContext {
-        let mut env = HashMap::new();
-        if let Ok(path) = std::env::var("PATH") {
-            env.insert("PATH".to_string(), path);
-        }
-        if let Ok(home) = std::env::var("HOME") {
-            env.insert("HOME".to_string(), home);
-        }
-        BuildContext {
-            project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
-            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
-            target: "host".to_string(),
-            profile: "default".to_string(),
-            env,
-            dry_run: false,
-            parallelism: 1,
-        }
+    fn ctx_android() -> BuildContext {
+        let mut c = ctx();
+        c.target = "android".to_string();
+        c
     }
 
     #[test]
-    fn ruby_bin_cache_strategy_is_hash() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn flutter_build_cache_strategy_is_hash() {
+        let r = FlutterBuildRecipe::new("build", ".");
         assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
     }
 
     #[test]
-    fn ruby_bin_name_and_package() {
-        let r = RubyBinRecipe::new("build", "gems/myapp");
+    fn flutter_build_name_and_package() {
+        let r = FlutterBuildRecipe::new("build", "apps/my_app");
         assert_eq!(r.name(), "build");
-        assert_eq!(r.package, "gems/myapp");
+        assert_eq!(r.package, "apps/my_app");
     }
 
     #[test]
-    fn ruby_bin_deps_empty() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn flutter_build_deps_empty() {
+        let r = FlutterBuildRecipe::new("build", ".");
         assert!(r.deps().is_empty());
     }
 
     #[test]
-    fn ruby_bin_inputs_outputs_empty() {
-        let r = RubyBinRecipe::new("build", ".");
+    fn flutter_build_inputs_outputs_empty() {
+        let r = FlutterBuildRecipe::new("build", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 
     #[test]
-    fn ruby_bin_dry_run() {
-        let r = RubyBinRecipe::new("build", ".");
-        let mut c = ctx();
+    fn flutter_build_dry_run() {
+        let r = FlutterBuildRecipe::new("build", ".");
+        let mut c = ctx_android();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("bundle install"));
+        assert!(out.stdout.contains("flutter build apk"));
         assert_eq!(out.duration_ms, 0);
     }
 
     #[test]
-    fn ruby_bin_cache_hit() {
+    fn flutter_build_cache_hit() {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
-            target: "host".into(),
+            target: "android".into(),
             profile: "default".into(),
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
         };
-        let r = RubyBinRecipe::new("build", ".");
+        let r = FlutterBuildRecipe::new("build", ".");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, &[]).unwrap();
         drop(cache);
-        let out = r.execute(&ctx);
-        match out {
-            Ok(o) => assert!(o.from_cache),
-            Err(must_core::Error::ToolNotFound { .. }) => {}
-            Err(must_core::Error::RecipeFailed { .. }) => {}
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.from_cache);
+        assert_eq!(out.recipe_name, "build");
     }
 
     #[test]
-    fn ruby_bin_cache_key_differs_by_package() {
-        let r1 = RubyBinRecipe::new("r", "app-a");
-        let r2 = RubyBinRecipe::new("r", "app-b");
+    fn flutter_build_cache_key_differs_by_package() {
+        let r1 = FlutterBuildRecipe::new("r", "app_a");
+        let r2 = FlutterBuildRecipe::new("r", "app_b");
         assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
     }
 
     #[test]
-    fn ruby_test_cache_strategy_is_never() {
-        let r = RubyTestRecipe::new("test", ".");
+    fn flutter_build_cache_key_differs_by_target() {
+        let r = FlutterBuildRecipe::new("build", ".");
+        let key_android = r.cache_key(&ctx_android()).unwrap();
+        let key_ios = {
+            let mut c = ctx();
+            c.target = "ios".to_string();
+            r.cache_key(&c).unwrap()
+        };
+        assert_ne!(key_android.hash, key_ios.hash, "different targets should have different cache keys");
+    }
+
+    #[test]
+    fn flutter_test_cache_strategy_is_never() {
+        let r = FlutterTestRecipe::new("test", ".");
         assert_eq!(r.cache_strategy(), CacheStrategy::Never);
     }
 
     #[test]
-    fn ruby_test_name_and_package() {
-        let r = RubyTestRecipe::new("test", "gems/core");
+    fn flutter_test_name_and_package() {
+        let r = FlutterTestRecipe::new("test", "apps/my_app");
         assert_eq!(r.name(), "test");
-        assert_eq!(r.package, "gems/core");
+        assert_eq!(r.package, "apps/my_app");
     }
 
     #[test]
-    fn ruby_test_dry_run() {
-        let r = RubyTestRecipe::new("test", ".");
+    fn flutter_test_dry_run() {
+        let r = FlutterTestRecipe::new("test", ".");
         let mut c = ctx();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("rspec"));
+        assert!(out.stdout.contains("flutter test"));
     }
 
     #[test]
-    fn ruby_test_workdir_in_dry_run() {
-        let r = RubyTestRecipe::new("test", "libs/api");
-        let mut c = ctx();
+    fn flutter_build_workdir_not_dot_dry_run() {
+        let r = FlutterBuildRecipe::new("build", "apps/my_app");
+        let mut c = ctx_android();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("libs/api"));
+        assert!(out.stdout.contains("apps/my_app"));
     }
 
     #[test]
-    fn ruby_bin_execute_real() {
-        if std::process::Command::new("bundle")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
-            return;
-        }
-        let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(tmp.path().join("Gemfile"), "source 'https://rubygems.org'\n").unwrap();
-        let mut c = ctx_with_path();
-        c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
-        let r = RubyBinRecipe::new("build", ".");
-        let result = r.execute(&c);
-        match result {
-            Ok(out) => {
-                assert_eq!(out.recipe_name, "build");
-                assert!(!out.from_cache);
-            }
-            Err(must_core::Error::ToolNotFound { .. }) => {}
-            Err(must_core::Error::RecipeFailed { .. }) => {}
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
-    }
-
-    #[test]
-    fn ruby_bin_tool_not_found() {
+    fn flutter_build_tool_not_found() {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".mustfile/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
-            target: "host".into(),
+            target: "android".into(),
             profile: "default".into(),
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
         };
-        let r = RubyBinRecipe::new("build", ".");
+        let r = FlutterBuildRecipe::new("build", ".");
         assert!(r.execute(&ctx).is_err());
     }
 
     #[test]
-    fn ruby_test_inputs_outputs_empty() {
-        let r = RubyTestRecipe::new("test", ".");
+    fn flutter_test_inputs_outputs_empty() {
+        let r = FlutterTestRecipe::new("test", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
 
     #[test]
-    fn ruby_bin_cache_key_stable() {
-        let r = RubyBinRecipe::new("build", ".");
-        let key1 = r.cache_key(&ctx()).unwrap();
-        let key2 = r.cache_key(&ctx()).unwrap();
-        assert_eq!(key1.hash, key2.hash);
+    fn target_platform_mapping() {
+        assert_eq!(target_platform("android"), "apk");
+        assert_eq!(target_platform("android-arm64"), "apk");
+        assert_eq!(target_platform("ios"), "ios");
+        assert_eq!(target_platform("web"), "web");
+        assert_eq!(target_platform("macos"), "macos");
+        assert_eq!(target_platform("windows"), "windows");
+        assert_eq!(target_platform("linux"), "linux");
+        assert_eq!(target_platform("host"), "apk");
     }
 
     #[test]
-    fn ruby_test_deps_empty() {
-        let r = RubyTestRecipe::new("test", ".");
-        assert!(r.deps().is_empty());
-    }
-
-    #[test]
-    fn ruby_bin_workdir_not_dot_dry_run() {
-        let r = RubyBinRecipe::new("build", "gems/api");
+    fn flutter_build_dry_run_ios() {
+        let r = FlutterBuildRecipe::new("build", ".");
         let mut c = ctx();
+        c.target = "ios".to_string();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("gems/api"));
+        assert!(out.stdout.contains("flutter build ios"));
+    }
+
+    #[test]
+    fn flutter_build_dry_run_web() {
+        let r = FlutterBuildRecipe::new("build", ".");
+        let mut c = ctx();
+        c.target = "web".to_string();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("flutter build web"));
+    }
+
+    #[test]
+    fn flutter_build_dry_run_macos() {
+        let r = FlutterBuildRecipe::new("build", ".");
+        let mut c = ctx();
+        c.target = "macos".to_string();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("flutter build macos"));
     }
 }

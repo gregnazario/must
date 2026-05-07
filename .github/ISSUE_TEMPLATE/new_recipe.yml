@@ -1,0 +1,45 @@
+name: New Recipe Type
+description: Request support for a new language or toolchain
+title: "[Recipe] "
+labels: ["enhancement", "recipe"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request a new recipe type for a language or toolchain not currently supported.
+
+        **Currently supported:** shell, rust-bin/lib/test, go-bin/test, c-bin/lib, ts-bin/check/lint, npm, py-bin/test/lint, zig-bin/test, docker-build/push, plugin, java-bin/test, kotlin-bin/test, swift-bin/test, dotnet-build/test/publish, ruby-bin/test, dart-bin/test, elixir-build/test, flutter-build/test, nim-bin/test
+  - type: input
+    id: language
+    attributes:
+      label: Language / Toolchain
+      description: Which language or tool?
+      placeholder: "e.g. Haskell, PHP, Scala"
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Expected Build Commands
+      description: What commands should the recipe run?
+      placeholder: |
+        Build: ghc -O2 Main.hs -o myapp
+        Test: ghc -O2 Test.hs && ./Test
+        Lint: hlint src/
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Example Mustfile.toml
+      description: How should the config look?
+      render: toml
+      placeholder: |
+        [recipe.build]
+        type = "haskell-bin"
+        package = "Main.hs"
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Toolchain docs, version detection approach, caching strategy, etc.

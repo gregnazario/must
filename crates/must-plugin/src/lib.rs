@@ -824,4 +824,101 @@ end
         let output = recipe.execute(&test_ctx()).unwrap();
         assert_eq!(output.stdout.trim(), "true");
     }
+
+    #[test]
+    fn test_plugin_cache_key_custom() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("custom_key.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function cache_key(ctx)
+    return "custom-" .. ctx.profile
+end
+function execute(ctx)
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("custom_key", &plugin_path).unwrap();
+        let key = recipe.cache_key(&test_ctx()).unwrap();
+        assert_eq!(key.recipe, "custom_key");
+        assert_eq!(key.target, "host");
+        assert_eq!(key.profile, "default");
+        assert!(!key.hash.is_empty());
+    }
+
+    #[test]
+    fn test_plugin_execute_stdout_stderr_printed() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("output.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    return { stdout = "hello out\n", stderr = "hello err\n", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("output", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout, "hello out\n");
+        assert_eq!(output.stderr, "hello err\n");
+    }
+
+    #[test]
+    fn test_plugin_execute_no_newline_printed() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("no_newline.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    return { stdout = "no newline", stderr = "err no newline", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("no_newline", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert_eq!(output.stdout, "no newline");
+        assert_eq!(output.stderr, "err no newline");
+    }
+
+    #[test]
+    fn test_discover_plugins_skips_invalid() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_dir = dir.path().join("plugins");
+        std::fs::create_dir_all(&plugin_dir).unwrap();
+
+        std::fs::write(plugin_dir.join("good.lua"), r#"
+function execute(ctx) return { stdout = "ok", stderr = "", success = true } end
+"#).unwrap();
+        std::fs::write(plugin_dir.join("bad.lua"), "invalid lua {{{{").unwrap();
+        std::fs::write(plugin_dir.join("notes.txt"), "not a plugin").unwrap();
+
+        let plugins = discover_plugins(&plugin_dir);
+        assert_eq!(plugins.len(), 1);
+        assert_eq!(plugins[0].name(), "good");
+    }
+
+    #[test]
+    fn test_plugin_load_nonexistent() {
+        let result = LuaRecipe::load("missing", std::path::Path::new("/nonexistent/plugin.lua"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_plugin_load_bad_lua_syntax() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("bad_syntax.lua");
+        std::fs::write(&plugin_path, "function execute( invalid {{{{").unwrap();
+        let result = LuaRecipe::load("bad_syntax", &plugin_path);
+        assert!(result.is_err());
+    }
 }

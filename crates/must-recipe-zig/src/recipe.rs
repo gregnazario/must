@@ -298,4 +298,88 @@ mod tests {
         assert!(out.stdout.contains("dry-run"));
         assert!(out.stdout.contains("zig build test"));
     }
+
+    #[test]
+    fn zig_bin_deps_empty() {
+        let r = ZigBinRecipe::new("build", ".");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn zig_bin_inputs_outputs_empty() {
+        let r = ZigBinRecipe::new("build", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn zig_bin_cache_key_differs_by_package() {
+        let r1 = ZigBinRecipe::new("r", "app-a");
+        let r2 = ZigBinRecipe::new("r", "app-b");
+        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+    }
+
+    #[test]
+    fn zig_test_name_and_package() {
+        let r = ZigTestRecipe::new("test", "src/main.zig");
+        assert_eq!(r.name(), "test");
+        assert_eq!(r.package, "src/main.zig");
+    }
+
+    #[test]
+    fn zig_test_inputs_outputs_empty() {
+        let r = ZigTestRecipe::new("test", ".");
+        assert!(r.inputs(&ctx()).unwrap().is_empty());
+        assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn zig_bin_tool_not_found() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = ZigBinRecipe::new("build", ".");
+        assert!(r.execute(&ctx).is_err());
+    }
+
+    #[test]
+    fn zig_bin_dry_run_with_named_package() {
+        let r = ZigBinRecipe::new("build", "myapp");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("myapp"));
+        assert!(out.stdout.contains("ReleaseSafe"));
+    }
+
+    #[test]
+    fn zig_bin_cache_hit_sets_recipe_name() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+        };
+        let r = ZigBinRecipe::new("my-build", "app");
+        let key = r.cache_key(&ctx).unwrap();
+        let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
+        cache.store(&key, &[]).unwrap();
+        drop(cache);
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.from_cache);
+        assert_eq!(out.recipe_name, "my-build");
+    }
 }

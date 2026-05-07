@@ -418,4 +418,27 @@ mod tests {
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
     }
+
+    #[test]
+    fn dart_bin_cache_key_stable() {
+        let r = DartBinRecipe::new("build", ".");
+        let key1 = r.cache_key(&ctx()).unwrap();
+        let key2 = r.cache_key(&ctx()).unwrap();
+        assert_eq!(key1.hash, key2.hash);
+    }
+
+    #[test]
+    fn dart_test_deps_empty() {
+        let r = DartTestRecipe::new("test", ".");
+        assert!(r.deps().is_empty());
+    }
+
+    #[test]
+    fn dart_bin_workdir_not_dot_dry_run() {
+        let r = DartBinRecipe::new("build", "pkgs/api");
+        let mut c = ctx();
+        c.dry_run = true;
+        let out = r.execute(&c).unwrap();
+        assert!(out.stdout.contains("pkgs/api"));
+    }
 }

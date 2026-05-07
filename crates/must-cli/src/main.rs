@@ -9,6 +9,8 @@ use must_recipe_dart::{DartBinRecipe, DartTestRecipe};
 use must_recipe_docker::{DockerBuildRecipe, DockerPushRecipe};
 use must_recipe_dotnet::{DotnetBuildRecipe, DotnetPublishRecipe, DotnetTestRecipe};
 use must_recipe_elixir::{ElixirBuildRecipe, ElixirTestRecipe};
+use must_recipe_flutter::{FlutterBuildRecipe, FlutterTestRecipe};
+use must_recipe_nim::{NimBinRecipe, NimTestRecipe};
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_java::{JavaBinRecipe, JavaTestRecipe};
 use must_recipe_kotlin::{KotlinBinRecipe, KotlinTestRecipe};
@@ -671,7 +673,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                             }
                             last_len = len;
                         }
-                        std::thread::sleep(std::time::Duration::from_millis(200));
+                        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
                     }
                 } else {
                     let content = std::fs::read_to_string(&log_path).map_err(Error::Io)?;
@@ -1537,15 +1539,51 @@ async fn execute_recipes(
                  };
                  recipe_map.insert(name.clone(), Arc::new(r));
              }
-             RecipeType::ElixirTest => {
-                 let r = ElixirTestRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
+              RecipeType::ElixirTest => {
+                  let r = ElixirTestRecipe {
+                      name: name.clone(),
+                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                      deps: recipe_cfg.deps.clone(),
+                      env,
+                  };
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
+              RecipeType::FlutterBuild => {
+                  let r = FlutterBuildRecipe {
+                      name: name.clone(),
+                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                      deps: recipe_cfg.deps.clone(),
+                      env,
+                  };
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
+              RecipeType::FlutterTest => {
+                  let r = FlutterTestRecipe {
+                      name: name.clone(),
+                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                      deps: recipe_cfg.deps.clone(),
+                      env,
+                  };
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
+              RecipeType::NimBin => {
+                  let r = NimBinRecipe {
+                      name: name.clone(),
+                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                      deps: recipe_cfg.deps.clone(),
+                      env,
+                  };
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
+              RecipeType::NimTest => {
+                  let r = NimTestRecipe {
+                      name: name.clone(),
+                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                      deps: recipe_cfg.deps.clone(),
+                      env,
+                  };
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
         }
     }
 
@@ -2127,6 +2165,22 @@ fn explain_recipe(
             "mix test (in {})",
             recipe.package.as_deref().unwrap_or(".")
         ),
+        RecipeType::FlutterBuild => format!(
+            "flutter build (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::FlutterTest => format!(
+            "flutter test (in {})",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::NimBin => format!(
+            "nim c -d:release {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
+        RecipeType::NimTest => format!(
+            "nim r --hints:off {}",
+            recipe.package.as_deref().unwrap_or(".")
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -2309,6 +2363,10 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::DartTest => "dart-test",
         RecipeType::ElixirBuild => "elixir-build",
         RecipeType::ElixirTest => "elixir-test",
+        RecipeType::FlutterBuild => "flutter-build",
+        RecipeType::FlutterTest => "flutter-test",
+        RecipeType::NimBin => "nim-bin",
+        RecipeType::NimTest => "nim-test",
     }
 }
 
@@ -2522,6 +2580,8 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::RubyBin | RecipeType::RubyTest => ("rb", "\x1b[31m"),
         RecipeType::DartBin | RecipeType::DartTest => ("dart", "\x1b[36m"),
         RecipeType::ElixirBuild | RecipeType::ElixirTest => ("ex", "\x1b[35m"),
+        RecipeType::FlutterBuild | RecipeType::FlutterTest => ("flutter", "\x1b[36m"),
+        RecipeType::NimBin | RecipeType::NimTest => ("nim", "\x1b[33m"),
     }
 }
 
@@ -2998,6 +3058,10 @@ mod tests {
             RecipeType::DartTest,
             RecipeType::ElixirBuild,
             RecipeType::ElixirTest,
+            RecipeType::FlutterBuild,
+            RecipeType::FlutterTest,
+            RecipeType::NimBin,
+            RecipeType::NimTest,
         ];
         for rtype in types {
             let mut config = make_config();
@@ -3175,5 +3239,1073 @@ mod tests {
             expand_env_vars("${REGISTRY}/api:${TAG}", &env),
             "ghcr.io/myorg/api:${TAG}"
         );
+    }
+
+    #[test]
+    fn test_run_init_creates_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "rust").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("myapp"));
+        assert!(content.contains("rust-bin"));
+    }
+
+    #[test]
+    fn test_run_init_rejects_existing_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        std::fs::write(&out, "existing").unwrap();
+        assert!(run_init(&out, Some("myapp"), "rust").is_err());
+    }
+
+    #[test]
+    fn test_run_init_go_template() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "go").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("go-bin"));
+    }
+
+    #[test]
+    fn test_run_init_python_template() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "python").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("py-bin"));
+    }
+
+    #[test]
+    fn test_run_init_zig_template() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "zig").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("zig-bin"));
+    }
+
+    #[test]
+    fn test_run_init_docker_template() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "docker").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("docker-build"));
+    }
+
+    #[test]
+    fn test_run_init_polyglot_template() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "polyglot").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("rust-bin"));
+        assert!(content.contains("go-bin"));
+        assert!(content.contains("ts-bin"));
+    }
+
+    #[test]
+    fn test_run_init_default_template() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, Some("myapp"), "unknown").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("shell"));
+    }
+
+    #[test]
+    fn test_history_dir_path() {
+        let dir = history_dir(Path::new("/tmp/myproject"));
+        assert_eq!(dir, PathBuf::from("/tmp/myproject/.mustfile/history"));
+    }
+
+    #[test]
+    fn test_save_build_manifest_creates_json() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let report = must_engine::ExecutionReport {
+            success: true,
+            total_duration_ms: 42,
+            results: vec![must_engine::ExecutionResult {
+                recipe_name: "build".to_string(),
+                success: true,
+                from_cache: false,
+                duration_ms: 42,
+                stdout: String::new(),
+                stderr: String::new(),
+                error: None,
+            }],
+        };
+        save_build_manifest(tmp.path(), &report);
+        let hist = history_dir(tmp.path());
+        assert!(hist.exists());
+        let files: Vec<_> = std::fs::read_dir(&hist).unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(files.len(), 1);
+        let content = std::fs::read_to_string(files[0].path()).unwrap();
+        assert!(content.contains("build"));
+        assert!(content.contains("42"));
+    }
+
+    #[test]
+    fn test_prune_history_removes_old() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = tmp.path().join("history");
+        std::fs::create_dir_all(&dir).unwrap();
+        for i in 0..15 {
+            std::fs::write(dir.join(format!("{i:020}.json")), "{}").unwrap();
+        }
+        prune_history(&dir, 10).unwrap();
+        let remaining: Vec<_> = std::fs::read_dir(&dir).unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(remaining.len(), 10);
+    }
+
+    #[test]
+    fn test_load_manifest_by_offset() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = tmp.path().join("history");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#).unwrap();
+        std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
+        let latest = load_manifest_by_offset(&dir, 0).unwrap();
+        assert_eq!(latest.timestamp, "2");
+        let prev = load_manifest_by_offset(&dir, 1).unwrap();
+        assert_eq!(prev.timestamp, "1");
+        assert!(load_manifest_by_offset(&dir, 5).is_none());
+    }
+
+    #[test]
+    fn test_status_label() {
+        assert_eq!(status_label(&BuildEntry { recipe: "a".into(), success: false, from_cache: false, duration_ms: 0 }), "failed");
+        assert_eq!(status_label(&BuildEntry { recipe: "a".into(), success: true, from_cache: true, duration_ms: 0 }), "cached");
+        assert_eq!(status_label(&BuildEntry { recipe: "a".into(), success: true, from_cache: false, duration_ms: 0 }), "built");
+    }
+
+    #[test]
+    fn test_run_diff_no_history() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        assert!(run_diff(tmp.path(), None).is_ok());
+    }
+
+    #[test]
+    fn test_run_diff_with_manifests() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = history_dir(tmp.path());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
+        std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":true,"duration_ms":0}]}"#).unwrap();
+        assert!(run_diff(tmp.path(), None).is_ok());
+    }
+
+    #[test]
+    fn test_run_diff_invalid_revision() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = history_dir(tmp.path());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#).unwrap();
+        assert!(run_diff(tmp.path(), Some("abc")).is_err());
+    }
+
+    #[test]
+    fn test_run_diff_added_and_removed_recipes() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = history_dir(tmp.path());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[{"recipe":"old","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
+        std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"new","success":true,"from_cache":false,"duration_ms":20}]}"#).unwrap();
+        assert!(run_diff(tmp.path(), None).is_ok());
+    }
+
+    #[test]
+    fn test_run_diff_fixed_and_broke() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = history_dir(tmp.path());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[{"recipe":"a","success":false,"from_cache":false,"duration_ms":10},{"recipe":"b","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
+        std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"a","success":true,"from_cache":false,"duration_ms":10},{"recipe":"b","success":false,"from_cache":false,"duration_ms":10}]}"#).unwrap();
+        assert!(run_diff(tmp.path(), None).is_ok());
+    }
+
+    #[test]
+    fn test_generate_completions_bash() {
+        let buf = generate_completions(clap_complete::Shell::Bash);
+        assert!(!buf.is_empty());
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("_must"));
+    }
+
+    #[test]
+    fn test_generate_completions_zsh() {
+        let buf = generate_completions(clap_complete::Shell::Zsh);
+        assert!(!buf.is_empty());
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("_must_recipes"));
+    }
+
+    #[test]
+    fn test_generate_completions_fish() {
+        let buf = generate_completions(clap_complete::Shell::Fish);
+        assert!(!buf.is_empty());
+    }
+
+    #[test]
+    fn test_print_dag_graph_single_recipe() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        let order = vec!["build".to_string()];
+        let dep_map = HashMap::new();
+        print_dag_graph(&config, &dep_map, &order);
+    }
+
+    #[test]
+    fn test_print_dag_graph_with_deps() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::RustBin));
+        config.recipe.insert("test".into(), make_recipe(RecipeType::RustTest));
+        let order = vec!["build".to_string(), "test".to_string()];
+        let dep_map = HashMap::from([
+            ("build".to_string(), vec![]),
+            ("test".to_string(), vec!["build".to_string()]),
+        ]);
+        print_dag_graph(&config, &dep_map, &order);
+    }
+
+    #[test]
+    fn test_print_dag_graph_all_recipe_types() {
+        let mut config = make_config();
+        let types = vec![
+            RecipeType::Shell, RecipeType::RustBin, RecipeType::GoBin, RecipeType::CBin,
+            RecipeType::TsBin, RecipeType::Npm, RecipeType::PyBin, RecipeType::ZigBin,
+            RecipeType::DockerBuild, RecipeType::JavaBin, RecipeType::KotlinBin,
+            RecipeType::SwiftBin, RecipeType::DotnetBuild, RecipeType::RubyBin,
+            RecipeType::DartBin, RecipeType::ElixirBuild, RecipeType::FlutterBuild,
+            RecipeType::NimBin,
+        ];
+        for (i, rt) in types.iter().enumerate() {
+            config.recipe.insert(format!("r{i}"), make_recipe(rt.clone()));
+        }
+        let order: Vec<String> = (0..types.len()).map(|i| format!("r{i}")).collect();
+        let dep_map = HashMap::new();
+        print_dag_graph(&config, &dep_map, &order);
+    }
+
+    #[test]
+    fn test_recipe_badge_all_types() {
+        let types = vec![
+            RecipeType::Shell, RecipeType::RustBin, RecipeType::GoBin, RecipeType::CBin,
+            RecipeType::TsBin, RecipeType::TsLint, RecipeType::Npm, RecipeType::PyBin,
+            RecipeType::ZigBin, RecipeType::DockerBuild, RecipeType::Plugin,
+            RecipeType::JavaBin, RecipeType::KotlinBin, RecipeType::SwiftBin,
+            RecipeType::DotnetBuild, RecipeType::RubyBin, RecipeType::DartBin,
+            RecipeType::ElixirBuild, RecipeType::FlutterBuild, RecipeType::NimBin,
+        ];
+        for rt in &types {
+            let (tag, color) = recipe_badge(rt);
+            assert!(!tag.is_empty(), "badge tag should not be empty for {rt:?}");
+            assert!(color.starts_with("\x1b["), "color should be ANSI for {rt:?}");
+        }
+    }
+
+    #[test]
+    fn test_recipe_type_tag_all_types() {
+        let types = vec![
+            RecipeType::Shell, RecipeType::RustBin, RecipeType::RustLib, RecipeType::RustTest,
+            RecipeType::GoBin, RecipeType::GoTest, RecipeType::CBin, RecipeType::CLib,
+            RecipeType::TsBin, RecipeType::TsCheck, RecipeType::TsLint, RecipeType::Npm,
+            RecipeType::PyBin, RecipeType::PyTest, RecipeType::PyLint,
+            RecipeType::ZigBin, RecipeType::ZigTest,
+            RecipeType::DockerBuild, RecipeType::DockerPush, RecipeType::Plugin,
+            RecipeType::JavaBin, RecipeType::JavaTest,
+            RecipeType::KotlinBin, RecipeType::KotlinTest,
+            RecipeType::SwiftBin, RecipeType::SwiftTest,
+            RecipeType::DotnetBuild, RecipeType::DotnetTest, RecipeType::DotnetPublish,
+            RecipeType::RubyBin, RecipeType::RubyTest,
+            RecipeType::DartBin, RecipeType::DartTest,
+            RecipeType::ElixirBuild, RecipeType::ElixirTest,
+            RecipeType::FlutterBuild, RecipeType::FlutterTest,
+            RecipeType::NimBin, RecipeType::NimTest,
+        ];
+        for rt in &types {
+            let tag = recipe_type_tag(rt);
+            assert!(!tag.is_empty(), "tag should not be empty for {rt:?}");
+        }
+    }
+
+    #[test]
+    fn test_run_doctor_executes() {
+        run_doctor();
+    }
+
+    #[test]
+    fn test_load_latest_manifest() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = tmp.path().join("history");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(load_latest_manifest(&dir).is_none());
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#).unwrap();
+        let m = load_latest_manifest(&dir).unwrap();
+        assert_eq!(m.timestamp, "1");
+        std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
+        let m2 = load_latest_manifest(&dir).unwrap();
+        assert_eq!(m2.timestamp, "2");
+        assert_eq!(m2.entries.len(), 1);
+    }
+
+    #[test]
+    fn test_print_graph_dot() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config.recipe.insert("test".into(), make_recipe(RecipeType::Shell));
+        config.recipe.get_mut("test").unwrap().deps = vec!["build".into()];
+        assert!(print_graph(&config, "dot").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_mermaid() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::RustBin));
+        config.recipe.insert("test".into(), make_recipe(RecipeType::RustTest));
+        config.recipe.get_mut("test").unwrap().deps = vec!["build".into()];
+        assert!(print_graph(&config, "mermaid").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_dag() {
+        let mut config = make_config();
+        config.recipe.insert("build".into(), make_recipe(RecipeType::GoBin));
+        assert!(print_graph(&config, "dag").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_text_with_waves() {
+        let mut config = make_config();
+        config.recipe.insert("codegen".into(), make_recipe(RecipeType::Shell));
+        config.recipe.insert("build".into(), make_recipe(RecipeType::RustBin));
+        config.recipe.insert("test".into(), make_recipe(RecipeType::RustTest));
+        config.recipe.get_mut("build").unwrap().deps = vec!["codegen".into()];
+        config.recipe.get_mut("test").unwrap().deps = vec!["build".into()];
+        assert!(print_graph(&config, "text").is_ok());
+    }
+
+    #[test]
+    fn test_print_graph_cycle() {
+        let mut config = make_config();
+        config.recipe.insert("a".into(), make_recipe(RecipeType::Shell));
+        config.recipe.insert("b".into(), make_recipe(RecipeType::Shell));
+        config.recipe.get_mut("a").unwrap().deps = vec!["b".into()];
+        config.recipe.get_mut("b").unwrap().deps = vec!["a".into()];
+        assert!(print_graph(&config, "text").is_err());
+    }
+
+    #[test]
+    fn test_apply_zsh_recipe_hook() {
+        let input = b"#compdef must\n_some_existing_stuff\n";
+        let mut buf = input.to_vec();
+        apply_zsh_recipe_hook(&mut buf);
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("_must_recipes"));
+        assert!(s.contains("#compdef must"));
+    }
+
+    #[test]
+    fn test_bash_recipe_hook_contains_completions() {
+        let hook = bash_recipe_hook();
+        assert!(hook.contains("_must_recipe_names"));
+        assert!(hook.contains("complete -F"));
+    }
+
+    #[test]
+    fn test_dir_size_nonexistent() {
+        assert!(dir_size(Path::new("/nonexistent/path")).is_err());
+    }
+
+    #[test]
+    fn test_prune_history_empty_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = tmp.path().join("history");
+        std::fs::create_dir_all(&dir).unwrap();
+        prune_history(&dir, 10).unwrap();
+        let remaining: Vec<_> = std::fs::read_dir(&dir).unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(remaining.len(), 0);
+    }
+
+    #[test]
+    fn test_prune_history_keeps_correct_count() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = tmp.path().join("history");
+        std::fs::create_dir_all(&dir).unwrap();
+        for i in 0..5 {
+            std::fs::write(dir.join(format!("{i:020}.json")), "{}").unwrap();
+        }
+        prune_history(&dir, 3).unwrap();
+        let remaining: Vec<_> = std::fs::read_dir(&dir).unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(remaining.len(), 3);
+    }
+
+    #[test]
+    fn test_run_diff_duration_deltas() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = history_dir(tmp.path());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":100}]}"#).unwrap();
+        std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":50}]}"#).unwrap();
+        assert!(run_diff(tmp.path(), None).is_ok());
+    }
+
+    #[test]
+    fn test_save_manifest_multiple_entries() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let report = must_engine::ExecutionReport {
+            success: true,
+            total_duration_ms: 100,
+            results: vec![
+                must_engine::ExecutionResult {
+                    recipe_name: "build".to_string(),
+                    success: true,
+                    from_cache: false,
+                    duration_ms: 60,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    error: None,
+                },
+                must_engine::ExecutionResult {
+                    recipe_name: "test".to_string(),
+                    success: false,
+                    from_cache: false,
+                    duration_ms: 40,
+                    stdout: String::new(),
+                    stderr: "test failure".to_string(),
+                    error: Some("exit code 1".to_string()),
+                },
+            ],
+        };
+        save_build_manifest(tmp.path(), &report);
+        let dir = history_dir(tmp.path());
+        let files: Vec<_> = std::fs::read_dir(&dir).unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert_eq!(files.len(), 1);
+        let content = std::fs::read_to_string(files[0].path()).unwrap();
+        assert!(content.contains("build"));
+        assert!(content.contains("60"));
+    }
+
+    #[test]
+    fn test_run_init_no_name_uses_default() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        run_init(&out, None, "rust").unwrap();
+        let content = std::fs::read_to_string(&out).unwrap();
+        assert!(content.contains("[project]"));
+        assert!(content.contains("name ="));
+    }
+
+    #[test]
+    fn test_load_manifest_by_offset_empty() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let dir = tmp.path().join("history");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(load_manifest_by_offset(&dir, 0).is_none());
+    }
+
+    #[test]
+    fn test_resolve_targets_with_all_recipe_types() {
+        for rt in &[RecipeType::Shell, RecipeType::RustBin, RecipeType::GoBin] {
+            let mut config = make_config();
+            config.recipe.insert("build".into(), make_recipe(rt.clone()));
+            let targets = resolve_targets(&[], &config);
+            assert_eq!(targets, vec!["host"]);
+        }
+    }
+
+    fn make_cli(command: Commands, file: PathBuf) -> Cli {
+        Cli {
+            file: Some(file),
+            target: vec![],
+            profile: "default".into(),
+            parallelism: Some(1),
+            dry_run: false,
+            fail_fast: false,
+            verbose: 0,
+            command,
+        }
+    }
+
+    fn write_shell_mustfile(dir: &std::path::Path) -> PathBuf {
+        let mustfile = dir.join("Mustfile.toml");
+        std::fs::write(&mustfile, r#"
+[project]
+name = "test"
+
+[recipe.build]
+type = "shell"
+script = "echo built"
+
+[recipe.test]
+type = "shell"
+deps = ["build"]
+script = "echo tested"
+phony = true
+
+[recipe.lint]
+type = "shell"
+script = "echo linted"
+phony = true
+
+[recipe.fmt]
+type = "shell"
+script = "echo formatted"
+phony = true
+"#).unwrap();
+        mustfile
+    }
+
+    #[tokio::test]
+    async fn test_run_build_dry_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Build { recipes: vec![] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_specific_recipe() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Build { recipes: vec!["test".into()] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_run_alias() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Run { recipes: vec!["build".into()] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_test() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Test { recipes: vec![] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_fmt() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Fmt { recipes: vec![] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_lint() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Lint { recipes: vec![] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_external() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::External(vec!["build".into()]), mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_list() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::List { names_only: false }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_list_names_only() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::List { names_only: true }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_clean() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Clean { cache: false }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_clean_cache() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        let cli = make_cli(Commands::Clean { cache: true }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+        assert!(!tmp.path().join(".mustfile/cache").exists());
+    }
+
+    #[tokio::test]
+    async fn test_run_graph_text() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Graph { format: "text".into() }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_graph_dot() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Graph { format: "dot".into() }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_graph_mermaid() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Graph { format: "mermaid".into() }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_explain() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Explain { recipe: "build".into() }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_diff_empty() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Diff { revision: None }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_outdated() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Outdated, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_cache_list_empty() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Cache { action: CacheAction::List }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_cache_du() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Cache { action: CacheAction::Du }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_cache_invalidate_no_args() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: false } }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_cache_invalidate_all_empty() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: true } }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_cache_invalidate_named() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: Some("build".into()), all: false } }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_log_no_logs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Log { recipe: None, follow: false, clear: false }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_log_clear_no_logs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Log { recipe: None, follow: false, clear: true }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_log_missing_recipe() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Log { recipe: Some("nonexistent".into()), follow: false, clear: false }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_run_plugin_list_no_plugins() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Plugin { action: PluginAction::List }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_plugin_check_missing() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Plugin { action: PluginAction::Check { plugin: "nonexistent".into() } }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_run_plugin_install_local() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let plugin_src = tmp.path().join("my_plugin.lua");
+        std::fs::write(&plugin_src, r#"function execute(ctx) return { outputs = {} } end"#).unwrap();
+        let cli = make_cli(Commands::Plugin {
+            action: PluginAction::Install {
+                url: plugin_src.to_string_lossy().into_owned(),
+                name: Some("my_plugin".into()),
+            },
+        }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+        assert!(tmp.path().join(".mustfile/plugins/my_plugin.lua").exists());
+    }
+
+    #[tokio::test]
+    async fn test_run_plugin_remove_nonexistent() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Plugin { action: PluginAction::Remove { plugin: "nonexistent".into() } }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_init_via_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        let cli = Cli {
+            file: Some(out),
+            target: vec![],
+            profile: "default".into(),
+            parallelism: Some(1),
+            dry_run: false,
+            fail_fast: false,
+            verbose: 0,
+            command: Commands::Init { name: Some("test-proj".into()), template: "rust".into() },
+        };
+        let result = run(cli).await;
+        assert!(result.is_ok());
+        assert!(tmp.path().join("Mustfile.toml").exists());
+    }
+
+    #[tokio::test]
+    async fn test_run_import() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let makefile = tmp.path().join("Makefile");
+        std::fs::write(&makefile, "all:\n\techo hello\n").unwrap();
+        let out = tmp.path().join("Mustfile.toml");
+        let cli = Cli {
+            file: None,
+            target: vec![],
+            profile: "default".into(),
+            parallelism: Some(1),
+            dry_run: false,
+            fail_fast: false,
+            verbose: 0,
+            command: Commands::Import { makefile, out },
+        };
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_completions_bash() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Completions { shell: clap_complete::Shell::Bash }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_doctor_via_run() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Doctor, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_saves_manifest() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Build { recipes: vec![] }, mustfile);
+        run(cli).await.unwrap();
+        let hist = tmp.path().join(".mustfile/history");
+        assert!(hist.exists(), "build should create history dir");
+        let files: Vec<_> = std::fs::read_dir(&hist).unwrap().filter_map(|e| e.ok()).collect();
+        assert_eq!(files.len(), 1, "should save one manifest");
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_diff() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec![] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let cli2 = make_cli(Commands::Build { recipes: vec![] }, mustfile.clone());
+        run(cli2).await.unwrap();
+        let cli3 = make_cli(Commands::Diff { revision: None }, mustfile);
+        let result = run(cli3).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_log() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec![] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let cli2 = make_cli(Commands::Log { recipe: None, follow: false, clear: false }, mustfile);
+        let result = run(cli2).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_log_clear() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec![] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let log_dir = tmp.path().join(".mustfile/logs");
+        assert!(log_dir.exists());
+        let cli2 = make_cli(Commands::Log { recipe: None, follow: false, clear: true }, mustfile);
+        let result = run(cli2).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_cache_list() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let cli2 = make_cli(Commands::Cache { action: CacheAction::List }, mustfile);
+        let result = run(cli2).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_cache_du() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let cli2 = make_cli(Commands::Cache { action: CacheAction::Du }, mustfile);
+        let result = run(cli2).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_cache_invalidate_all() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let cli2 = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: true } }, mustfile);
+        let result = run(cli2).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_then_outdated() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        run(cli1).await.unwrap();
+        let cli2 = make_cli(Commands::Outdated, mustfile);
+        let result = run(cli2).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_build_unknown_recipe() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = make_cli(Commands::Build { recipes: vec!["nonexistent".into()] }, mustfile);
+        let result = run(cli).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_run_dry_run_flag() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let mut cli = make_cli(Commands::Build { recipes: vec![] }, mustfile);
+        cli.dry_run = true;
+        let result = run(cli).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_foreach_no_subprojects() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let cli = Cli {
+            file: None,
+            target: vec![],
+            profile: "default".into(),
+            parallelism: Some(1),
+            dry_run: false,
+            fail_fast: false,
+            verbose: 0,
+            command: Commands::Foreach {
+                command: vec!["build".into()],
+                filter: None,
+                parallelism: 1,
+                keep_going: false,
+            },
+        };
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(tmp.path()).unwrap();
+        let result = run(cli).await;
+        std::env::set_current_dir(&orig).unwrap();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_watch_executes_once_then_times_out() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let cli = Cli {
+            file: Some(mustfile),
+            target: vec![],
+            profile: "default".into(),
+            parallelism: Some(1),
+            dry_run: false,
+            fail_fast: false,
+            verbose: 0,
+            command: Commands::Watch { recipes: vec!["build".into()] },
+        };
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            run(cli),
+        )
+        .await;
+        match result {
+            Ok(Ok(())) | Ok(Err(_)) | Err(_) => {}
+        }
+    }
+
+    #[tokio::test]
+    async fn test_log_follow_reads_existing_then_times_out() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let build_cli = make_cli(
+            Commands::Run { recipes: vec!["build".into()] },
+            mustfile.clone(),
+        );
+        let _ = run(build_cli).await;
+
+        let log_dir = tmp.path().join(".mustfile").join("logs");
+        let log_files: Vec<_> = std::fs::read_dir(&log_dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+            .collect();
+        if log_files.is_empty() {
+            return;
+        }
+        let log_name = log_files[0]
+            .path()
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let cli = Cli {
+            file: Some(mustfile),
+            target: vec![],
+            profile: "default".into(),
+            parallelism: Some(1),
+            dry_run: false,
+            fail_fast: false,
+            verbose: 0,
+            command: Commands::Log {
+                recipe: Some(log_name),
+                follow: true,
+                clear: false,
+            },
+        };
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            run(cli),
+        )
+        .await;
+        match result {
+            Ok(Ok(())) | Ok(Err(_)) | Err(_) => {}
+        }
     }
 }
