@@ -6,3 +6,10 @@ license.workspace = true
 
 [dependencies]
 must-core = { path = "../must-core" }
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "graph_bench"
+harness = false
