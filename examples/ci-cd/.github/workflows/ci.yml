@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run CI pipeline
+        uses: anomalyco/mustfile@main
+        with:
+          command: ci
+          profile: ci
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Deploy
+        uses: anomalyco/mustfile@main
+        with:
+          command: deploy
+        env:
+          REGISTRY: ghcr.io/${{ github.repository }}
+          VERSION: ${{ github.sha }}

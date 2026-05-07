@@ -1,0 +1,107 @@
+# Release workflow example.
+# Demonstrates: Full release pipeline with versioning, build, test, package, and release.
+#
+# Project layout:
+#   Mustfile.toml     This file
+#   src/              Application source
+#   CHANGELOG.md      Changelog
+
+[project]
+name = "my-app"
+version = "1.0.0"
+
+[env]
+VERSION = "1.0.0"
+
+[env.release]
+OPT_LEVEL = "3"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type     = "rust-bin"
+package  = "my-app"
+
+[recipe.test]
+type    = "rust-test"
+package = "my-app"
+deps    = ["build"]
+
+[recipe.clippy]
+type   = "shell"
+phony  = true
+script = "cargo clippy --all-targets -- -D warnings"
+
+[recipe.fmt-check]
+type   = "shell"
+phony  = true
+script = "cargo fmt --all -- --check"
+
+# ── Release pipeline ──────────────────────────────────────────────────────────
+
+[recipe.check-release]
+type   = "shell"
+deps   = ["fmt-check", "clippy", "test"]
+phony  = true
+script = "echo 'Release checks passed'"
+
+[recipe.build-release]
+type    = "rust-bin"
+package = "my-app"
+
+[recipe.build-release.env]
+PROFILE = "release"
+
+[recipe.dist]
+type   = "shell"
+deps   = ["check-release", "build-release"]
+phony  = true
+script = """
+    mkdir -p dist
+    cp target/release/my-app dist/
+    tar -czf dist/my-app-${VERSION}-x86_64-linux.tar.gz -C dist my-app
+    sha256sum dist/*.tar.gz > dist/SHA256SUMS
+    echo "Release artifacts:"
+    ls -la dist/
+"""
+
+[recipe.changelog]
+type   = "shell"
+phony  = true
+script = """
+    if command -v git-cliff > /dev/null 2>&1; then
+        git-cliff -o CHANGELOG.md
+    else
+        echo "git-cliff not found, skipping changelog generation"
+    fi
+"""
+
+[recipe.tag]
+type   = "shell"
+phony  = true
+script = """
+    git tag -a "v${VERSION}" -m "Release v${VERSION}"
+    echo "Created tag v${VERSION}"
+"""
+
+[recipe.release]
+type   = "shell"
+deps   = ["changelog", "dist", "tag"]
+phony  = true
+script = """
+    echo 'Release v${VERSION} ready'
+    echo 'Push tag with: git push origin v${VERSION}'
+"""
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["fmt-check", "clippy", "test"]
+phony  = true
+script = "echo 'CI passed'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean && rm -rf dist/"

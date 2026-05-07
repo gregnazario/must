@@ -1,0 +1,137 @@
+# Monorepo workspace example.
+# Demonstrates: Multi-package monorepo with cross-package dependencies,
+# per-package workdir, and umbrella recipes.
+#
+# Project layout:
+#   Mustfile.toml           This file (root)
+#   apps/api/Mustfile.toml  API server (Go)
+#   apps/web/Mustfile.toml  Frontend (TypeScript)
+#   libs/core/Mustfile.toml Shared library (Rust)
+#   libs/proto/Mustfile.toml Protocol buffers (Shell + plugin)
+
+[project]
+name = "platform"
+version = "2.0.0"
+
+[env]
+REGISTRY = "ghcr.io/myorg"
+GOFLAGS  = "-trimpath"
+
+[env.release]
+REGISTRY = "ghcr.io/myorg"
+GOFLAGS  = "-trimpath -ldflags '-s -w'"
+
+# ── Shared library ────────────────────────────────────────────────────────────
+
+[recipe.core]
+type    = "rust-lib"
+package = "core"
+
+[recipe.core-test]
+type    = "rust-test"
+package = "core"
+deps    = ["core"]
+
+# ── Protocol buffers ──────────────────────────────────────────────────────────
+
+[recipe.proto]
+type    = "shell"
+cache   = "hash"
+inputs  = ["proto/**/*.proto"]
+deps    = ["core"]
+script  = """
+    mkdir -p apps/api/proto libs/core/src/proto
+    for f in proto/*.proto; do
+        protoc --go_out=apps/api/proto --rust_out=libs/core/src/proto "$f"
+    done
+"""
+
+# ── API server ────────────────────────────────────────────────────────────────
+
+[recipe.api]
+type    = "go-bin"
+package = "./apps/api"
+deps    = ["proto"]
+
+[recipe.api-test]
+type    = "go-test"
+package = "./apps/api/..."
+deps    = ["api"]
+
+# ── Web frontend ──────────────────────────────────────────────────────────────
+
+[recipe.web]
+type    = "ts-bin"
+package = "apps/web/tsconfig.json"
+deps    = ["proto"]
+
+[recipe.web-check]
+type    = "ts-check"
+package = "apps/web/tsconfig.json"
+deps    = ["web"]
+
+[recipe.web-lint]
+type    = "ts-lint"
+package = "apps/web/src/"
+
+# ── Docker images ─────────────────────────────────────────────────────────────
+
+[recipe.api-image]
+type       = "docker-build"
+image      = "${REGISTRY}/api:${VERSION:-latest}"
+dockerfile = "apps/api/Dockerfile"
+deps       = ["api"]
+
+[recipe.web-image]
+type       = "docker-build"
+image      = "${REGISTRY}/web:${VERSION:-latest}"
+dockerfile = "apps/web/Dockerfile"
+deps       = ["web"]
+
+# ── Umbrella recipes ──────────────────────────────────────────────────────────
+
+[recipe.build]
+type   = "shell"
+deps   = ["api", "web"]
+phony  = true
+script = "echo 'All packages built'"
+
+[recipe.test]
+type   = "shell"
+deps   = ["core-test", "api-test", "web-check", "web-lint"]
+phony  = true
+script = "echo 'All tests passed'"
+
+[recipe.images]
+type   = "shell"
+deps   = ["api-image", "web-image"]
+phony  = true
+script = "echo 'All images built'"
+
+[recipe.publish-images]
+type   = "shell"
+deps   = ["images"]
+phony  = true
+script = """
+    docker push ${REGISTRY}/api:${VERSION:-latest}
+    docker push ${REGISTRY}/web:${VERSION:-latest}
+"""
+
+# ── CI / Release ──────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["test"]
+phony  = true
+script = "echo 'CI passed'"
+
+[recipe.release]
+type   = "shell"
+deps   = ["test", "images", "publish-images"]
+phony  = true
+script = "echo 'Release complete'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean && rm -rf apps/api/proto apps/web/dist"

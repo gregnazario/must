@@ -1,0 +1,85 @@
+# npm publishing example.
+# Demonstrates: npm scripts + shell recipes for publishing to npm registry.
+#
+# Project layout:
+#   package.json     npm package config
+#   src/index.ts     TypeScript source
+#   tsconfig.json    TypeScript config
+
+[project]
+name = "my-npm-lib"
+version = "1.0.0"
+
+[env]
+NODE_ENV = "production"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "ts-bin"
+package = "tsconfig.json"
+
+[recipe.check]
+type    = "ts-check"
+package = "tsconfig.json"
+deps    = ["build"]
+
+[recipe.lint]
+type    = "ts-lint"
+package = "src/"
+
+[recipe.test]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "npm test"
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.pack]
+type   = "shell"
+deps   = ["check", "lint", "test"]
+phony  = true
+script = "npm pack --dry-run 2>&1 | head -20"
+
+[recipe.publish-dry]
+type   = "shell"
+deps   = ["check", "lint", "test"]
+phony  = true
+script = "npm publish --dry-run --access public"
+
+[recipe.publish]
+type   = "shell"
+deps   = ["check", "lint", "test"]
+phony  = true
+script = "npm publish --access public"
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.version-patch]
+type   = "shell"
+phony  = true
+script = "npm version patch -m 'chore: release v%s'"
+
+[recipe.version-minor]
+type   = "shell"
+phony  = true
+script = "npm version minor -m 'chore: release v%s'"
+
+[recipe.version-major]
+type   = "shell"
+phony  = true
+script = "npm version major -m 'chore: release v%s'"
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["check", "lint", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf dist/ node_modules/.cache/"

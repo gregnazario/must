@@ -1,0 +1,94 @@
+# crates.io publishing example.
+# Demonstrates: rust-bin/rust-test + shell recipes for crates.io publishing.
+#
+# Project layout:
+#   Cargo.toml        Workspace or single crate
+#   src/              Rust source
+#   tests/            Integration tests
+
+[project]
+name = "my-rust-crate"
+version = "1.0.0"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "rust-bin"
+package = "my-crate"
+
+[recipe.lib]
+type    = "rust-lib"
+package = "my-crate"
+
+[recipe.test]
+type    = "rust-test"
+package = "my-crate"
+deps    = ["lib"]
+
+[recipe.clippy]
+type   = "shell"
+phony  = true
+script = "cargo clippy --all-targets -- -D warnings"
+
+[recipe.fmt-check]
+type   = "shell"
+phony  = true
+script = "cargo fmt --all -- --check"
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+
+[recipe.doc]
+type   = "shell"
+deps   = ["lib"]
+phony  = true
+script = "cargo doc --no-deps --open"
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.package]
+type   = "shell"
+deps   = ["clippy", "test"]
+phony  = true
+script = "cargo package --list"
+
+[recipe.publish-dry]
+type   = "shell"
+deps   = ["clippy", "test", "fmt-check"]
+phony  = true
+script = "cargo publish --dry-run"
+
+[recipe.publish]
+type   = "shell"
+deps   = ["clippy", "test", "fmt-check"]
+phony  = true
+script = "cargo publish"
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = "cargo set-version --bump patch && cargo generate-lockfile"
+
+[recipe.bump-minor]
+type   = "shell"
+phony  = true
+script = "cargo set-version --bump minor && cargo generate-lockfile"
+
+[recipe.bump-major]
+type   = "shell"
+phony  = true
+script = "cargo set-version --bump major && cargo generate-lockfile"
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["fmt-check", "clippy", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean"

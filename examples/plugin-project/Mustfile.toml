@@ -1,0 +1,54 @@
+# Plugin project example.
+# Demonstrates: Lua plugins for custom build steps, with deps, inputs, outputs,
+# and custom cache keys.
+#
+# Project layout:
+#   Mustfile.toml                This file
+#   .mustfile/plugins/
+#     protoc.lua                 Protocol buffer codegen
+#     embed.lua                  Asset embedding
+
+[project]
+name = "plugin-demo"
+version = "1.0.0"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "rust-bin"
+package = "my-app"
+
+[recipe.test]
+type    = "rust-test"
+package = "my-app"
+deps    = ["build"]
+
+# ── Plugin recipes ────────────────────────────────────────────────────────────
+
+[recipe.protoc]
+type   = "plugin"
+plugin = "protoc"
+
+[recipe.embed-assets]
+type   = "plugin"
+plugin = "embed"
+deps   = ["protoc"]
+
+# ── Full pipeline ─────────────────────────────────────────────────────────────
+
+[recipe.codegen]
+type   = "shell"
+deps   = ["protoc", "embed-assets"]
+phony  = true
+script = "echo 'Code generation complete'"
+
+[recipe.all]
+type   = "shell"
+deps   = ["codegen", "build", "test"]
+phony  = true
+script = "echo 'All done'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean && rm -rf src/generated/"

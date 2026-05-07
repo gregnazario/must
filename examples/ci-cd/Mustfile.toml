@@ -1,0 +1,103 @@
+# CI/CD example.
+# Demonstrates: A complete CI/CD pipeline using must with GitHub Actions.
+#
+# This Mustfile.toml works with the must GitHub Action:
+#   - uses: anomalyco/mustfile@main
+#     with:
+#       command: ci
+#
+# Project layout:
+#   .github/workflows/ci.yml   GitHub Actions workflow
+#   Mustfile.toml               This file
+#   src/                        Application source
+
+[project]
+name = "my-ci-app"
+version = "1.0.0"
+
+[env]
+CARGO_TERM_COLOR = "always"
+RUST_BACKTRACE   = "1"
+
+[env.ci]
+CARGO_TERM_COLOR = "always"
+RUST_BACKTRACE   = "1"
+CI = "true"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "rust-bin"
+package = "my-app"
+
+[recipe.test]
+type    = "rust-test"
+package = "my-app"
+deps    = ["build"]
+
+# ── Quality gates ──────────────────────────────────────────────────────────────
+
+[recipe.fmt]
+type   = "shell"
+phony  = true
+script = "cargo fmt --all -- --check"
+
+[recipe.clippy]
+type   = "shell"
+phony  = true
+script = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[recipe.audit]
+type   = "shell"
+phony  = true
+script = """
+    if command -v cargo-audit > /dev/null 2>&1; then
+        cargo audit
+    else
+        echo "cargo-audit not installed, skipping"
+    fi
+"""
+
+# ── CI pipeline ────────────────────────────────────────────────────────────────
+
+[recipe.check]
+type   = "shell"
+deps   = ["fmt", "clippy", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.ci]
+type   = "shell"
+deps   = ["fmt", "clippy", "test", "audit"]
+phony  = true
+script = "echo 'CI pipeline passed'"
+
+# ── Deploy stages ──────────────────────────────────────────────────────────────
+
+[recipe.build-release]
+type   = "shell"
+deps   = ["ci"]
+phony  = true
+script = "cargo build --release -p my-app"
+
+[recipe.docker-build]
+type       = "docker-build"
+image      = "${REGISTRY:-ghcr.io/myorg}/my-app:${VERSION:-latest}"
+dockerfile = "Dockerfile"
+deps       = ["build-release"]
+
+[recipe.deploy]
+type   = "shell"
+deps   = ["docker-build"]
+phony  = true
+script = """
+    docker push ${REGISTRY:-ghcr.io/myorg}/my-app:${VERSION:-latest}
+    echo "Deployed ${VERSION:-latest}"
+"""
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "cargo clean"

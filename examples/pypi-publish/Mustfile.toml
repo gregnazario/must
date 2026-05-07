@@ -1,0 +1,93 @@
+# PyPI publishing example.
+# Demonstrates: py-bin/py-test/py-lint + shell recipes for PyPI publishing.
+#
+# Project layout:
+#   pyproject.toml   Python package config
+#   src/mylib/       Package source
+#   tests/           Test directory
+
+[project]
+name = "my-python-lib"
+version = "1.0.0"
+
+[env]
+PYTHONDONTWRITEBYTECODE = "1"
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[recipe.build]
+type    = "py-bin"
+package = "src/mylib"
+
+[recipe.test]
+type    = "py-test"
+package = "tests/"
+deps    = ["build"]
+
+[recipe.lint]
+type    = "py-lint"
+package = "src/mylib"
+
+# ── Packaging ──────────────────────────────────────────────────────────────────
+
+[recipe.sdist]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "python -m build --sdist"
+
+[recipe.wheel]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "python -m build --wheel"
+
+[recipe.dist]
+type   = "shell"
+deps   = ["sdist", "wheel"]
+phony  = true
+script = "ls -la dist/"
+
+# ── Publishing ────────────────────────────────────────────────────────────────
+
+[recipe.publish-test]
+type   = "shell"
+deps   = ["lint", "test", "dist"]
+phony  = true
+script = "twine upload --repository testpypi dist/*"
+
+[recipe.publish]
+type   = "shell"
+deps   = ["lint", "test", "dist"]
+phony  = true
+script = "twine upload dist/*"
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+
+[recipe.bump-patch]
+type   = "shell"
+phony  = true
+script = "bump-my-version bump patch"
+
+[recipe.bump-minor]
+type   = "shell"
+phony  = true
+script = "bump-my-version bump minor"
+
+[recipe.bump-major]
+type   = "shell"
+phony  = true
+script = "bump-my-version bump major"
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[recipe.ci]
+type   = "shell"
+deps   = ["lint", "test"]
+phony  = true
+script = "echo 'All checks passed'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf dist/ build/ *.egg-info src/*.egg-info"
