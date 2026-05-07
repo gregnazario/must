@@ -71,6 +71,8 @@ jobs:
         with:
           otp-version: 27
           elixir-version: 1.17
+      - name: Install Dart
+        uses: dart-lang/setup-dart@v1
 
       - name: Generate coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info

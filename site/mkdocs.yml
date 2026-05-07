@@ -1,0 +1,106 @@
+site_name: Mustfile
+site_description: Polyglot build orchestrator — one config, every language
+site_url: https://mustfile.ai
+repo_name: anomalyco/mustfile
+repo_url: https://github.com/anomalyco/mustfile
+edit_uri: edit/main/site/docs/
+copyright: MIT License
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Guide:
+    - Getting Started: guide/getting-started.md
+    - Mustfile.toml Reference: guide/config-reference.md
+    - CLI Reference: guide/cli-reference.md
+    - Caching: guide/caching.md
+    - Cross-Compilation: guide/cross-compilation.md
+    - Profiles & Environments: guide/profiles.md
+    - Plugins: guide/plugins.md
+    - Watching & Logs: guide/watching-logs.md
+  - Recipes:
+    - All Recipe Types: recipes/index.md
+    - Shell: recipes/shell.md
+    - Rust: recipes/rust.md
+    - Go: recipes/go.md
+    - C/C++: recipes/cc.md
+    - TypeScript: recipes/typescript.md
+    - Python: recipes/python.md
+    - Zig: recipes/zig.md
+    - Java/Kotlin: recipes/java-kotlin.md
+    - Swift: recipes/swift.md
+    - .NET: recipes/dotnet.md
+    - Ruby: recipes/ruby.md
+    - Dart: recipes/dart.md
+    - Elixir: recipes/elixir.md
+    - Flutter: recipes/flutter.md
+    - Nim: recipes/nim.md
+    - Docker: recipes/docker.md
+  - Advanced:
+    - Importing from Makefile: advanced/import.md
+    - GitHub Actions: advanced/github-actions.md
+    - Architecture: advanced/architecture.md
+  - Migration:
+    - From Make: migration/make.md
+    - From Just: migration/just.md
+    - From Taskfile: migration/taskfile.md
+  - Changelog: changelog.md
