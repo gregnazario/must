@@ -82,6 +82,11 @@ pub struct Recipe {
     // plugin fields
     #[serde(default)]
     pub plugin: Option<String>,
+    // precompiled-bin fields
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -126,6 +131,7 @@ pub enum RecipeType {
     FlutterTest,
     NimBin,
     NimTest,
+    PrecompiledBin,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

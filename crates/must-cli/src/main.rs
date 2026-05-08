@@ -11,6 +11,7 @@ use must_recipe_dotnet::{DotnetBuildRecipe, DotnetPublishRecipe, DotnetTestRecip
 use must_recipe_elixir::{ElixirBuildRecipe, ElixirTestRecipe};
 use must_recipe_flutter::{FlutterBuildRecipe, FlutterTestRecipe};
 use must_recipe_nim::{NimBinRecipe, NimTestRecipe};
+use must_recipe_precompiled::PrecompiledBinRecipe;
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_java::{JavaBinRecipe, JavaTestRecipe};
 use must_recipe_kotlin::{KotlinBinRecipe, KotlinTestRecipe};
@@ -1584,6 +1585,17 @@ async fn execute_recipes(
                   };
                   recipe_map.insert(name.clone(), Arc::new(r));
               }
+              RecipeType::PrecompiledBin => {
+                  let mut r = PrecompiledBinRecipe::new(
+                      name.clone(),
+                      expand(&recipe_cfg.url.clone().unwrap_or_default()),
+                      recipe_cfg.package.clone().unwrap_or_else(|| format!("bin/{name}")),
+                  );
+                  r.deps = recipe_cfg.deps.clone();
+                  r.sha256 = recipe_cfg.sha256.clone();
+                  r.env = env;
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
         }
     }
 
@@ -2181,6 +2193,11 @@ fn explain_recipe(
             "nim r --hints:off {}",
             recipe.package.as_deref().unwrap_or(".")
         ),
+        RecipeType::PrecompiledBin => format!(
+            "download {} -> {}",
+            recipe.url.as_deref().unwrap_or("?"),
+            recipe.package.as_deref().unwrap_or("?")
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -2367,6 +2384,7 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::FlutterTest => "flutter-test",
         RecipeType::NimBin => "nim-bin",
         RecipeType::NimTest => "nim-test",
+        RecipeType::PrecompiledBin => "precompiled-bin",
     }
 }
 
@@ -2582,6 +2600,7 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::ElixirBuild | RecipeType::ElixirTest => ("ex", "\x1b[35m"),
         RecipeType::FlutterBuild | RecipeType::FlutterTest => ("flutter", "\x1b[36m"),
         RecipeType::NimBin | RecipeType::NimTest => ("nim", "\x1b[33m"),
+        RecipeType::PrecompiledBin => ("bin", "\x1b[32m"),
     }
 }
 
@@ -2860,6 +2879,8 @@ mod tests {
             dockerfile: None,
             build_args: vec![],
             plugin: None,
+            url: None,
+            sha256: None,
         }
     }
 

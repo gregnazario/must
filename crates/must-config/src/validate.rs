@@ -70,6 +70,9 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::NimBin | RecipeType::NimTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
+            RecipeType::PrecompiledBin => {
+                require_field("url", recipe.url.as_ref(), name)
+            }
         };
 
         if let Some(err) = missing {

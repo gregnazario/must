@@ -26,6 +26,7 @@ members = [
     "crates/must-recipe-dart",
     "crates/must-recipe-elixir",
     "crates/must-recipe-flutter",
+    "crates/must-recipe-precompiled",
     "crates/must-recipe-nim",
 ]
 

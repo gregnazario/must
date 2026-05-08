@@ -1,0 +1,68 @@
+# Precompiled binary tools example.
+# Demonstrates: precompiled-bin recipe type for downloading and caching
+# prebuilt tools with optional SHA256 verification.
+#
+# This is useful for pinning exact tool versions in your project without
+# requiring developers to install them manually.
+
+[project]
+name = "project-with-tools"
+version = "1.0.0"
+
+# ── Tool downloads ────────────────────────────────────────────────────────────
+
+[recipe.protoc]
+type    = "precompiled-bin"
+url     = "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64"
+sha256  = "abc123placeholder"
+package = ".tools/protoc"
+
+[recipe.golangci-lint]
+type    = "precompiled-bin"
+url     = "https://github.com/golangci/golangci-lint/releases/download/v1.62.0/golangci-lint-1.62.0-linux-amd64"
+sha256  = "def456placeholder"
+package = ".tools/golangci-lint"
+
+[recipe.sops]
+type    = "precompiled-bin"
+url     = "https://github.com/getsops/sops/releases/download/v3.9.0/sops-v3.9.0.linux.amd64"
+package = ".tools/sops"
+
+# ── Build (uses downloaded tools) ─────────────────────────────────────────────
+
+[recipe.proto-gen]
+type    = "shell"
+deps    = ["protoc"]
+inputs  = ["proto/**/*.proto"]
+cache   = "hash"
+script  = ".tools/protoc --rust_out=src/proto proto/*.proto"
+
+[recipe.build]
+type    = "go-bin"
+package = "./cmd/api"
+deps    = ["proto-gen"]
+
+[recipe.lint]
+type   = "shell"
+deps   = ["golangci-lint"]
+phony  = true
+script = ".tools/golangci-lint run ./..."
+
+[recipe.encrypt]
+type   = "shell"
+deps   = ["sops"]
+phony  = true
+script = ".tools/sops -e -i secrets.env"
+
+# ── Setup shortcut ────────────────────────────────────────────────────────────
+
+[recipe.tools]
+type   = "shell"
+deps   = ["protoc", "golangci-lint", "sops"]
+phony  = true
+script = "echo 'All tools downloaded'"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf .tools/"

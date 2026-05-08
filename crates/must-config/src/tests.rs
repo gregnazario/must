@@ -1492,9 +1492,9 @@ package = "src/main.nim"
 }
 
 #[test]
-fn test_nim_test_recipe() {
-    let cfg = parse(
-        r#"
+ fn test_nim_test_recipe() {
+     let cfg = parse(
+         r#"
 [project]
 name = "test"
 
@@ -1502,6 +1502,40 @@ name = "test"
 type = "nim-test"
 package = "tests/test_all.nim"
 "#,
+     );
+     assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::NimTest);
+ }
+
+#[test]
+fn test_precompiled_bin_recipe() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.protoc]
+type = "precompiled-bin"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64"
+sha256 = "abc123"
+output_path = "bin/protoc"
+"#,
     );
-    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::NimTest);
+    assert_eq!(cfg.recipe["protoc"].recipe_type, RecipeType::PrecompiledBin);
+    assert_eq!(cfg.recipe["protoc"].url.as_deref(), Some("https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64"));
+    assert_eq!(cfg.recipe["protoc"].sha256.as_deref(), Some("abc123"));
+}
+
+#[test]
+fn test_precompiled_bin_missing_url() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.tool]
+type = "precompiled-bin"
+"#,
+    );
+    let err = validate(&cfg, Path::new("Mustfile.toml")).unwrap_err();
+    assert!(err.to_string().contains("missing required field 'url'"));
 }

@@ -33,6 +33,7 @@ must-recipe-ruby = { path = "../must-recipe-ruby" }
 must-recipe-elixir = { path = "../must-recipe-elixir" }
 must-recipe-flutter = { path = "../must-recipe-flutter" }
 must-recipe-nim = { path = "../must-recipe-nim" }
+must-recipe-precompiled = { path = "../must-recipe-precompiled" }
 must-import = { path = "../must-import" }
 must-plugin = { path = "../must-plugin" }
 tokio = { workspace = true }
