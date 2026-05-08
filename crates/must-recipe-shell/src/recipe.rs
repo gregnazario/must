@@ -164,6 +164,7 @@ impl Recipe for ShellRecipe {
 
             let start = Instant::now();
             let mut cmd = shell_command(&self.script);
+            cmd.current_dir(&ctx.project_root);
             let out = run_command(&mut cmd, shell_program(), "A shell is required")?;
             let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -195,6 +196,7 @@ impl Recipe for ShellRecipe {
 
         let start = Instant::now();
         let mut cmd = shell_command(&self.script);
+        cmd.current_dir(&ctx.project_root);
         let out = run_command(&mut cmd, shell_program(), "A shell is required")?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
@@ -503,5 +505,46 @@ mod tests {
         let mut c2 = ctx();
         c2.profile = "release".to_string();
         assert_ne!(r.cache_key(&c1).unwrap().hash, r.cache_key(&c2).unwrap().hash);
+    }
+
+    #[test]
+    fn execute_runs_in_project_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let subdir = tmp.path().join("subdir");
+        std::fs::create_dir_all(&subdir).unwrap();
+
+        let marker = tmp.path().join("marker.txt");
+        std::fs::write(&marker, "from_root").unwrap();
+
+        let r = ShellRecipe::new("check-cwd", "cat marker.txt");
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".mustfile/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&subdir).unwrap();
+        let result = r.execute(&c);
+        std::env::set_current_dir(&orig).unwrap();
+
+        match result {
+            Ok(out) => {
+                assert!(
+                    out.stdout.contains("from_root"),
+                    "shell should run in project_root, not cwd; stdout was: {}",
+                    out.stdout.trim()
+                );
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+        }
     }
 }

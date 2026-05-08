@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::Cache;
 
+/// Determines how a recipe's cache is validated.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CacheStrategy {
     Hash,
@@ -11,6 +12,7 @@ pub enum CacheStrategy {
     Never,
 }
 
+/// Cache key composed of recipe name, target, profile, and content hash.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey {
     pub recipe: String,
@@ -19,6 +21,7 @@ pub struct CacheKey {
     pub hash: String,
 }
 
+/// Result of a cache lookup: hit, miss, or stale entry.
 #[derive(Debug, Clone)]
 pub enum CacheLookup {
     Hit,
@@ -26,6 +29,8 @@ pub enum CacheLookup {
     Stale,
 }
 
+/// Execution context passed to every recipe. Contains project paths, env vars,
+/// cache handle, and build settings.
 pub struct BuildContext {
     pub project_root: PathBuf,
     pub cache_dir: PathBuf,
@@ -94,6 +99,7 @@ fn num_cpus() -> usize {
         .unwrap_or(1)
 }
 
+/// Result of executing a recipe — outputs, stdout/stderr, timing, and cache status.
 #[derive(Debug, Clone)]
 pub struct RecipeOutput {
     pub recipe_name: String,

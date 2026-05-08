@@ -74,6 +74,7 @@ nav:
     - CLI Reference: guide/cli-reference.md
     - Caching: guide/caching.md
     - Cross-Compilation: guide/cross-compilation.md
+    - Cross-Platform Scripts: guide/cross-platform.md
     - Profiles & Environments: guide/profiles.md
     - Plugins: guide/plugins.md
     - Watching & Logs: guide/watching-logs.md
@@ -95,6 +96,7 @@ nav:
     - Flutter: recipes/flutter.md
     - Nim: recipes/nim.md
     - Docker: recipes/docker.md
+    - Precompiled Binaries: recipes/precompiled-bin.md
   - Advanced:
     - Importing from Makefile: advanced/import.md
     - GitHub Actions: advanced/github-actions.md

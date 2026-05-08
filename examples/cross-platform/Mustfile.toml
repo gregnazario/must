@@ -1,0 +1,48 @@
+# Demonstrates: cross-platform shell recipes using script_win overrides
+#
+# Usage:
+#   must build          # builds the project
+#   must clean          # cleans build artifacts (platform-specific)
+#   must info           # prints platform info
+#
+# The `script` field is the default (used on Unix/macOS/Linux).
+# The `script_win` field overrides it on Windows.
+# If script_win is not set, `script` is used on all platforms.
+
+[project]
+name = "cross-platform-demo"
+version = "0.1.0"
+
+[recipe.info]
+type   = "shell"
+phony  = true
+script     = "uname -a"
+script_win = "ver"
+
+[recipe.build]
+type    = "shell"
+cache   = "hash"
+inputs  = ["src/**"]
+outputs = ["build/"]
+script     = "mkdir -p build && cc -o build/app src/main.c"
+script_win = "if not exist build mkdir build && cl /Fo:build/ /Fe:build/app.exe src/main.c"
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script     = "rm -rf build"
+script_win = "rmdir /s /q build"
+
+[recipe.test]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script     = "build/app"
+script_win = "build\\app.exe"
+
+[recipe.watch]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script     = "find src -name '*.c' | entr -r must build"
+script_win = "must build"

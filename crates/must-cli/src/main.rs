@@ -1212,7 +1212,7 @@ async fn execute_recipes(
             RecipeType::Shell => {
                 let mut shell = ShellRecipe::new(
                     name.clone(),
-                    expand(&recipe_cfg.script.clone().unwrap_or_default()),
+                    expand(&recipe_cfg.resolved_script().cloned().unwrap_or_default()),
                 );
                 shell.deps = recipe_cfg.deps.clone();
                 shell.inputs = recipe_cfg.inputs.clone();
@@ -1346,7 +1346,7 @@ async fn execute_recipes(
             RecipeType::Npm => {
                 let mut r = NpmRecipe::new(
                     name.clone(),
-                    expand(&recipe_cfg.script.clone().unwrap_or_else(|| name.clone())),
+                    expand(&recipe_cfg.resolved_script().cloned().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.workdir = recipe_cfg
@@ -2100,7 +2100,7 @@ fn explain_recipe(
     let expand = |s: &str| -> String { expand_env_vars(s, &env) };
 
     let command_preview = match &recipe.recipe_type {
-        RecipeType::Shell => recipe.script.as_deref().map(&expand).unwrap_or_default(),
+        RecipeType::Shell => recipe.resolved_script().map(|s| expand(s)).unwrap_or_default(),
         RecipeType::RustBin | RecipeType::RustLib => format!(
             "cargo build -p {}{}",
             recipe.package.as_deref().unwrap_or(recipe_name),
@@ -2133,7 +2133,7 @@ fn explain_recipe(
             recipe.package.as_deref().unwrap_or(".")
         ),
         RecipeType::TsLint => format!("eslint {}", recipe.package.as_deref().unwrap_or(".")),
-        RecipeType::Npm => format!("npm {}", recipe.script.as_deref().unwrap_or("run")),
+        RecipeType::Npm => format!("npm {}", recipe.resolved_script().map(|s| s.as_str()).unwrap_or("run")),
         RecipeType::PyBin => format!(
             "python -m build {}",
             recipe.package.as_deref().unwrap_or(".")
@@ -2913,6 +2913,7 @@ mod tests {
             inputs: vec![],
             outputs: vec![],
             script: Some("echo ok".into()),
+            script_win: None,
             cache: None,
             phony: false,
             env: HashMap::new(),

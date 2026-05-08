@@ -1,3 +1,5 @@
+//! Lua plugin runtime for user-defined recipe types.
+
 pub mod stdlib;
 
 use must_core::error::Result;

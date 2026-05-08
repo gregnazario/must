@@ -9,7 +9,7 @@ must-core = { path = "../must-core" }
 must-cache = { path = "../must-cache" }
 sha2.workspace = true
 hex.workspace = true
-ureq = "2"
+ureq = "3"
 
 [dev-dependencies]
 tempfile.workspace = true

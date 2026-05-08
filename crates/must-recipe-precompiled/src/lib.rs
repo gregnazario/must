@@ -5,6 +5,7 @@ use must_core::{
 };
 use sha2::Digest;
 use std::collections::{BTreeMap, HashMap};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 pub struct PrecompiledBinRecipe {
@@ -48,11 +49,11 @@ impl PrecompiledBinRecipe {
             .ok_or_else(|| format!("invalid output path: {}", dest.display()))?;
         std::fs::create_dir_all(parent).map_err(|e| format!("mkdir failed: {e}"))?;
 
-        let response = ureq::get(&self.url)
+        let mut response = ureq::get(&self.url)
             .call()
             .map_err(|e| format!("download failed for {}: {e}", self.url))?;
 
-        let mut reader = response.into_reader();
+        let mut reader = response.body_mut().as_reader();
         let mut tmp_path = dest.to_owned();
         tmp_path.set_extension("tmp");
         let mut file = std::fs::File::create(&tmp_path)
@@ -66,7 +67,6 @@ impl PrecompiledBinRecipe {
                 .map_err(|e| format!("open for verify failed: {e}"))?;
             let mut hasher = sha2::Sha256::new();
             let mut buf = [0u8; 8192];
-            use std::io::Read;
             loop {
                 let n = verify_file.read(&mut buf).map_err(|e| format!("hash read failed: {e}"))?;
                 if n == 0 { break; }

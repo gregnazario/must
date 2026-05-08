@@ -1,3 +1,5 @@
+//! Build engine that orchestrates recipe execution with dependency resolution.
+
 pub mod env;
 pub mod scheduler;
 

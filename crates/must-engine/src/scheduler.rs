@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
+/// Event emitted during build execution for progress tracking.
 #[derive(Debug, Clone, Serialize)]
 pub enum ProgressEvent {
     Starting { recipe: String, total: usize, completed: usize },
@@ -13,6 +14,7 @@ pub enum ProgressEvent {
     WaveDone { completed: usize, total: usize },
 }
 
+/// Outcome of a single recipe execution.
 #[derive(Debug, Clone)]
 pub struct ExecutionResult {
     pub recipe_name: String,
@@ -24,6 +26,7 @@ pub struct ExecutionResult {
     pub error: Option<String>,
 }
 
+/// Summary of a completed build — per-recipe results, timing, and overall status.
 #[derive(Debug)]
 pub struct ExecutionReport {
     pub results: Vec<ExecutionResult>,
@@ -120,6 +123,7 @@ fn to_execution_result(out: ExecOutput) -> ExecutionResult {
     }
 }
 
+/// Build engine that resolves dependencies and executes recipes in parallel waves.
 pub struct Engine {
     parallelism: usize,
     fail_fast: bool,

@@ -5,7 +5,7 @@
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
-- **20 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, shell, and Lua plugins
+- **42 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
 - **Pragmatic caching:** Content-hash caching for compiled recipes; mtime for shell; `must cache` for management
 - **Cross-compilation:** Automatic GOOS/GOARCH, cross-rs containers, and C cross-compilers
 - **Env interpolation:** `${VAR}` expansion in scripts, images, and flags from layered env config
@@ -83,7 +83,7 @@ script = "echo CI passed"
 
 | Type | Language | Description |
 |------|----------|-------------|
-| `shell` | Any | Generic `sh -c` script with mtime/hash caching |
+| `shell` | Any | Generic `sh -c` / `cmd /C` script with mtime/hash caching |
 | `rust-bin` | Rust | `cargo build -p <package>` |
 | `rust-lib` | Rust | `cargo build --lib -p <package>` |
 | `rust-test` | Rust | `cargo test -p <package>` |
@@ -93,7 +93,7 @@ script = "echo CI passed"
 | `c-lib` | C | Build static or shared library |
 | `ts-bin` | TypeScript | TypeScript compilation |
 | `ts-check` | TypeScript | `tsc --noEmit` type checking |
-| `ts-lint` | TypeScript | ESLint |
+| `ts-lint` | TypeScript | ESLint / Biome |
 | `npm` | JS/TS | Run npm scripts |
 | `py-bin` | Python | Build Python package (uv or pip) |
 | `py-test` | Python | Run pytest |
@@ -102,6 +102,26 @@ script = "echo CI passed"
 | `zig-test` | Zig | `zig build test` |
 | `docker-build` | Docker | `docker build` with tag and build args |
 | `docker-push` | Docker | `docker push` |
+| `java-bin` | Java | Gradle build |
+| `java-test` | Java | Gradle test |
+| `kotlin-bin` | Kotlin | Gradle build |
+| `kotlin-test` | Kotlin | Gradle test |
+| `swift-bin` | Swift | `swift build` |
+| `swift-test` | Swift | `swift test` |
+| `dotnet-build` | .NET | `dotnet build` |
+| `dotnet-test` | .NET | `dotnet test` |
+| `dotnet-publish` | .NET | `dotnet publish` |
+| `ruby-bin` | Ruby | Bundle install + exec |
+| `ruby-test` | Ruby | Bundle exec rake test |
+| `dart-bin` | Dart | `dart compile exe` |
+| `dart-test` | Dart | `dart test` |
+| `elixir-build` | Elixir | `mix deps.get` + `mix compile` |
+| `elixir-test` | Elixir | `mix test` |
+| `flutter-build` | Flutter | `flutter build` (multi-platform) |
+| `flutter-test` | Flutter | `flutter test` |
+| `nim-bin` | Nim | `nim c -d:release` |
+| `nim-test` | Nim | `nim r --hints:off` |
+| `precompiled-bin` | Any | Download and cache prebuilt binaries with SHA-256 verification |
 | `plugin` | Lua | User-defined recipe via Lua script |
 
 ## Commands
@@ -123,13 +143,16 @@ script = "echo CI passed"
 | `must log` | List all recipes with stored logs and sizes |
 | `must log --follow <recipe>` | Stream log output in real time |
 | `must log --clear` | Clear all stored logs |
+| `must diff [revision]` | Diff build manifests between runs |
+| `must foreach <command>` | Run a command in each recipe directory |
 | `must plugin list` | List discovered plugins with validation status |
 | `must plugin check <name>` | Validate a plugin without executing it |
+| `must plugin install <url>` | Install a plugin from a URL |
 | `must clean [--cache]` | Remove outputs and optionally cache |
 | `must init [--template]` | Create a Mustfile.toml from a template |
+| `must import` | Convert a Makefile to Mustfile.toml |
 | `must watch [recipes]` | Watch files and rebuild on change |
 | `must doctor` | Check toolchains and environment |
-| `must import` | Convert a Makefile to Mustfile.toml |
 | `must completions <shell>` | Generate shell completions |
 
 ## Environment Variables
@@ -275,6 +298,11 @@ See the [`examples/`](examples/) directory for complete project setups:
 - `ts-monorepo/` — TypeScript monorepo with ts-bin, ts-check, npm
 - `docker-monorepo/` — Multi-service Docker builds with env interpolation
 - `zig-tool/` — Zig binary and test recipes
+- `cross-platform/` — Platform-specific scripts with `script_win` overrides
+- `precompiled-tools/` — Download and cache prebuilt binaries
+- `ci-cd/` — Full CI/CD workflow example
+- `plugin-project/` — Custom Lua plugin recipes
+- `release-workflow/` — Multi-target release automation
 
 Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml) for a real-world example.
 

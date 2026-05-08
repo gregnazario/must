@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-/// A buildable unit of work.
+/// A build recipe that can be executed within a BuildContext.
+///
+/// Each recipe type (shell, rust-bin, go-bin, etc.) implements this trait.
 pub trait Recipe: Send + Sync {
     fn name(&self) -> &str;
     fn deps(&self) -> &[String];

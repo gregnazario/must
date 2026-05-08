@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Top-level Mustfile.toml configuration.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub project: Project,
@@ -37,6 +38,7 @@ pub enum EnvValue {
     Profile(HashMap<String, String>),
 }
 
+/// A recipe definition parsed from Mustfile.toml.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Recipe {
     #[serde(rename = "type")]
@@ -49,6 +51,8 @@ pub struct Recipe {
     pub outputs: Vec<String>,
     #[serde(default)]
     pub script: Option<String>,
+    #[serde(default)]
+    pub script_win: Option<String>,
     #[serde(default)]
     pub cache: Option<CacheMode>,
     #[serde(default)]
@@ -89,6 +93,17 @@ pub struct Recipe {
     pub sha256: Option<String>,
 }
 
+impl Recipe {
+    pub fn resolved_script(&self) -> Option<&String> {
+        if cfg!(windows) {
+            self.script_win.as_ref().or(self.script.as_ref())
+        } else {
+            self.script.as_ref()
+        }
+    }
+}
+
+/// Supported recipe type identifiers. Each maps to a language-specific build tool.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum RecipeType {
@@ -165,4 +180,122 @@ pub struct IncludeFragment {
 pub enum CrossBackend {
     Container,
     Local,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolved_script_no_override() {
+        let r = Recipe {
+            recipe_type: RecipeType::Shell,
+            script: Some("echo unix".into()),
+            script_win: None,
+            deps: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            cache: None,
+            phony: false,
+            env: HashMap::new(),
+            cross: HashMap::new(),
+            package: None,
+            features: vec![],
+            ldflags: None,
+            sources: vec![],
+            includes: vec![],
+            link_libs: vec![],
+            image: None,
+            dockerfile: None,
+            build_args: vec![],
+            plugin: None,
+            url: None,
+            sha256: None,
+        };
+        let resolved = r.resolved_script().unwrap();
+        assert_eq!(resolved, "echo unix");
+    }
+
+    #[test]
+    fn test_resolved_script_with_win_override() {
+        let r = Recipe {
+            recipe_type: RecipeType::Shell,
+            script: Some("rm -rf build".into()),
+            script_win: Some("rmdir /s /q build".into()),
+            deps: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            cache: None,
+            phony: false,
+            env: HashMap::new(),
+            cross: HashMap::new(),
+            package: None,
+            features: vec![],
+            ldflags: None,
+            sources: vec![],
+            includes: vec![],
+            link_libs: vec![],
+            image: None,
+            dockerfile: None,
+            build_args: vec![],
+            plugin: None,
+            url: None,
+            sha256: None,
+        };
+        if cfg!(windows) {
+            assert_eq!(r.resolved_script().unwrap(), "rmdir /s /q build");
+        } else {
+            assert_eq!(r.resolved_script().unwrap(), "rm -rf build");
+        }
+    }
+
+    #[test]
+    fn test_resolved_script_win_only() {
+        let r = Recipe {
+            recipe_type: RecipeType::Shell,
+            script: None,
+            script_win: Some("dir".into()),
+            deps: vec![],
+            inputs: vec![],
+            outputs: vec![],
+            cache: None,
+            phony: false,
+            env: HashMap::new(),
+            cross: HashMap::new(),
+            package: None,
+            features: vec![],
+            ldflags: None,
+            sources: vec![],
+            includes: vec![],
+            link_libs: vec![],
+            image: None,
+            dockerfile: None,
+            build_args: vec![],
+            plugin: None,
+            url: None,
+            sha256: None,
+        };
+        if cfg!(windows) {
+            assert_eq!(r.resolved_script().unwrap(), "dir");
+        } else {
+            assert_eq!(r.resolved_script(), None);
+        }
+    }
+
+    #[test]
+    fn test_script_win_parsed_from_toml() {
+        let toml = r#"
+[project]
+name = "test"
+
+[recipe.clean]
+type       = "shell"
+script     = "rm -rf build"
+script_win = "rmdir /s /q build"
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        let recipe = &config.recipe["clean"];
+        assert_eq!(recipe.script.as_deref(), Some("rm -rf build"));
+        assert_eq!(recipe.script_win.as_deref(), Some("rmdir /s /q build"));
+    }
 }

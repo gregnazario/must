@@ -72,7 +72,8 @@ Every recipe has these fields:
 |-------|------|-------------|
 | `type` | string | **Required.** One of the 41 recipe type identifiers |
 | `package` | string | Package/target/module path (most types) |
-| `script` | string | Shell command (`shell` type) |
+| `script` | string | Shell command (`shell` / `npm` types) |
+| `script_win` | string | Windows override for `script` (falls back to `script` if unset) |
 | `deps` | string[] | Dependencies — must complete before this recipe |
 | `env` | map | Recipe-specific environment variables |
 | `inputs` | string[] | Input file globs (for cache hashing) |

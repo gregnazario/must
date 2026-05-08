@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
+/// Errors produced by the must build system.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("config error in {path}: {message}")]

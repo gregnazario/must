@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, ExitStatus, Stdio};
 
+/// Check a Command spawn result, converting NotFound to ToolNotFound.
 pub fn run_status(
     result: std::io::Result<ExitStatus>,
     tool: &str,
@@ -17,12 +18,14 @@ pub fn run_status(
     }
 }
 
+/// Captured output from a spawned command.
 pub struct CommandOutput {
     pub status: ExitStatus,
     pub stdout: String,
     pub stderr: String,
 }
 
+/// Spawn a command with piped stdout/stderr. Streams output live and captures it.
 pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandOutput> {
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
@@ -83,12 +86,14 @@ pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandO
     })
 }
 
+/// Create a shell Command: `sh -c <script>` on Unix, `cmd /C <script>` on Windows.
 pub fn shell_command(script: &str) -> Command {
     let mut cmd = Command::new(shell_program());
     cmd.arg(shell_arg()).arg(script);
     cmd
 }
 
+/// Returns the shell binary name for the current platform.
 pub fn shell_program() -> &'static str {
     if cfg!(windows) {
         "cmd"
@@ -97,6 +102,7 @@ pub fn shell_program() -> &'static str {
     }
 }
 
+/// Returns the shell flag for inline scripts (`-c` on Unix, `/C` on Windows).
 pub fn shell_arg() -> &'static str {
     if cfg!(windows) {
         "/C"
@@ -105,6 +111,7 @@ pub fn shell_arg() -> &'static str {
     }
 }
 
+/// Format a script for human-readable display.
 pub fn shell_display(script: &str) -> String {
     if cfg!(windows) {
         format!("cmd /C \"{script}\"")

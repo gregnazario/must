@@ -1,6 +1,6 @@
 # All Recipe Types
 
-must supports **41 recipe types** across **17 languages**. Each recipe type knows how to invoke the right toolchain, compute cache keys, and handle errors.
+must supports **42 recipe types** across **17 languages**. Each recipe type knows how to invoke the right toolchain, compute cache keys, and handle errors.
 
 ## Quick reference
 
@@ -44,6 +44,7 @@ must supports **41 recipe types** across **17 languages**. Each recipe type know
 | `nim-test` | Nim | `nim r --hints:off` | never |
 | `docker-build` | Docker | `docker build` | hash |
 | `docker-push` | Docker | `docker push` | never |
+| `precompiled-bin` | Any | Download + SHA-256 verify | hash |
 | `plugin` | Lua | User-defined | mtime |
 
 ## Common fields

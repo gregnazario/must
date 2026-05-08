@@ -1,3 +1,5 @@
+//! Core types, traits, and utilities for the must build system.
+
 pub mod command;
 pub mod error;
 pub mod paths;

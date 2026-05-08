@@ -1,3 +1,5 @@
+//! Configuration parsing and validation for Mustfile.toml.
+
 pub mod load;
 pub mod schema;
 pub mod validate;
