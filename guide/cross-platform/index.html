@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://mustfile.ai/migration/just/">
+        <link rel="canonical" href="https://mustfile.ai/guide/cross-platform/">
       
       
-        <link rel="prev" href="../make/">
+        <link rel="prev" href="../cross-compilation/">
       
       
-        <link rel="next" href="../taskfile/">
+        <link rel="next" href="../profiles/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>From Just - Mustfile</title>
+        <title>Cross-Platform Scripts - Mustfile</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migrating-from-just" class="md-skip">
+        <a href="#cross-platform-recipes" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              From Just
+              Cross-Platform Scripts
             
           </span>
         </div>
@@ -242,11 +242,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../guide/getting-started/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../getting-started/" class="md-tabs__link">
           
   
   
@@ -302,13 +304,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../make/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../migration/make/" class="md-tabs__link">
           
   
   
@@ -415,28 +415,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -454,7 +457,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -472,7 +475,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/getting-started/" class="md-nav__link">
+      <a href="../getting-started/" class="md-nav__link">
         
   
   
@@ -500,7 +503,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/config-reference/" class="md-nav__link">
+      <a href="../config-reference/" class="md-nav__link">
         
   
   
@@ -528,7 +531,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/cli-reference/" class="md-nav__link">
+      <a href="../cli-reference/" class="md-nav__link">
         
   
   
@@ -556,7 +559,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/caching/" class="md-nav__link">
+      <a href="../caching/" class="md-nav__link">
         
   
   
@@ -584,7 +587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/cross-compilation/" class="md-nav__link">
+      <a href="../cross-compilation/" class="md-nav__link">
         
   
   
@@ -609,10 +612,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../guide/cross-platform/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross-Platform Scripts
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -628,6 +658,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#platform-specific-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Platform-specific scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -640,7 +745,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/profiles/" class="md-nav__link">
+      <a href="../profiles/" class="md-nav__link">
         
   
   
@@ -668,7 +773,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/plugins/" class="md-nav__link">
+      <a href="../plugins/" class="md-nav__link">
         
   
   
@@ -696,7 +801,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guide/watching-logs/" class="md-nav__link">
+      <a href="../watching-logs/" class="md-nav__link">
         
   
   
@@ -1438,31 +1543,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
@@ -1480,7 +1582,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1498,7 +1600,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../make/" class="md-nav__link">
+      <a href="../../migration/make/" class="md-nav__link">
         
   
   
@@ -1523,37 +1625,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    From Just
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../migration/just/" class="md-nav__link">
         
   
   
@@ -1569,70 +1644,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#concept-mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Concept mapping
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#side-by-side" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Side-by-side
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#key-differences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key differences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#migration-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Migration steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1645,7 +1656,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../taskfile/" class="md-nav__link">
+      <a href="../../migration/taskfile/" class="md-nav__link">
         
   
   
@@ -1727,10 +1738,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#concept-mapping" class="md-nav__link">
+  <a href="#platform-specific-scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Concept mapping
+        Platform-specific scripts
       
     </span>
   </a>
@@ -1738,10 +1749,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#side-by-side" class="md-nav__link">
+  <a href="#full-example" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Side-by-side
+        Full example
       
     </span>
   </a>
@@ -1749,10 +1760,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#key-differences" class="md-nav__link">
+  <a href="#how-it-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key differences
+        How it works
       
     </span>
   </a>
@@ -1760,10 +1771,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#migration-steps" class="md-nav__link">
+  <a href="#tips" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Migration steps
+        Tips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
       
     </span>
   </a>
@@ -1790,164 +1812,89 @@
   
 
 
-<h1 id="migrating-from-just">Migrating from Just<a class="headerlink" href="#migrating-from-just" title="Permanent link">&para;</a></h1>
-<p>just is a command runner with a Make-like syntax. must provides a superset of just's functionality with language-aware recipes.</p>
-<h2 id="concept-mapping">Concept mapping<a class="headerlink" href="#concept-mapping" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>just</th>
-<th>must</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>justfile</code></td>
-<td><code>Mustfile.toml</code></td>
-</tr>
-<tr>
-<td><code>recipe_name:</code></td>
-<td><code>[recipe.recipe_name]</code></td>
-</tr>
-<tr>
-<td>Recipe body (indented)</td>
-<td><code>script = "..."</code></td>
-</tr>
-<tr>
-<td><code>recipe_name: dep1 dep2</code></td>
-<td><code>deps = ["dep1", "dep2"]</code></td>
-</tr>
-<tr>
-<td><code>export VAR := "value"</code></td>
-<td><code>[env] VAR = "value"</code></td>
-</tr>
-<tr>
-<td><code>{{ VAR }}</code></td>
-<td><code>${VAR}</code></td>
-</tr>
-<tr>
-<td><code>[private]</code></td>
-<td>No direct equivalent — omit from Mustfile</td>
-</tr>
-<tr>
-<td><code>[unix]</code> / <code>[windows]</code></td>
-<td>Use shell conditionals or separate recipes</td>
-</tr>
-<tr>
-<td><code>just --list</code></td>
-<td><code>must list</code></td>
-</tr>
-<tr>
-<td><code>just --dry-run</code></td>
-<td><code>must --dry-run</code></td>
-</tr>
-<tr>
-<td><code>just --watch</code></td>
-<td><code>must watch</code></td>
-</tr>
-<tr>
-<td><code>just recipe_name</code></td>
-<td><code>must build recipe_name</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="side-by-side">Side-by-side<a class="headerlink" href="#side-by-side" title="Permanent link">&para;</a></h2>
-<p><strong>justfile:</strong></p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>export OPT_LEVEL := &quot;2&quot;
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>build:
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    cargo build --release
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>test: build
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    cargo test
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>lint:
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    cargo clippy -- -D warnings
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>clean:
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    cargo clean
+<h1 id="cross-platform-recipes">Cross-Platform Recipes<a class="headerlink" href="#cross-platform-recipes" title="Permanent link">&para;</a></h1>
+<p>Mustfile supports writing shell recipes that work across operating systems.
+On Unix (macOS, Linux) recipes use <code>sh -c</code>. On Windows they use <code>cmd /C</code>.</p>
+<h2 id="platform-specific-scripts">Platform-specific scripts<a class="headerlink" href="#platform-specific-scripts" title="Permanent link">&para;</a></h2>
+<p>Use <code>script</code> for the default (Unix) and <code>script_win</code> to override on Windows:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[recipe.clean]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">phony</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">script</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;rm -rf build&quot;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">script_win</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;rmdir /s /q build&quot;</span>
 </span></code></pre></div>
-<p><strong>Mustfile.toml:</strong></p>
+<p>When <code>script_win</code> is set and running on Windows, it takes precedence over <code>script</code>.
+On all other platforms, <code>script</code> is used. If <code>script_win</code> is not set, <code>script</code> is
+used everywhere.</p>
+<h2 id="full-example">Full example<a class="headerlink" href="#full-example" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my-app&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">[env]</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">OPT_LEVEL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;2&quot;</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">[recipe.build]</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">type</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;rust-bin&quot;</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">package</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my-app&quot;</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">[recipe.test]</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">type</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;rust-test&quot;</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">package</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my-app&quot;</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">deps</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;build&quot;</span><span class="p">]</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="k">[recipe.lint]</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">type</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">phony</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">script</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cargo clippy -- -D warnings&quot;</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="k">[recipe.clean]</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">type</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">phony</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">script</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cargo clean&quot;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">[recipe.build]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">type</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">cache</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;hash&quot;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">inputs</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;src/**/*.c&quot;</span><span class="p">]</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">outputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;build/app&quot;</span><span class="p">]</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">script</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;mkdir -p build &amp;&amp; cc -o build/app src/main.c&quot;</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">script_win</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;if not exist build mkdir build &amp;&amp; cl /Fe:build/app.exe src/main.c&quot;</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="k">[recipe.clean]</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">type</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">phony</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">script</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;rm -rf build&quot;</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">script_win</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;rmdir /s /q build&quot;</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">[recipe.test]</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">type</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;shell&quot;</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">deps</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;build&quot;</span><span class="p">]</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">phony</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">script</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;./build/app --test&quot;</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">script_win</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;build</span><span class="se">\\</span><span class="s2">app.exe --test&quot;</span>
 </span></code></pre></div>
-<h2 id="key-differences">Key differences<a class="headerlink" href="#key-differences" title="Permanent link">&para;</a></h2>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Feature</th>
-<th>just</th>
-<th>must</th>
+<th>Platform</th>
+<th>Shell</th>
+<th>Field used</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Language awareness</td>
-<td>No — all recipes are shell</td>
-<td>Yes — 41 first-class recipe types</td>
+<td>macOS</td>
+<td><code>sh -c</code></td>
+<td><code>script</code></td>
 </tr>
 <tr>
-<td>Caching</td>
-<td>No built-in caching</td>
-<td>Hash/mtime/never per recipe</td>
+<td>Linux</td>
+<td><code>sh -c</code></td>
+<td><code>script</code></td>
 </tr>
 <tr>
-<td>Cross-compilation</td>
-<td>Manual</td>
-<td>Automatic with target groups</td>
-</tr>
-<tr>
-<td>Dependency graph</td>
-<td>Flat</td>
-<td>DAG with parallel waves</td>
-</tr>
-<tr>
-<td>Plugins</td>
-<td>No</td>
-<td>Lua plugins with stdlib</td>
-</tr>
-<tr>
-<td>Build logs</td>
-<td>No</td>
-<td>Per-recipe log storage</td>
-</tr>
-<tr>
-<td>Outdated checking</td>
-<td>No</td>
-<td><code>must outdated</code></td>
+<td>Windows</td>
+<td><code>cmd /C</code></td>
+<td><code>script_win</code> or <code>script</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="migration-steps">Migration steps<a class="headerlink" href="#migration-steps" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Rename <code>justfile</code> to <code>Mustfile.toml</code></li>
-<li>Wrap each recipe in <code>[recipe.&lt;name&gt;]</code> with <code>type = "shell"</code></li>
-<li>Move exports to <code>[env]</code> section</li>
-<li>Convert <code>{{ VAR }}</code> to <code>${VAR}</code></li>
-<li>Upgrade shell recipes to first-class types where possible</li>
-</ol>
+<h2 id="tips">Tips<a class="headerlink" href="#tips" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Path separators</strong>: Use <code>/</code> in <code>script</code> and <code>\\</code> in <code>script_win</code> for path separators.</li>
+<li><strong>Environment variables</strong>: <code>$VAR</code> syntax works in <code>sh</code>, <code>%VAR%</code> works in <code>cmd</code>.</li>
+<li><strong>Language recipes don't need this</strong>: Recipes like <code>rust-bin</code>, <code>go-bin</code>, <code>py-bin</code> etc.
+  invoke language-specific tools (cargo, go, pip) that are already cross-platform.
+  Only <code>shell</code> and <code>npm</code> recipes need <code>script_win</code>.</li>
+<li><strong>CI</strong>: You can test Windows scripts in CI by running <code>must build</code> on a Windows runner
+  alongside your Unix runners.</li>
+</ul>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../getting-started/">Getting Started</a></li>
+<li><a href="../config-reference/">Config Reference</a></li>
+<li><a href="../cross-compilation/">Cross Compilation</a></li>
+</ul>
 
 
 
