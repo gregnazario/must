@@ -270,6 +270,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 

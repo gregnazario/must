@@ -1,6 +1,23 @@
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::Path;
+
+const CHUNK_SIZE: usize = 64 * 1024;
+
+fn hash_file_streaming(path: &Path) -> Option<[u8; 32]> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; CHUNK_SIZE];
+    loop {
+        let n = file.read(&mut buf).ok()?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Some(hasher.finalize().into())
+}
 
 /// Compute a deterministic cache key hash for a recipe.
 ///
@@ -32,14 +49,11 @@ pub fn compute_hash(
     for path in sorted_inputs {
         hasher.update(path.to_string_lossy().as_bytes());
         hasher.update(b"\x00");
-        match std::fs::read(path) {
-            Ok(contents) => {
-                let mut file_hasher = Sha256::new();
-                file_hasher.update(&contents);
-                hasher.update(file_hasher.finalize());
+        match hash_file_streaming(path) {
+            Some(digest) => {
+                hasher.update(digest);
             }
-            Err(_) => {
-                // Missing input — mark as absent so the hash differs from "empty file"
+            None => {
                 hasher.update(b"<missing>\x00");
             }
         }
@@ -68,13 +82,9 @@ pub fn compute_hash(
 
 /// Hash a single file's contents. Returns a hex string, or a sentinel for missing files.
 pub fn hash_file(path: &Path) -> String {
-    match std::fs::read(path) {
-        Ok(contents) => {
-            let mut hasher = Sha256::new();
-            hasher.update(&contents);
-            hex::encode(hasher.finalize())
-        }
-        Err(_) => "<missing>".to_string(),
+    match hash_file_streaming(path) {
+        Some(digest) => hex::encode(digest),
+        None => "<missing>".to_string(),
     }
 }
 

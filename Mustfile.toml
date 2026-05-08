@@ -45,6 +45,12 @@ deps   = ["fmt", "lint", "test"]
 phony  = true
 script = "echo 'CI passed'"
 
+[recipe.install]
+type    = "shell"
+deps    = ["release"]
+phony   = true
+script  = "cargo install --path crates/must-cli"
+
 [recipe.clean]
 type   = "shell"
 phony  = true

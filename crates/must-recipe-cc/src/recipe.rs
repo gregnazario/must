@@ -699,6 +699,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -870,6 +871,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -907,6 +909,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -937,6 +940,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -970,6 +974,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         // On macOS, cc -shared may produce a dylib-format file named .so
@@ -1016,6 +1021,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         match r.execute(&ctx) {
@@ -1047,6 +1053,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         match r.execute(&ctx) {
@@ -1079,6 +1086,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx);
@@ -1118,6 +1126,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -1182,6 +1191,7 @@ mod tests {
             env: HashMap::from([("MY_FLAG".to_string(), "1".to_string())]),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -1210,6 +1220,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -1244,6 +1255,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = r.execute(&ctx).unwrap();
@@ -1275,6 +1287,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         // Accept either success or a platform-specific shared-lib error

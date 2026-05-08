@@ -11,7 +11,18 @@ pub fn compose_env(
     profile: &str,
     toolchain_env: &HashMap<String, String>,
 ) -> HashMap<String, String> {
-    let mut env: HashMap<String, String> = std::env::vars().collect();
+    let base: HashMap<String, String> = std::env::vars().collect();
+    compose_env_with_base(config, recipe_name, profile, toolchain_env, &base)
+}
+
+pub fn compose_env_with_base(
+    config: &Config,
+    recipe_name: &str,
+    profile: &str,
+    toolchain_env: &HashMap<String, String>,
+    base_env: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    let mut env: HashMap<String, String> = base_env.clone();
 
     // Layer 2: global [env] scalars
     for (key, val) in &config.env.global {

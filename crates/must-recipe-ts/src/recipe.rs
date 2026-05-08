@@ -68,14 +68,20 @@ fn make_cache_key(
 }
 
 fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
-    must_cache::store::DiskCache::open(&ctx.cache_dir)
-        .ok()
-        .and_then(|c| c.lookup(key).ok())
+    if let Some(ref cache) = ctx.cache {
+        cache.lookup(key).ok()
+    } else {
+        must_cache::store::DiskCache::open(&ctx.cache_dir)
+            .ok()
+            .and_then(|c| Cache::lookup(&c, key).ok())
+    }
 }
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
-    if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+    if let Some(ref cache) = ctx.cache {
         let _ = cache.store(key, &[]);
+    } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+        let _ = Cache::store(&cache, key, &[]);
     }
 }
 
@@ -413,6 +419,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -433,6 +440,7 @@ mod tests {
             env,
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -492,6 +500,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let r = TsBinRecipe::new("build", ".");
         let key = r.cache_key(&ctx).unwrap();
@@ -934,6 +943,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let r = TsBinRecipe::new("build", ".");
         assert!(r.execute(&ctx).is_err());
@@ -951,6 +961,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let r = TsCheckRecipe::new("check", ".");
         assert!(r.execute(&ctx).is_err());
@@ -968,6 +979,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let r = TsLintRecipe::new("lint", ".");
         assert!(r.execute(&ctx).is_err());
@@ -985,6 +997,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let r = NpmRecipe::new("build", "build");
         assert!(r.execute(&ctx).is_err());
@@ -1004,6 +1017,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let mut r = NpmRecipe::new("build", "build");
         r.workdir = "packages/api".to_string();

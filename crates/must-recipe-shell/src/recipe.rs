@@ -1,7 +1,7 @@
 use glob::glob;
 use must_cache::mtime::check_mtime;
 use must_core::{
-    BuildContext, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
     run_command, shell_command, shell_program, shell_display,
 };
 use std::collections::HashMap;
@@ -94,7 +94,6 @@ impl Recipe for ShellRecipe {
             });
         }
 
-        // Check mtime cache for Mtime strategy
         if self.cache == CacheStrategy::Mtime {
             let inputs = self.inputs(ctx)?;
             let outputs = self.outputs(ctx)?;
@@ -129,18 +128,17 @@ impl Recipe for ShellRecipe {
                 "shell",
                 &input_refs,
                 &env_btree,
-                "", // no toolchain for shell recipes
+                "",
                 &BTreeMap::new(),
             );
-            // Check disk cache
-            if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-                let key = CacheKey {
-                    recipe: self.name.clone(),
-                    target: ctx.target.clone(),
-                    profile: ctx.profile.clone(),
-                    hash,
-                };
-                use must_core::Cache;
+            let key = CacheKey {
+                recipe: self.name.clone(),
+                target: ctx.target.clone(),
+                profile: ctx.profile.clone(),
+                hash,
+            };
+
+            if let Some(ref cache) = ctx.cache {
                 if let Ok(CacheLookup::Hit) = cache.lookup(&key) {
                     return Ok(RecipeOutput {
                         recipe_name: self.name.clone(),
@@ -151,7 +149,48 @@ impl Recipe for ShellRecipe {
                         duration_ms: 0,
                     });
                 }
+            } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir)
+                && let Ok(CacheLookup::Hit) = Cache::lookup(&cache, &key)
+            {
+                return Ok(RecipeOutput {
+                    recipe_name: self.name.clone(),
+                    from_cache: true,
+                    outputs: self.outputs(ctx)?,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    duration_ms: 0,
+                });
             }
+
+            let start = Instant::now();
+            let mut cmd = shell_command(&self.script);
+            let out = run_command(&mut cmd, shell_program(), "A shell is required")?;
+            let duration_ms = start.elapsed().as_millis() as u64;
+
+            if !out.status.success() {
+                return Err(Error::RecipeFailed {
+                    name: self.name.clone(),
+                    code: out.status.code().unwrap_or(-1),
+                    stderr: out.stderr,
+                });
+            }
+
+            let outputs = self.outputs(ctx)?;
+
+            if let Some(ref cache) = ctx.cache {
+                let _ = cache.store(&key, &outputs);
+            } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+                let _ = Cache::store(&cache, &key, &outputs);
+            }
+
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: false,
+                outputs,
+                stdout: out.stdout,
+                stderr: out.stderr,
+                duration_ms,
+            });
         }
 
         let start = Instant::now();
@@ -168,39 +207,6 @@ impl Recipe for ShellRecipe {
         }
 
         let outputs = self.outputs(ctx)?;
-
-        // Store hash cache entry after a successful run
-        if self.cache == CacheStrategy::Hash {
-            use must_cache::hash::compute_hash;
-            use std::collections::BTreeMap;
-
-            let inputs = self.inputs(ctx)?;
-            let input_refs: Vec<&std::path::Path> = inputs.iter().map(|p| p.as_path()).collect();
-            let env_btree: BTreeMap<String, String> = ctx
-                .env
-                .iter()
-                .chain(self.env.iter())
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            let hash = compute_hash(
-                &self.name,
-                "shell",
-                &input_refs,
-                &env_btree,
-                "",
-                &BTreeMap::new(),
-            );
-            if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-                let key = CacheKey {
-                    recipe: self.name.clone(),
-                    target: ctx.target.clone(),
-                    profile: ctx.profile.clone(),
-                    hash,
-                };
-                use must_core::Cache;
-                let _ = cache.store(&key, &outputs);
-            }
-        }
 
         Ok(RecipeOutput {
             recipe_name: self.name.clone(),
@@ -229,6 +235,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -326,6 +333,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let out = r.execute(&c).unwrap();
@@ -351,6 +359,7 @@ mod tests {
             env: HashMap::from([("CTX_VAR".to_string(), "ctx-value".to_string())]),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let out = r.execute(&c).unwrap();
@@ -374,6 +383,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let first = r.execute(&c).unwrap();
@@ -415,6 +425,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let out = r.execute(&c).unwrap();
@@ -437,6 +448,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let inputs = r.inputs(&c).unwrap();
         assert_eq!(inputs.len(), 2);
@@ -458,6 +470,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let outputs = r.outputs(&c).unwrap();
         assert_eq!(outputs.len(), 2);

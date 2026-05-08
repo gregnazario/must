@@ -98,25 +98,32 @@ impl Dag {
         Ok(waves)
     }
 
-    /// Return all recipes reachable from the given starting recipe (including itself).
+    /// Return all recipes reachable from the given starting recipe (including itself),
+    /// in topological order (dependencies before dependents).
     pub fn reachable_from(&self, start: &str) -> Result<Vec<String>> {
         let mut visited: HashSet<&str> = HashSet::new();
-        let mut stack = vec![start];
-        while let Some(node) = stack.pop() {
-            if visited.insert(node)
-                && let Some(deps) = self.deps.get(node)
-            {
-                for dep in deps {
-                    stack.push(dep);
+        let mut post_order: Vec<&str> = Vec::new();
+        let mut stack = vec![(start, false)];
+
+        while let Some((node, processed)) = stack.pop() {
+            if processed {
+                post_order.push(node);
+                continue;
+            }
+            if !visited.insert(node) {
+                continue;
+            }
+            stack.push((node, true));
+            if let Some(deps) = self.deps.get(node) {
+                for dep in deps.iter().rev() {
+                    if !visited.contains(dep.as_str()) {
+                        stack.push((dep.as_str(), false));
+                    }
                 }
             }
         }
-        // Return in topo order
-        let all = self.topo_sort()?;
-        Ok(all
-            .into_iter()
-            .filter(|n| visited.contains(n.as_str()))
-            .collect())
+
+        Ok(post_order.iter().map(|s| s.to_string()).collect())
     }
 }
 

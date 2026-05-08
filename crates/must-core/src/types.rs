@@ -1,18 +1,16 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-/// Strategy used to determine whether a recipe needs to re-run.
+use crate::Cache;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CacheStrategy {
-    /// Compare SHA-256 of inputs vs stored hash. Branch-switch-safe.
     Hash,
-    /// Compare max(input mtime) vs min(output mtime). Faster but not branch-safe.
     Mtime,
-    /// Always execute; skip cache lookup entirely.
     Never,
 }
 
-/// Opaque cache key for a recipe execution.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey {
     pub recipe: String,
@@ -21,7 +19,6 @@ pub struct CacheKey {
     pub hash: String,
 }
 
-/// Result of a cache lookup.
 #[derive(Debug, Clone)]
 pub enum CacheLookup {
     Hit,
@@ -29,8 +26,6 @@ pub enum CacheLookup {
     Stale,
 }
 
-/// Context passed to every recipe execution.
-#[derive(Debug, Clone)]
 pub struct BuildContext {
     pub project_root: PathBuf,
     pub cache_dir: PathBuf,
@@ -40,6 +35,39 @@ pub struct BuildContext {
     pub env: HashMap<String, String>,
     pub dry_run: bool,
     pub parallelism: usize,
+    pub cache: Option<Arc<dyn Cache>>,
+}
+
+impl std::fmt::Debug for BuildContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BuildContext")
+            .field("project_root", &self.project_root)
+            .field("cache_dir", &self.cache_dir)
+            .field("log_dir", &self.log_dir)
+            .field("target", &self.target)
+            .field("profile", &self.profile)
+            .field("env_count", &self.env.len())
+            .field("dry_run", &self.dry_run)
+            .field("parallelism", &self.parallelism)
+            .field("cache", &self.cache.is_some())
+            .finish()
+    }
+}
+
+impl Clone for BuildContext {
+    fn clone(&self) -> Self {
+        Self {
+            project_root: self.project_root.clone(),
+            cache_dir: self.cache_dir.clone(),
+            log_dir: self.log_dir.clone(),
+            target: self.target.clone(),
+            profile: self.profile.clone(),
+            env: self.env.clone(),
+            dry_run: self.dry_run,
+            parallelism: self.parallelism,
+            cache: self.cache.clone(),
+        }
+    }
 }
 
 impl BuildContext {
@@ -55,6 +83,7 @@ impl BuildContext {
             env: HashMap::new(),
             dry_run: false,
             parallelism: num_cpus(),
+            cache: None,
         }
     }
 }
@@ -65,7 +94,6 @@ fn num_cpus() -> usize {
         .unwrap_or(1)
 }
 
-/// Output produced by a recipe execution.
 #[derive(Debug, Clone)]
 pub struct RecipeOutput {
     pub recipe_name: String,

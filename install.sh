@@ -54,6 +54,29 @@ get_latest_version() {
     fi
 }
 
+verify_checksum() {
+    FILE="$1"
+    BASENAME="$(basename "$FILE")"
+    CHECKSUM_LINE=$(grep "  ${BASENAME}$" "${TMPDIR}/SHA256SUMS" || true)
+
+    if [ -z "$CHECKSUM_LINE" ]; then
+        echoerr "Error: checksum for ${BASENAME} not found in SHA256SUMS"
+        exit 1
+    fi
+
+    EXPECTED=$(echo "$CHECKSUM_LINE" | awk '{print $1}')
+    ACTUAL=$(sha256sum "$FILE" | awk '{print $1}')
+
+    if [ "$EXPECTED" != "$ACTUAL" ]; then
+        echoerr "Error: SHA256 mismatch for ${BASENAME}"
+        echoerr "  expected: ${EXPECTED}"
+        echoerr "  actual:   ${ACTUAL}"
+        exit 1
+    fi
+
+    println "Checksum verified: ${BASENAME}"
+}
+
 download_and_install() {
     INSTALL_DIR="${MUST_INSTALL_DIR:-${HOME}/.local/bin}"
     TMPDIR="$(mktemp -d)"
@@ -61,9 +84,15 @@ download_and_install() {
 
     ARCHIVE="must-${TARGET}.tar.gz"
     URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
+    URL_BASE="https://github.com/${REPO}/releases/download/${VERSION}"
 
     println "Downloading ${BINARY} ${VERSION} for ${TARGET}..."
+
+    http_get "${URL_BASE}/SHA256SUMS" > "${TMPDIR}/SHA256SUMS"
+
     http_get "$URL" > "${TMPDIR}/${ARCHIVE}"
+
+    verify_checksum "${TMPDIR}/${ARCHIVE}"
 
     mkdir -p "$INSTALL_DIR"
     tar -xzf "${TMPDIR}/${ARCHIVE}" -C "${TMPDIR}"

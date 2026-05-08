@@ -300,6 +300,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -451,6 +452,7 @@ mod tests {
             env: std::env::vars().collect(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = recipe.execute(&ctx).unwrap();
@@ -488,6 +490,7 @@ mod tests {
             env: std::env::vars().collect(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = recipe.execute(&ctx).unwrap();
@@ -521,6 +524,7 @@ mod tests {
             env: std::env::vars().collect(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = recipe.execute(&ctx).unwrap();
@@ -550,6 +554,7 @@ mod tests {
             env: std::env::vars().collect(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         let result = recipe.execute(&ctx);
         assert!(result.is_err(), "building nonexistent package should fail");
@@ -580,6 +585,7 @@ mod tests {
             env: std::env::vars().collect(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
         // Go can cross-compile for linux/arm64 without extra tools
         let result = recipe.execute(&ctx).unwrap();
@@ -613,6 +619,7 @@ mod tests {
             env: std::env::vars().collect(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         };
 
         let result = recipe.execute(&ctx).unwrap();

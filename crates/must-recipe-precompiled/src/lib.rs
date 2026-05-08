@@ -1,7 +1,9 @@
 use must_cache::hash::compute_hash;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    ensure_within_root,
 };
+use sha2::Digest;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
@@ -30,8 +32,14 @@ impl PrecompiledBinRecipe {
         }
     }
 
-    fn dest_path(&self, ctx: &BuildContext) -> PathBuf {
-        ctx.project_root.join(&self.output_path)
+    fn dest_path(&self, ctx: &BuildContext) -> Result<PathBuf> {
+        if !self.url.starts_with("https://") {
+            return Err(Error::Config {
+                path: PathBuf::from(&self.url),
+                message: "precompiled-bin URL must use https://".to_string(),
+            });
+        }
+        ensure_within_root(&ctx.project_root, Path::new(&self.output_path))
     }
 
     fn download(&self, dest: &Path) -> std::result::Result<(), String> {
@@ -45,20 +53,35 @@ impl PrecompiledBinRecipe {
             .map_err(|e| format!("download failed for {}: {e}", self.url))?;
 
         let mut reader = response.into_reader();
-        let mut buf = Vec::new();
-        std::io::Read::read_to_end(&mut reader, &mut buf)
-            .map_err(|e| format!("read response failed: {e}"))?;
+        let mut tmp_path = dest.to_owned();
+        tmp_path.set_extension("tmp");
+        let mut file = std::fs::File::create(&tmp_path)
+            .map_err(|e| format!("create tmp file failed: {e}"))?;
+        std::io::copy(&mut reader, &mut file)
+            .map_err(|e| format!("download write failed: {e}"))?;
+        drop(file);
 
         if let Some(ref expected) = self.sha256 {
-            let actual = sha256_hex(&buf);
+            let mut verify_file = std::fs::File::open(&tmp_path)
+                .map_err(|e| format!("open for verify failed: {e}"))?;
+            let mut hasher = sha2::Sha256::new();
+            let mut buf = [0u8; 8192];
+            use std::io::Read;
+            loop {
+                let n = verify_file.read(&mut buf).map_err(|e| format!("hash read failed: {e}"))?;
+                if n == 0 { break; }
+                hasher.update(&buf[..n]);
+            }
+            let actual = hex::encode(hasher.finalize());
             if actual != *expected {
+                let _ = std::fs::remove_file(&tmp_path);
                 return Err(format!(
                     "SHA256 mismatch: expected {expected}, got {actual}"
                 ));
             }
         }
 
-        std::fs::write(dest, &buf).map_err(|e| format!("write failed: {e}"))?;
+        std::fs::rename(&tmp_path, dest).map_err(|e| format!("rename failed: {e}"))?;
 
         #[cfg(unix)]
         {
@@ -69,13 +92,6 @@ impl PrecompiledBinRecipe {
 
         Ok(())
     }
-}
-
-fn sha256_hex(data: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    hex::encode(hasher.finalize())
 }
 
 impl Recipe for PrecompiledBinRecipe {
@@ -92,7 +108,7 @@ impl Recipe for PrecompiledBinRecipe {
     }
 
     fn outputs(&self, ctx: &BuildContext) -> Result<Vec<PathBuf>> {
-        Ok(vec![self.dest_path(ctx)])
+        Ok(vec![self.dest_path(ctx)?])
     }
 
     fn cache_strategy(&self) -> CacheStrategy {
@@ -116,7 +132,7 @@ impl Recipe for PrecompiledBinRecipe {
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
         let start = std::time::Instant::now();
-        let dest = self.dest_path(ctx);
+        let dest = self.dest_path(ctx)?;
 
         if ctx.dry_run {
             return Ok(RecipeOutput {
@@ -181,6 +197,7 @@ mod tests {
             env,
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -285,5 +302,33 @@ mod tests {
         let dest = tmp.path().join("output.bin");
         let r = PrecompiledBinRecipe::new("test", "https://example.com/tool", "out.bin");
         r.download(&dest).unwrap_err();
+    }
+
+    #[test]
+    fn traversal_rejected() {
+        let r = PrecompiledBinRecipe::new("evil", "https://example.com/tool", "../../etc/passwd");
+        let result = r.dest_path(&test_ctx());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn http_url_rejected() {
+        let r = PrecompiledBinRecipe::new("tool", "http://example.com/tool", "bin/tool");
+        let result = r.dest_path(&test_ctx());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn outputs_rejects_traversal() {
+        let r = PrecompiledBinRecipe::new("evil", "https://example.com/tool", "../../etc/passwd");
+        let ctx = test_ctx();
+        assert!(r.outputs(&ctx).is_err());
+    }
+
+    #[test]
+    fn execute_rejects_traversal() {
+        let r = PrecompiledBinRecipe::new("evil", "https://example.com/tool", "../../etc/passwd");
+        let ctx = test_ctx();
+        assert!(r.execute(&ctx).is_err());
     }
 }

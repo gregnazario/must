@@ -2,7 +2,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use must_config::load_config;
 use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
-use must_engine::{Engine, compose_env};
+use must_engine::{Engine, compose_env_with_base};
 use must_graph::Dag;
 use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_dart::{DartBinRecipe, DartTestRecipe};
@@ -230,11 +230,9 @@ enum PluginAction {
     },
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
 
-    // Set up tracing
     let level = match cli.verbose {
         0 => "warn",
         1 => "info",
@@ -248,23 +246,55 @@ async fn main() {
         )
         .init();
 
-    if let Err(e) = run(cli).await {
+    if matches!(cli.command, Commands::Doctor) {
+        run_doctor();
+        return;
+    }
+
+    if let Commands::Completions { shell } = &cli.command {
+        let buf = generate_completions(*shell);
+        std::io::Write::write_all(&mut std::io::stdout(), &buf).map_err(Error::Io).unwrap();
+        return;
+    }
+
+    if let Commands::Init { name, template } = &cli.command {
+        let out = cli
+            .file
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("Mustfile.toml"));
+        run_init(&out, name.as_deref(), template).unwrap();
+        return;
+    }
+
+    if let Commands::Import { makefile, out } = &cli.command {
+        let input = std::fs::read_to_string(makefile).map_err(must_core::Error::Io).unwrap();
+        let result = must_import::import(&input);
+        std::fs::write(out, &result.toml).map_err(must_core::Error::Io).unwrap();
+        let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
+        std::fs::write(&report_path, &result.report).map_err(must_core::Error::Io).unwrap();
+        println!("Imported {} → {}", makefile.display(), out.display());
+        println!(
+            "  {} translated, {} TODO, {} skipped",
+            result.translated_count, result.todo_count, result.skipped_count
+        );
+        println!("Report: {}", report_path.display());
+        return;
+    }
+
+    let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+    if let Err(e) = rt.block_on(run(cli)) {
         eprintln!("error: {e}");
         std::process::exit(1);
     }
 }
 
 async fn run(cli: Cli) -> must_core::Result<()> {
-    // Handle import before loading config — it doesn't need a Mustfile.toml
     if let Commands::Import { makefile, out } = cli.command {
         let input = std::fs::read_to_string(&makefile).map_err(must_core::Error::Io)?;
         let result = must_import::import(&input);
-
         std::fs::write(&out, &result.toml).map_err(must_core::Error::Io)?;
-
         let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
         std::fs::write(&report_path, &result.report).map_err(must_core::Error::Io)?;
-
         println!("Imported {} → {}", makefile.display(), out.display());
         println!(
             "  {} translated, {} TODO, {} skipped",
@@ -782,13 +812,20 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                         filename.strip_suffix(".lua").unwrap_or(filename).to_string()
                     });
 
+                    if plugin_name.contains("..") || plugin_name.contains('/') || plugin_name.contains('\\') {
+                        return Err(Error::Config {
+                            path: PathBuf::from(&plugin_name),
+                            message: "plugin name must not contain '..' or path separators".to_string(),
+                        });
+                    }
+
                     if !plugin_dir.exists() {
                         std::fs::create_dir_all(&plugin_dir).map_err(Error::Io)?;
                     }
 
                     let dest = plugin_dir.join(format!("{plugin_name}.lua"));
 
-                    if url.starts_with("http://") || url.starts_with("https://") {
+                    if url.starts_with("https://") {
                         let response = reqwest::get(&url).await
                             .map_err(|e| Error::Config {
                                 path: dest.clone(),
@@ -1161,12 +1198,13 @@ async fn execute_recipes(
     }
 
     // Compose env for each recipe and build recipe objects
+    let base_env: HashMap<String, String> = std::env::vars().collect();
     let mut recipe_map: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
     for (name, recipe_cfg) in &config.recipe {
         if !reachable.contains(name) {
             continue;
         }
-        let env = compose_env(config, name, profile, &HashMap::new());
+        let env = compose_env_with_base(config, name, profile, &HashMap::new(), &base_env);
 
         let expand = |s: &str| -> String { expand_env_vars(s, &env) };
 
@@ -1633,6 +1671,10 @@ async fn execute_recipes(
         ctx.target = target.clone();
         ctx.dry_run = dry_run;
         ctx.parallelism = j;
+
+        if let Ok(disk_cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+            ctx.cache = Some(std::sync::Arc::new(disk_cache));
+        }
 
         let engine = Engine::new(j, fail_fast);
         let total_recipes = recipe_map.len();
@@ -2246,7 +2288,13 @@ fn explain_recipe(
     if !relevant_env.is_empty() {
         println!("\nEnv (affects hash):");
         for (k, v) in &relevant_env {
-            let display = if v.len() > 60 {
+            let secret_suffixes = ["KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", "PRIVATE"];
+            let is_secret = secret_suffixes.iter().any(|s| k.to_uppercase().ends_with(s))
+                || k.to_uppercase().contains("SECRET");
+            let display = if is_secret {
+                let visible = v.len().min(4);
+                format!("{}***", &v[..visible])
+            } else if v.len() > 60 {
                 format!("{}...", &v[..60])
             } else {
                 v.to_string()

@@ -48,6 +48,78 @@ impl ExecutionReport {
     }
 }
 
+fn write_log(ctx: &BuildContext, name: &str, stdout: &str, stderr: &str) {
+    if stdout.is_empty() && stderr.is_empty() {
+        return;
+    }
+    let safe_name = name.replace(['/', '\\'], "_");
+    let log_path = ctx.log_dir.join(format!("{safe_name}.log"));
+    let mut log_content = String::with_capacity(stdout.len() + stderr.len() + 16);
+    if !stdout.is_empty() {
+        log_content.push_str(stdout);
+    }
+    if !stderr.is_empty() {
+        if !log_content.is_empty() {
+            log_content.push('\n');
+        }
+        log_content.push_str("--- stderr ---\n");
+        log_content.push_str(stderr);
+    }
+    let _ = std::fs::write(&log_path, &log_content);
+}
+
+struct ExecOutput {
+    name: String,
+    result: std::result::Result<must_core::RecipeOutput, must_core::Error>,
+    duration_ms: u64,
+}
+
+fn run_recipe(
+    recipe: Arc<dyn Recipe>,
+    ctx: Arc<BuildContext>,
+) -> ExecOutput {
+    let name = recipe.name().to_string();
+    let exec_start = std::time::Instant::now();
+    info!(recipe = %name, "starting recipe");
+    let result = recipe.execute(&ctx);
+    let duration_ms = exec_start.elapsed().as_millis() as u64;
+    ExecOutput { name, result, duration_ms }
+}
+
+fn to_execution_result(out: ExecOutput) -> ExecutionResult {
+    match out.result {
+        Ok(output) => {
+            info!(
+                recipe = %out.name,
+                from_cache = output.from_cache,
+                out.duration_ms,
+                "recipe complete"
+            );
+            ExecutionResult {
+                recipe_name: out.name,
+                from_cache: output.from_cache,
+                success: true,
+                duration_ms: out.duration_ms,
+                stdout: output.stdout,
+                stderr: output.stderr,
+                error: None,
+            }
+        }
+        Err(e) => {
+            error!(recipe = %out.name, error = %e, "recipe failed");
+            ExecutionResult {
+                recipe_name: out.name,
+                from_cache: false,
+                success: false,
+                duration_ms: out.duration_ms,
+                stdout: String::new(),
+                stderr: String::new(),
+                error: Some(e.to_string()),
+            }
+        }
+    }
+}
+
 pub struct Engine {
     parallelism: usize,
     fail_fast: bool,
@@ -70,6 +142,8 @@ impl Engine {
         let start = std::time::Instant::now();
         let waves = dag.waves()?;
         let semaphore = Arc::new(Semaphore::new(self.parallelism));
+        let ctx = Arc::new(ctx.clone());
+        let _ = std::fs::create_dir_all(&ctx.log_dir);
         let mut all_results: Vec<ExecutionResult> = Vec::new();
         let mut failed = false;
 
@@ -85,74 +159,47 @@ impl Engine {
                     Some(r) => Arc::clone(r),
                     None => return Err(Error::UnknownRecipe { name: recipe_name }),
                 };
-                let ctx = ctx.clone();
+                let ctx = Arc::clone(&ctx);
                 let sem = Arc::clone(&semaphore);
 
                 let handle = tokio::spawn(async move {
                     let _permit = sem.acquire().await.expect("semaphore closed");
-                    info!(recipe = %recipe.name(), "starting recipe");
-                    let name = recipe.name().to_string();
-                    let exec_start = std::time::Instant::now();
-                    match recipe.execute(&ctx) {
-                        Ok(output) => {
-                            let duration_ms = exec_start.elapsed().as_millis() as u64;
-                            info!(
-                                recipe = %name,
-                                from_cache = output.from_cache,
-                                duration_ms,
-                                "recipe complete"
-                            );
-
-                            if !output.stdout.is_empty() || !output.stderr.is_empty() {
-                                let _ = std::fs::create_dir_all(&ctx.log_dir);
-                                let log_path = ctx.log_dir.join(format!("{name}.log"));
-                                let mut log_content = String::new();
-                                if !output.stdout.is_empty() {
-                                    log_content.push_str(&output.stdout);
-                                }
-                                if !output.stderr.is_empty() {
-                                    if !log_content.is_empty() {
-                                        log_content.push('\n');
-                                    }
-                                    log_content.push_str("--- stderr ---\n");
-                                    log_content.push_str(&output.stderr);
-                                }
-                                let _ = std::fs::write(&log_path, &log_content);
-                            }
-
-                            ExecutionResult {
-                                recipe_name: name,
-                                from_cache: output.from_cache,
-                                success: true,
-                                duration_ms,
-                                stdout: output.stdout,
-                                stderr: output.stderr,
-                                error: None,
-                            }
-                        }
-                        Err(e) => {
-                            let duration_ms = exec_start.elapsed().as_millis() as u64;
-                            error!(recipe = %name, error = %e, "recipe failed");
-                            ExecutionResult {
-                                recipe_name: name,
-                                from_cache: false,
-                                success: false,
-                                duration_ms,
-                                stdout: String::new(),
-                                stderr: String::new(),
-                                error: Some(e.to_string()),
-                            }
-                        }
+                    let recipe_name = recipe.name().to_string();
+                    let out = tokio::task::spawn_blocking(move || {
+                        run_recipe(recipe, ctx)
+                    }).await;
+                    match out {
+                        Ok(o) => (true, Ok(o)),
+                        Err(e) => (false, Err(format!("{recipe_name}: task panicked: {e}"))),
                     }
                 });
                 handles.push(handle);
             }
 
-            // Wait for all tasks in this wave
             let mut wave_failed = false;
             for handle in handles {
                 match handle.await {
-                    Ok(result) => {
+                    Ok((ok, out_result)) if !ok => {
+                        wave_failed = true;
+                        failed = true;
+                        all_results.push(ExecutionResult {
+                            recipe_name: "unknown".to_string(),
+                            from_cache: false,
+                            success: false,
+                            duration_ms: 0,
+                            stdout: String::new(),
+                            stderr: String::new(),
+                            error: out_result.err(),
+                        });
+                        continue;
+                    }
+                    Ok((_, out_result)) => {
+                        let out = out_result.expect("ok branch");
+                        let log_ctx = Arc::clone(&ctx);
+                        if let Ok(ref output) = out.result {
+                            write_log(&log_ctx, &out.name, &output.stdout, &output.stderr);
+                        }
+                        let result = to_execution_result(out);
                         if !result.success {
                             wave_failed = true;
                             failed = true;
@@ -199,6 +246,8 @@ impl Engine {
         let start = std::time::Instant::now();
         let waves = dag.waves()?;
         let semaphore = Arc::new(Semaphore::new(self.parallelism));
+        let ctx = Arc::new(ctx.clone());
+        let _ = std::fs::create_dir_all(&ctx.log_dir);
         let mut all_results: Vec<ExecutionResult> = Vec::new();
         let mut failed = false;
         let total_recipes: usize = waves.iter().map(|w| w.len()).sum();
@@ -216,92 +265,69 @@ impl Engine {
                     Some(r) => Arc::clone(r),
                     None => return Err(Error::UnknownRecipe { name: recipe_name }),
                 };
-                let ctx = ctx.clone();
+                let ctx = Arc::clone(&ctx);
                 let sem = Arc::clone(&semaphore);
                 let tx = progress_tx.clone();
 
-                let handle = tokio::spawn(async move {
-                    let _permit = sem.acquire().await.expect("semaphore closed");
-                    let name = recipe.name().to_string();
-                    let _ = tx.send(ProgressEvent::Starting {
-                        recipe: name.clone(),
-                        total: 0,
-                        completed: 0,
-                    }).await;
-                    info!(recipe = %recipe.name(), "starting recipe");
-                    let exec_start = std::time::Instant::now();
-                    let result = match recipe.execute(&ctx) {
-                        Ok(output) => {
-                            let duration_ms = exec_start.elapsed().as_millis() as u64;
-                            info!(
-                                recipe = %name,
-                                from_cache = output.from_cache,
-                                duration_ms,
-                                "recipe complete"
-                            );
-
-                            if !output.stdout.is_empty() || !output.stderr.is_empty() {
-                                let _ = std::fs::create_dir_all(&ctx.log_dir);
-                                let log_path = ctx.log_dir.join(format!("{name}.log"));
-                                let mut log_content = String::new();
-                                if !output.stdout.is_empty() {
-                                    log_content.push_str(&output.stdout);
-                                }
-                                if !output.stderr.is_empty() {
-                                    if !log_content.is_empty() {
-                                        log_content.push('\n');
-                                    }
-                                    log_content.push_str("--- stderr ---\n");
-                                    log_content.push_str(&output.stderr);
-                                }
-                                let _ = std::fs::write(&log_path, &log_content);
+                let handle = {
+                    let tx = tx.clone();
+                    tokio::spawn(async move {
+                        let name = recipe.name().to_string();
+                        let _ = tx.send(ProgressEvent::Starting {
+                            recipe: name.clone(),
+                            total: 0,
+                            completed: 0,
+                        }).await;
+                        let _permit = sem.acquire().await.expect("semaphore closed");
+                        let out = tokio::task::spawn_blocking(move || {
+                            run_recipe(recipe, ctx)
+                        }).await;
+                        match out {
+                            Ok(o) => {
+                                let name = o.name.clone();
+                                (name, Ok(o))
                             }
-
-                            ExecutionResult {
-                                recipe_name: name.clone(),
-                                from_cache: output.from_cache,
-                                success: true,
-                                duration_ms,
-                                stdout: output.stdout,
-                                stderr: output.stderr,
-                                error: None,
-                            }
+                            Err(e) => (name, Err(format!("task panicked: {e}"))),
                         }
-                        Err(e) => {
-                            let duration_ms = exec_start.elapsed().as_millis() as u64;
-                            error!(recipe = %name, error = %e, "recipe failed");
-                            ExecutionResult {
-                                recipe_name: name.clone(),
-                                from_cache: false,
-                                success: false,
-                                duration_ms,
-                                stdout: String::new(),
-                                stderr: String::new(),
-                                error: Some(e.to_string()),
-                            }
-                        }
-                    };
-                    let _ = tx.send(ProgressEvent::Completed {
-                        recipe: name,
-                        success: result.success,
-                        from_cache: result.from_cache,
-                        duration_ms: result.duration_ms,
-                    }).await;
-                    result
-                });
+                    })
+                };
                 handles.push(handle);
             }
 
             let mut wave_failed = false;
             for handle in handles {
                 match handle.await {
-                    Ok(result) => {
+                    Ok((name, out_result)) => {
                         completed += 1;
-                        if !result.success {
-                            wave_failed = true;
-                            failed = true;
+                        match out_result {
+                            Ok(out) => {
+                                let log_ctx = Arc::clone(&ctx);
+                                if let Ok(ref output) = out.result {
+                                    write_log(&log_ctx, &out.name, &output.stdout, &output.stderr);
+                                }
+                                let result = to_execution_result(out);
+                                let _ = tx_clone_send(&progress_tx, &result).await;
+                                if !result.success {
+                                    wave_failed = true;
+                                    failed = true;
+                                }
+                                all_results.push(result);
+                            }
+                            Err(e) => {
+                                warn!("{e}");
+                                failed = true;
+                                wave_failed = true;
+                                all_results.push(ExecutionResult {
+                                    recipe_name: name,
+                                    from_cache: false,
+                                    success: false,
+                                    duration_ms: 0,
+                                    stdout: String::new(),
+                                    stderr: String::new(),
+                                    error: Some(e),
+                                });
+                            }
                         }
-                        all_results.push(result);
                     }
                     Err(e) => {
                         completed += 1;
@@ -339,6 +365,18 @@ impl Engine {
             total_duration_ms,
         })
     }
+}
+
+async fn tx_clone_send(
+    tx: &tokio::sync::mpsc::Sender<ProgressEvent>,
+    result: &ExecutionResult,
+) {
+    let _ = tx.send(ProgressEvent::Completed {
+        recipe: result.recipe_name.clone(),
+        success: result.success,
+        from_cache: result.from_cache,
+        duration_ms: result.duration_ms,
+    }).await;
 }
 
 #[cfg(test)]
@@ -447,6 +485,7 @@ mod tests {
             env: HashMap::new(),
             dry_run: false,
             parallelism: 1,
+            cache: None,
         }
     }
 
@@ -486,12 +525,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_engine_fail_fast_stops_after_failure() {
-        // wave 1: fail_recipe; wave 2: success_recipe (depends on fail_recipe)
-        // With fail_fast, wave 2 should be skipped
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert("a".into(), Arc::new(FailRecipe { name: "a".into() }));
         recipes.insert("b".into(), Arc::new(SuccessRecipe { name: "b".into() }));
-        // b depends on a, so they're in separate waves
         let dag = must_graph::Dag::new(
             [
                 ("a".to_string(), vec![]),
@@ -499,10 +535,9 @@ mod tests {
             ]
             .into(),
         );
-        let engine = Engine::new(1, true); // fail_fast = true
+        let engine = Engine::new(1, true);
         let report = engine.execute(&dag, &recipes, &test_ctx()).await.unwrap();
         assert!(!report.success);
-        // b should NOT have been executed (fail_fast stopped after wave 1)
         assert!(!report.results.iter().any(|r| r.recipe_name == "b"));
     }
 
@@ -579,7 +614,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_engine_unknown_recipe_in_dag_returns_error() {
-        // DAG mentions "ghost" but recipe map only has "build"
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert(
             "build".into(),
@@ -587,7 +621,6 @@ mod tests {
                 name: "build".into(),
             }),
         );
-        // Dag with "ghost" which is NOT in the recipes map
         let dag = must_graph::Dag::new([("ghost".to_string(), vec![])].into());
         let engine = Engine::new(1, false);
         let result = engine.execute(&dag, &recipes, &test_ctx()).await;
