@@ -48,6 +48,8 @@ Cache key includes: package, env vars.
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Examples
 
 ```toml
@@ -68,3 +70,9 @@ type    = "dotnet-publish"
 package = "src/MyApp"
 deps    = ["test"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Config Reference](../guide/config-reference.md) — full field reference
+- [Shell Recipes](shell.md) — custom build scripts

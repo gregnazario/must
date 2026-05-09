@@ -35,6 +35,8 @@ Cache strategy: `never` (test results should always be fresh).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Examples
 
 ```toml
@@ -50,3 +52,9 @@ type    = "zig-test"
 package = "."
 deps    = ["build"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Cross-Compilation](../guide/cross-compilation.md) — Zig cross-compilation
+- [Config Reference](../guide/config-reference.md) — full field reference

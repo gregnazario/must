@@ -80,3 +80,5 @@ See the individual recipe pages for detailed configuration, caching behavior, an
 - [Flutter](flutter.md) — flutter build/test
 - [Nim](nim.md) — nim compile/test
 - [Docker](docker.md) — docker build/push
+- [Precompiled Binaries](precompiled-bin.md) — download and cache prebuilt binaries
+- [Plugins](../guide/plugins.md) — custom Lua recipe types

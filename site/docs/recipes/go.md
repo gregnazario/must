@@ -39,6 +39,8 @@ Cache strategy: `never` (test results should always be fresh).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Cross-compilation
 
 Go cross-compiles natively via `GOOS`/`GOARCH` environment variables — no extra toolchain needed. must sets these automatically based on the target triple.
@@ -60,3 +62,9 @@ type    = "go-test"
 package = "./..."
 deps    = ["server"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Cross-Compilation](../guide/cross-compilation.md) — GOOS/GOARCH auto-detection
+- [Config Reference](../guide/config-reference.md) — full field reference

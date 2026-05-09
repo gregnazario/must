@@ -59,7 +59,17 @@ inputs = ["src/**/*.rs", "Cargo.toml"]
 
 ## Cross-platform
 
-must uses `sh -c` on Unix and `cmd /C` on Windows for shell recipe execution. Scripts should be compatible with both, or use `workdir` and conditional logic.
+must uses `sh -c` on Unix and `cmd /C` on Windows for shell recipe execution. Use `script_win` to provide a Windows-specific override:
+
+```toml
+[recipe.clean]
+type   = "shell"
+phony  = true
+script     = "rm -rf build"
+script_win = "rmdir /s /q build"
+```
+
+See [Cross-Platform Scripts](../guide/cross-platform.md) for the full guide.
 
 ## Examples
 
@@ -82,3 +92,10 @@ phony  = true
 env    = { SLOW_TESTS = "1" }
 script = "./scripts/integration-test.sh"
 ```
+
+## See also
+
+- [Cross-Platform Scripts](../guide/cross-platform.md) — `script_win` overrides for Windows
+- [Caching](../guide/caching.md) — hash vs mtime strategies
+- [Config Reference](../guide/config-reference.md) — full field reference
+- [Plugin Recipes](../guide/plugins.md) — custom recipe types in Lua

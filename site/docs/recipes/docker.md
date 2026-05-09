@@ -41,6 +41,8 @@ Cache strategy: `never` (push should always execute).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Examples
 
 ```toml
@@ -59,3 +61,9 @@ type  = "docker-push"
 image = "myregistry/myapp:latest"
 deps  = ["build"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Config Reference](../guide/config-reference.md) — full field reference
+- [Shell Recipes](shell.md) — custom build scripts

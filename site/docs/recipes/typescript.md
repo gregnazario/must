@@ -61,6 +61,8 @@ Cache strategy: `never` (npm scripts are not cached).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Examples
 
 ```toml
@@ -86,3 +88,9 @@ npm_script = "build"
 workdir    = "packages/api"
 deps       = ["build"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Config Reference](../guide/config-reference.md) — full field reference
+- [Shell Recipes](shell.md) — custom build scripts

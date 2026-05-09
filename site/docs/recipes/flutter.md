@@ -48,6 +48,8 @@ The build platform is determined by the target:
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Examples
 
 ```toml
@@ -63,3 +65,9 @@ type    = "flutter-test"
 package = "."
 deps    = ["build"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Config Reference](../guide/config-reference.md) — full field reference
+- [Dart Recipes](dart.md) — Dart build and test

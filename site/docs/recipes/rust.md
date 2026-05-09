@@ -48,6 +48,8 @@ Cache strategy: `never` (test results should always be fresh).
 | `env` | map | all | Environment variables |
 | `workdir` | string | all | Working directory |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Cross-compilation
 
 ```toml
@@ -85,3 +87,9 @@ type    = "rust-test"
 package = "my-lib"
 deps    = ["lib"]
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Cross-Compilation](../guide/cross-compilation.md) — target triples and cross-rs
+- [Config Reference](../guide/config-reference.md) — full field reference

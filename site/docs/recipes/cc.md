@@ -45,6 +45,8 @@ Cache key includes: `cc --version`, sources, includes, link_libs, cflags, lib ty
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+
 ## Cross-compilation
 
 ```toml
@@ -81,3 +83,9 @@ type       = "c-lib"
 sources    = ["src/lib.c"]
 static_lib = false
 ```
+
+## See also
+
+- [Caching](../guide/caching.md) — how cache keys are computed
+- [Cross-Compilation](../guide/cross-compilation.md) — cross-compilers and sysroots
+- [Config Reference](../guide/config-reference.md) — full field reference
