@@ -986,6 +986,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1792,6 +1803,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1874,6 +1896,7 @@
 </tr>
 </tbody>
 </table>
+<p>All recipes also support these common fields: <code>deps</code>, <code>env</code>, <code>cache</code> (<code>"hash"</code> / <code>"mtime"</code> / <code>"never"</code>), <code>phony</code> (always re-run), and <code>workdir</code> (working directory).</p>
 <h2 id="cross-compilation">Cross-compilation<a class="headerlink" href="#cross-compilation" title="Permanent link">&para;</a></h2>
 <p>Go cross-compiles natively via <code>GOOS</code>/<code>GOARCH</code> environment variables — no extra toolchain needed. must sets these automatically based on the target triple.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
@@ -1891,6 +1914,12 @@
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">package</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;./...&quot;</span>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">deps</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;server&quot;</span><span class="p">]</span>
 </span></code></pre></div>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../guide/caching/">Caching</a> — how cache keys are computed</li>
+<li><a href="../../guide/cross-compilation/">Cross-Compilation</a> — GOOS/GOARCH auto-detection</li>
+<li><a href="../../guide/config-reference/">Config Reference</a> — full field reference</li>
+</ul>
 
 
 

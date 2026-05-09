@@ -1014,6 +1014,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1792,6 +1803,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1889,6 +1911,7 @@
 </tr>
 </tbody>
 </table>
+<p>All recipes also support these common fields: <code>deps</code>, <code>env</code>, <code>cache</code> (<code>"hash"</code> / <code>"mtime"</code> / <code>"never"</code>), <code>phony</code> (always re-run), and <code>workdir</code> (working directory).</p>
 <h2 id="cross-compilation">Cross-compilation<a class="headerlink" href="#cross-compilation" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[recipe.cli]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;c-bin&quot;</span>
@@ -1920,6 +1943,12 @@
 </span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">sources</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;src/lib.c&quot;</span><span class="p">]</span>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="n">static_lib</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </span></code></pre></div>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../guide/caching/">Caching</a> — how cache keys are computed</li>
+<li><a href="../../guide/cross-compilation/">Cross-Compilation</a> — cross-compilers and sysroots</li>
+<li><a href="../../guide/config-reference/">Config Reference</a> — full field reference</li>
+</ul>
 
 
 
