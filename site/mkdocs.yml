@@ -78,6 +78,7 @@ nav:
     - Profiles & Environments: guide/profiles.md
     - Plugins: guide/plugins.md
     - Watching & Logs: guide/watching-logs.md
+    - Troubleshooting: guide/troubleshooting.md
   - Recipes:
     - All Recipe Types: recipes/index.md
     - Shell: recipes/shell.md
@@ -105,4 +106,5 @@ nav:
     - From Make: migration/make.md
     - From Just: migration/just.md
     - From Taskfile: migration/taskfile.md
-  - Changelog: changelog.md
+    - Changelog: changelog.md
+  - Contributing: contributing.md

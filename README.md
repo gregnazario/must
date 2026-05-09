@@ -308,9 +308,9 @@ Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml)
 
 ## Documentation
 
-- [User Guide](docs/USER_GUIDE.md) — Complete usage reference
-- [Migration Guide](docs/MIGRATION_GUIDE.md) — Migrating from Make
-- [Design](docs/DESIGN.md) — Architecture and execution model
+- [Doc Site](https://mustfile.ai) — full guides, recipe reference, and migration docs
+- [Architecture](docs/DESIGN.md) — execution model and internals
+- [Migration](docs/MIGRATION_GUIDE.md) — migrating from Make, Just, and Taskfile
 
 ## License
 
