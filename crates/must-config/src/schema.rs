@@ -100,16 +100,26 @@ impl Recipe {
         let os = std::env::consts::OS;
         let family = if cfg!(unix) { "unix" } else if cfg!(windows) { "windows" } else { "" };
 
-        let candidates: Vec<&str> = match os {
-            "linux" => vec![os, family],
-            "macos" => vec![os, family],
-            "freebsd" | "netbsd" | "openbsd" => vec![os, "bsd", family],
-            "windows" => vec!["win", os, family],
-            _ => vec![os, family],
+        let candidates: Vec<String> = match os {
+            "linux" => {
+                let mut v = Vec::new();
+                if let Some(distro) = linux_distro_id() {
+                    v.push(format!("linux.{distro}"));
+                }
+                v.push("linux".to_string());
+                v.push(family.to_string());
+                v
+            }
+            "macos" => vec!["macos".to_string(), family.to_string()],
+            "freebsd" | "netbsd" | "openbsd" => {
+                vec![os.to_string(), "bsd".to_string(), family.to_string()]
+            }
+            "windows" => vec!["win".to_string(), os.to_string(), family.to_string()],
+            _ => vec![os.to_string(), family.to_string()],
         };
 
         for key in &candidates {
-            if let Some(script) = self.scripts.get(*key) {
+            if let Some(script) = self.scripts.get(key.as_str()) {
                 return Some(script);
             }
         }
@@ -120,6 +130,19 @@ impl Recipe {
             self.script.as_ref()
         }
     }
+}
+
+fn linux_distro_id() -> Option<String> {
+    let content = std::fs::read_to_string("/etc/os-release").ok()?;
+    for line in content.lines() {
+        if let Some(id) = line.strip_prefix("ID=") {
+            let id = id.trim().trim_matches('"').to_lowercase();
+            if !id.is_empty() {
+                return Some(id);
+            }
+        }
+    }
+    None
 }
 
 /// Supported recipe type identifiers. Each maps to a language-specific build tool.
@@ -359,5 +382,72 @@ freebsd = "gmake"
         assert_eq!(recipe.scripts.get("linux").unwrap(), "make -j$(nproc)");
         assert_eq!(recipe.scripts.get("win").unwrap(), "nmake");
         assert_eq!(recipe.scripts.get("freebsd").unwrap(), "gmake");
+    }
+
+    #[test]
+    fn test_linux_distro_beats_linux() {
+        let mut r = test_recipe();
+        r.script = Some("default".into());
+        r.scripts.insert("linux".into(), "linux-script".into());
+        if cfg!(target_os = "linux") {
+            if let Some(distro) = linux_distro_id() {
+                r.scripts.insert(format!("linux.{distro}"), "distro-script".into());
+                assert_eq!(r.resolved_script().unwrap(), "distro-script");
+            } else {
+                assert_eq!(r.resolved_script().unwrap(), "linux-script");
+            }
+        }
+    }
+
+    #[test]
+    fn test_linux_falls_through_to_unix() {
+        let mut r = test_recipe();
+        r.script = Some("default".into());
+        r.scripts.insert("unix".into(), "unix-script".into());
+        if cfg!(target_os = "linux") && linux_distro_id().is_none() {
+            assert_eq!(r.resolved_script().unwrap(), "unix-script");
+        }
+    }
+
+    #[test]
+    fn test_distro_specific_toml() {
+        let toml = r#"
+[project]
+name = "test"
+
+[recipe.install]
+type   = "shell"
+script = "make install"
+
+[recipe.install.scripts]
+"linux.ubuntu"  = "apt-get install -y foo"
+"linux.alpine"  = "apk add foo"
+"linux.debian"  = "apt-get install -y foo"
+"linux.arch"    = "pacman -S foo"
+"linux.fedora"  = "dnf install foo"
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        let recipe = &config.recipe["install"];
+        assert_eq!(recipe.scripts.get("linux.ubuntu").unwrap(), "apt-get install -y foo");
+        assert_eq!(recipe.scripts.get("linux.alpine").unwrap(), "apk add foo");
+        assert_eq!(recipe.scripts.get("linux.arch").unwrap(), "pacman -S foo");
+    }
+
+    #[test]
+    fn test_linux_distro_id_parses_os_release() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let os_release = tmp.path().join("os-release");
+        std::fs::write(&os_release, r#"NAME="Ubuntu"
+VERSION="24.04 LTS (Noble Numbat)"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 24.04 LTS"
+VERSION_ID="24.04"
+"#).unwrap();
+        let content = std::fs::read_to_string(&os_release).unwrap();
+        let id = content.lines()
+            .find_map(|l| l.strip_prefix("ID="))
+            .map(|id| id.trim().trim_matches('"').to_lowercase());
+        assert_eq!(id, Some("ubuntu".to_string()));
     }
 }

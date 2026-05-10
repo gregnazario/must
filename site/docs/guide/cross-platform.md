@@ -38,12 +38,33 @@ The `scripts` table is checked in order of specificity. The first match wins:
 | Platform | Checked in order |
 |----------|-----------------|
 | macOS | `scripts.macos` → `scripts.unix` → `script` |
-| Linux | `scripts.linux` → `scripts.unix` → `script` |
+| Linux (Ubuntu) | `scripts.linux.ubuntu` → `scripts.linux` → `scripts.unix` → `script` |
+| Linux (Alpine) | `scripts.linux.alpine` → `scripts.linux` → `scripts.unix` → `script` |
+| Linux (other) | `scripts.linux.<distro>` → `scripts.linux` → `scripts.unix` → `script` |
 | FreeBSD | `scripts.freebsd` → `scripts.bsd` → `scripts.unix` → `script` |
 | NetBSD / OpenBSD | `scripts.netbsd` / `scripts.openbsd` → `scripts.bsd` → `scripts.unix` → `script` |
 | Windows | `scripts.win` → `script_win` → `script` |
 
+The distro ID is read from `ID=` in `/etc/os-release` (e.g., `ubuntu`, `debian`, `alpine`, `arch`, `fedora`, `amzn`).
+
 The `scripts` table takes priority over `script_win` and `script`.
+
+### Distro-specific example
+
+```toml
+[recipe.install-deps]
+type   = "shell"
+script = "make deps"
+
+[recipe.install-deps.scripts]
+"linux.ubuntu"  = "apt-get install -y libssl-dev"
+"linux.alpine"  = "apk add openssl-dev"
+"linux.fedora"  = "dnf install openssl-devel"
+"linux.arch"    = "pacman -S openssl"
+"linux.amzn"    = "yum install openssl-devel"
+linux           = "make deps"
+macos           = "brew install openssl"
+```
 
 ### Available keys
 
@@ -51,6 +72,13 @@ The `scripts` table takes priority over `script_win` and `script`.
 |-----|---------|
 | `macos` | macOS only |
 | `linux` | Linux only |
+| `linux.ubuntu` | Ubuntu |
+| `linux.debian` | Debian |
+| `linux.alpine` | Alpine Linux |
+| `linux.arch` | Arch Linux |
+| `linux.fedora` | Fedora |
+| `linux.amzn` | Amazon Linux |
+| `linux.<distro>` | Any distro ID from `/etc/os-release` |
 | `freebsd` | FreeBSD only |
 | `netbsd` | NetBSD only |
 | `openbsd` | OpenBSD only |
