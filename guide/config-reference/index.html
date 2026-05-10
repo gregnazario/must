@@ -1976,7 +1976,6 @@
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">[env.</span><span class="err">&lt;</span><span class="k">profile</span><span class="err">&gt;</span><span class="k">]</span><span class="w">    </span><span class="c1"># optional — profile-specific overrides</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">[targets]</span><span class="w">          </span><span class="c1"># optional — cross-compilation target groups</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[recipe.</span><span class="err">&lt;</span><span class="k">name</span><span class="err">&gt;</span><span class="k">]</span><span class="w">    </span><span class="c1"># required — one or more recipes</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">[include]</span><span class="w">          </span><span class="c1"># optional — include other Mustfile.toml files</span>
 </span></code></pre></div>
 <h2 id="project"><code>[project]</code><a class="headerlink" href="#project" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project]</span>
@@ -2029,7 +2028,7 @@
 <tr>
 <td><code>type</code></td>
 <td>string</td>
-<td><strong>Required.</strong> One of the 41 recipe type identifiers</td>
+<td><strong>Required.</strong> One of the 40 recipe type identifiers</td>
 </tr>
 <tr>
 <td><code>package</code></td>
@@ -2049,7 +2048,7 @@
 <tr>
 <td><code>scripts</code></td>
 <td>map</td>
-<td>Per-OS script overrides. Keys: <code>macos</code>, <code>linux</code>, <code>freebsd</code>, <code>netbsd</code>, <code>openbsd</code>, <code>win</code>, <code>unix</code>, <code>bsd</code>. Takes priority over <code>script_win</code> and <code>script</code>.</td>
+<td>Per-OS script overrides. Keys: <code>macos</code>, <code>linux</code>, <code>freebsd</code>, <code>netbsd</code>, <code>openbsd</code>, <code>win</code>, <code>unix</code>, <code>bsd</code>. Distro-level keys like <code>linux.ubuntu</code>, <code>linux.alpine</code>, <code>linux.arch</code>, <code>linux.fedora</code> are also supported (read from <code>/etc/os-release</code>). See <a href="../cross-platform/">Cross-Platform Scripts</a> for details. Takes priority over <code>script_win</code> and <code>script</code>.</td>
 </tr>
 <tr>
 <td><code>deps</code></td>
@@ -2079,12 +2078,7 @@
 <tr>
 <td><code>cache</code></td>
 <td>string</td>
-<td><code>"hash"</code>, <code>"mtime"</code>, or <code>"never"</code></td>
-</tr>
-<tr>
-<td><code>workdir</code></td>
-<td>string</td>
-<td>Working directory relative to project root</td>
+<td><code>"hash"</code>, <code>"mtime"</code>, or <code>"none"</code></td>
 </tr>
 <tr>
 <td><code>features</code></td>
@@ -2103,13 +2097,23 @@
 </tr>
 <tr>
 <td><code>build_args</code></td>
-<td>map</td>
-<td>Docker build args</td>
+<td>string[]</td>
+<td>Docker build arguments</td>
 </tr>
 <tr>
 <td><code>plugin</code></td>
 <td>string</td>
 <td>Plugin name (plugin type)</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>Download URL (<code>precompiled-bin</code> type)</td>
+</tr>
+<tr>
+<td><code>sha256</code></td>
+<td>string</td>
+<td>Expected SHA-256 hash (<code>precompiled-bin</code> type)</td>
 </tr>
 <tr>
 <td><code>sources</code></td>
@@ -2192,9 +2196,10 @@
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">plugin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;protoc&quot;</span>
 </span></code></pre></div>
 <h2 id="include"><code>[include]</code><a class="headerlink" href="#include" title="Permanent link">&para;</a></h2>
-<p>Include another Mustfile.toml (relative path):</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">[include]</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">paths</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;libs/core/Mustfile.toml&quot;</span><span class="p">]</span>
+<p>Include other Mustfile.toml files (relative paths):</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">[project]</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my-app&quot;</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">include</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;libs/core/Mustfile.toml&quot;</span><span class="p">]</span>
 </span></code></pre></div>
 <h2 id="layered-environments">Layered environments<a class="headerlink" href="#layered-environments" title="Permanent link">&para;</a></h2>
 <p>Environment variables are resolved in layers, with later layers overriding earlier ones:</p>

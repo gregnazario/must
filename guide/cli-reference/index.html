@@ -790,6 +790,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#must-clean-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        must clean [--cache]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#must-doctor" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2186,6 +2197,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#must-clean-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        must clean [--cache]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#must-doctor" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2393,26 +2415,31 @@
 </span></code></pre></div>
 <h3 id="must-init"><code>must init</code><a class="headerlink" href="#must-init" title="Permanent link">&para;</a></h3>
 <p>Initialize a new Mustfile.toml interactively.</p>
+<h3 id="must-clean-cache"><code>must clean [--cache]</code><a class="headerlink" href="#must-clean-cache" title="Permanent link">&para;</a></h3>
+<p>Remove build outputs. With <code>--cache</code>, also clears the build cache.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>must<span class="w"> </span>clean<span class="w">           </span><span class="c1"># remove build outputs</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>must<span class="w"> </span>clean<span class="w"> </span>--cache<span class="w">   </span><span class="c1"># remove outputs and cache</span>
+</span></code></pre></div>
 <h3 id="must-doctor"><code>must doctor</code><a class="headerlink" href="#must-doctor" title="Permanent link">&para;</a></h3>
 <p>Check toolchains and environment.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>must<span class="w"> </span>doctor
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>must<span class="w"> </span>doctor
 </span></code></pre></div>
 <p>Output:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>✓ rustc 1.85.0
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>✓ go 1.23.0
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>✓ node 22.0.0
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>✗ zig not found
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>✓ rustc 1.85.0
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>✓ go 1.23.0
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>✓ node 22.0.0
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>✗ zig not found
 </span></code></pre></div>
 <h3 id="must-foreach-command"><code>must foreach -- &lt;COMMAND&gt;</code><a class="headerlink" href="#must-foreach-command" title="Permanent link">&para;</a></h3>
 <p>Run a command in each recipe's context.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>must<span class="w"> </span>foreach<span class="w"> </span>--<span class="w"> </span>build
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>must<span class="w"> </span>foreach<span class="w"> </span>--parallelism<span class="w"> </span><span class="m">4</span><span class="w"> </span>--keep-going<span class="w"> </span>--<span class="w"> </span>build
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>must<span class="w"> </span>foreach<span class="w"> </span>--<span class="w"> </span>build
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>must<span class="w"> </span>foreach<span class="w"> </span>--parallelism<span class="w"> </span><span class="m">4</span><span class="w"> </span>--keep-going<span class="w"> </span>--<span class="w"> </span>build
 </span></code></pre></div>
 <h3 id="must-completions-shell"><code>must completions &lt;SHELL&gt;</code><a class="headerlink" href="#must-completions-shell" title="Permanent link">&para;</a></h3>
 <p>Generate shell completions.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>must<span class="w"> </span>completions<span class="w"> </span>bash
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>must<span class="w"> </span>completions<span class="w"> </span>zsh
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>must<span class="w"> </span>completions<span class="w"> </span>fish
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>must<span class="w"> </span>completions<span class="w"> </span>bash
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>must<span class="w"> </span>completions<span class="w"> </span>zsh
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>must<span class="w"> </span>completions<span class="w"> </span>fish
 </span></code></pre></div>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <table>

@@ -931,6 +931,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#platform-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Platform scripts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Platform scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#script-override-not-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script override not working
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#etcos-release-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        /etc/os-release not found
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2105,6 +2144,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#platform-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Platform scripts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Platform scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#script-override-not-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script override not working
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#etcos-release-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        /etc/os-release not found
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2333,7 +2411,7 @@
 <h3 id="recipe-always-re-runs-never-caches">Recipe always re-runs (never caches)<a class="headerlink" href="#recipe-always-re-runs-never-caches" title="Permanent link">&para;</a></h3>
 <p><strong>Check:</strong>
 - Is <code>phony = true</code> set? This forces re-execution every time.
-- Is <code>cache = "never"</code> set?
+- Is <code>cache = "none"</code> set?
 - For mtime caching: do your <code>outputs</code> exist? If outputs are missing, the recipe always re-runs.</p>
 <h3 id="cache-is-stale-after-switching-branches">Cache is stale after switching branches<a class="headerlink" href="#cache-is-stale-after-switching-branches" title="Permanent link">&para;</a></h3>
 <p>Hash-based caching is branch-switch safe because it uses content hashes. If you're using mtime caching, branch switches can cause false rebuilds because file timestamps change.</p>
@@ -2349,6 +2427,21 @@
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>must<span class="w"> </span>cache<span class="w"> </span>invalidate<span class="w"> </span>--all<span class="w">     </span><span class="c1"># clear everything</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>must<span class="w"> </span>clean<span class="w"> </span>--cache<span class="w">              </span><span class="c1"># remove outputs + cache</span>
 </span></code></pre></div>
+<hr />
+<h2 id="platform-scripts">Platform scripts<a class="headerlink" href="#platform-scripts" title="Permanent link">&para;</a></h2>
+<h3 id="script-override-not-working">Script override not working<a class="headerlink" href="#script-override-not-working" title="Permanent link">&para;</a></h3>
+<p>If a <code>scripts</code> table key isn't matching, check the resolution order:</p>
+<ol>
+<li><code>scripts.linux.&lt;distro&gt;</code> (Linux only, distro from <code>/etc/os-release</code>)</li>
+<li><code>scripts.linux</code> / <code>scripts.macos</code> / <code>scripts.freebsd</code> (exact OS)</li>
+<li><code>scripts.bsd</code> (FreeBSD/NetBSD/OpenBSD) or <code>scripts.unix</code> (any Unix)</li>
+<li><code>scripts.win</code> (Windows)</li>
+<li><code>script_win</code> (Windows shorthand)</li>
+<li><code>script</code> (default fallback)</li>
+</ol>
+<p>Run <code>must explain &lt;recipe&gt;</code> to see which script would be executed.</p>
+<h3 id="etcos-release-not-found"><code>/etc/os-release</code> not found<a class="headerlink" href="#etcos-release-not-found" title="Permanent link">&para;</a></h3>
+<p>Distro-level keys (<code>linux.ubuntu</code>, <code>linux.alpine</code>) only work on Linux systems with <code>/etc/os-release</code>. On other platforms or minimal containers, use <code>linux</code> as a catch-all.</p>
 <hr />
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h2>
 <h3 id="builds-are-slow">Builds are slow<a class="headerlink" href="#builds-are-slow" title="Permanent link">&para;</a></h3>

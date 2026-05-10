@@ -965,6 +965,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#working-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Working directory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#glob-expansion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1905,6 +1916,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#working-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Working directory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#glob-expansion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2033,22 +2055,29 @@
 <td>Environment variables</td>
 </tr>
 <tr>
-<td><code>workdir</code></td>
-<td>string</td>
-<td>Working directory</td>
-</tr>
-<tr>
 <td><code>phony</code></td>
 <td>bool</td>
 <td>Always re-run</td>
 </tr>
 <tr>
 <td><code>cache</code></td>
-<td><code>"hash"</code> / <code>"mtime"</code> / <code>"never"</code></td>
+<td><code>"hash"</code> / <code>"mtime"</code> / <code>"none"</code></td>
 <td>Caching strategy</td>
+</tr>
+<tr>
+<td><code>script_win</code></td>
+<td>string</td>
+<td>Windows override for <code>script</code></td>
+</tr>
+<tr>
+<td><code>scripts</code></td>
+<td>map</td>
+<td>Per-OS script overrides (e.g., <code>macos</code>, <code>linux</code>, <code>linux.ubuntu</code>, <code>win</code>)</td>
 </tr>
 </tbody>
 </table>
+<h2 id="working-directory">Working directory<a class="headerlink" href="#working-directory" title="Permanent link">&para;</a></h2>
+<p>Shell commands execute in the project root directory (where <code>Mustfile.toml</code> is located), regardless of where you run <code>must</code> from.</p>
 <h2 id="glob-expansion">Glob expansion<a class="headerlink" href="#glob-expansion" title="Permanent link">&para;</a></h2>
 <p><code>inputs</code> supports glob patterns:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;src/**/*.rs&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Cargo.toml&quot;</span><span class="p">]</span>
