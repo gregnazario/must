@@ -1,48 +1,71 @@
-# Demonstrates: cross-platform shell recipes using script_win overrides
+# Demonstrates: cross-platform shell recipes with per-OS scripts
 #
 # Usage:
-#   must build          # builds the project
-#   must clean          # cleans build artifacts (platform-specific)
+#   must build          # builds the project (platform-specific compiler)
+#   must clean          # cleans build artifacts
 #   must info           # prints platform info
 #
-# The `script` field is the default (used on Unix/macOS/Linux).
-# The `script_win` field overrides it on Windows.
-# If script_win is not set, `script` is used on all platforms.
+# The `script` field is the default fallback.
+# The `scripts` table provides per-OS overrides with specificity-based resolution:
+#   exact OS (macos, linux, freebsd) > group (unix, bsd, win) > script fallback
+#
+# Resolution order on each platform:
+#   macOS:    scripts.macos  > scripts.unix  > script
+#   Linux:    scripts.linux  > scripts.unix  > script
+#   FreeBSD:  scripts.freebsd > scripts.bsd  > scripts.unix > script
+#   Windows:  scripts.win    > script_win    > script
 
 [project]
 name = "cross-platform-demo"
 version = "0.1.0"
 
 [recipe.info]
-type   = "shell"
-phony  = true
-script     = "uname -a"
-script_win = "ver"
+type  = "shell"
+phony = true
+
+[recipe.info.scripts]
+macos   = "sw_vers"
+linux   = "uname -a"
+freebsd = "freebsd-version -k"
+win     = "ver"
 
 [recipe.build]
 type    = "shell"
 cache   = "hash"
 inputs  = ["src/**"]
 outputs = ["build/"]
-script     = "mkdir -p build && cc -o build/app src/main.c"
-script_win = "if not exist build mkdir build && cl /Fo:build/ /Fe:build/app.exe src/main.c"
+script  = "mkdir -p build && cc -o build/app src/main.c"
+
+[recipe.build.scripts]
+macos   = "mkdir -p build && cc -o build/app src/main.c"
+linux   = "mkdir -p build && gcc -o build/app src/main.c"
+freebsd = "mkdir -p build && cc -o build/app src/main.c"
+win     = "if not exist build mkdir build && cl /Fe:build/app.exe src/main.c"
 
 [recipe.clean]
-type   = "shell"
-phony  = true
-script     = "rm -rf build"
-script_win = "rmdir /s /q build"
+type  = "shell"
+phony = true
+
+[recipe.clean.scripts]
+macos   = "rm -rf build"
+linux   = "rm -rf build"
+freebsd = "rm -rf build"
+win     = "rmdir /s /q build"
 
 [recipe.test]
 type   = "shell"
 deps   = ["build"]
 phony  = true
-script     = "build/app"
-script_win = "build\\app.exe"
+script = "build/app"
+
+[recipe.test.scripts]
+win = "build\\app.exe"
 
 [recipe.watch]
 type   = "shell"
 deps   = ["build"]
 phony  = true
-script     = "find src -name '*.c' | entr -r must build"
-script_win = "must build"
+script = "find src -name '*.c' | entr -r must build"
+
+[recipe.watch.scripts]
+win = "must build"

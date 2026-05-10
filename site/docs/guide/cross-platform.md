@@ -1,11 +1,11 @@
 # Cross-Platform Recipes
 
-Mustfile supports writing shell recipes that work across operating systems.
-On Unix (macOS, Linux) recipes use `sh -c`. On Windows they use `cmd /C`.
+Mustfile supports writing shell recipes that work across macOS, Linux, FreeBSD, and Windows.
+On Unix systems recipes use `sh -c`. On Windows they use `cmd /C`.
 
-## Platform-specific scripts
+## Quick: Windows override
 
-Use `script` for the default (Unix) and `script_win` to override on Windows:
+Use `script` for the default and `script_win` for Windows:
 
 ```toml
 [recipe.clean]
@@ -15,9 +15,48 @@ script     = "rm -rf build"
 script_win = "rmdir /s /q build"
 ```
 
-When `script_win` is set and running on Windows, it takes precedence over `script`.
-On all other platforms, `script` is used. If `script_win` is not set, `script` is
-used everywhere.
+## Per-OS scripts
+
+For finer control, use the `scripts` table to override per operating system:
+
+```toml
+[recipe.build]
+type   = "shell"
+script = "make"
+
+[recipe.build.scripts]
+macos   = "make -j$(sysctl -n hw.ncpu)"
+linux   = "make -j$(nproc)"
+freebsd = "gmake -j$(sysctl -n hw.ncpu)"
+win     = "nmake"
+```
+
+### Resolution order
+
+The `scripts` table is checked in order of specificity. The first match wins:
+
+| Platform | Checked in order |
+|----------|-----------------|
+| macOS | `scripts.macos` → `scripts.unix` → `script` |
+| Linux | `scripts.linux` → `scripts.unix` → `script` |
+| FreeBSD | `scripts.freebsd` → `scripts.bsd` → `scripts.unix` → `script` |
+| NetBSD / OpenBSD | `scripts.netbsd` / `scripts.openbsd` → `scripts.bsd` → `scripts.unix` → `script` |
+| Windows | `scripts.win` → `script_win` → `script` |
+
+The `scripts` table takes priority over `script_win` and `script`.
+
+### Available keys
+
+| Key | Matches |
+|-----|---------|
+| `macos` | macOS only |
+| `linux` | Linux only |
+| `freebsd` | FreeBSD only |
+| `netbsd` | NetBSD only |
+| `openbsd` | OpenBSD only |
+| `win` | Windows only |
+| `unix` | Any Unix (macOS, Linux, FreeBSD, NetBSD, OpenBSD, ...) |
+| `bsd` | FreeBSD, NetBSD, OpenBSD |
 
 ## Full example
 
@@ -31,43 +70,47 @@ type    = "shell"
 cache   = "hash"
 inputs  = ["src/**/*.c"]
 outputs = ["build/app"]
-script     = "mkdir -p build && cc -o build/app src/main.c"
-script_win = "if not exist build mkdir build && cl /Fe:build/app.exe src/main.c"
+script  = "mkdir -p build && cc -o build/app src/main.c"
+
+[recipe.build.scripts]
+macos   = "mkdir -p build && cc -o build/app src/main.c"
+linux   = "mkdir -p build && gcc -o build/app src/main.c"
+freebsd = "mkdir -p build && clang -o build/app src/main.c"
+win     = "if not exist build mkdir build && cl /Fe:build/app.exe src/main.c"
 
 [recipe.clean]
-type   = "shell"
-phony  = true
-script     = "rm -rf build"
-script_win = "rmdir /s /q build"
+type  = "shell"
+phony = true
+
+[recipe.clean.scripts]
+macos   = "rm -rf build"
+linux   = "rm -rf build"
+freebsd = "rm -rf build"
+win     = "rmdir /s /q build"
 
 [recipe.test]
 type   = "shell"
 deps   = ["build"]
 phony  = true
-script     = "./build/app --test"
-script_win = "build\\app.exe --test"
+script = "./build/app --test"
+
+[recipe.test.scripts]
+win = "build\\app.exe --test"
 ```
-
-## How it works
-
-| Platform | Shell         | Field used          |
-|----------|---------------|---------------------|
-| macOS    | `sh -c`       | `script`            |
-| Linux    | `sh -c`       | `script`            |
-| Windows  | `cmd /C`      | `script_win` or `script` |
 
 ## Tips
 
-- **Path separators**: Use `/` in `script` and `\\` in `script_win` for path separators.
-- **Environment variables**: `$VAR` syntax works in `sh`, `%VAR%` works in `cmd`.
+- **Path separators**: Use `/` in Unix scripts, `\\` in Windows scripts.
+- **Environment variables**: `$VAR` in `sh`, `%VAR%` in `cmd`.
 - **Language recipes don't need this**: Recipes like `rust-bin`, `go-bin`, `py-bin` etc.
-  invoke language-specific tools (cargo, go, pip) that are already cross-platform.
-  Only `shell` and `npm` recipes need `script_win`.
-- **CI**: You can test Windows scripts in CI by running `must build` on a Windows runner
-  alongside your Unix runners.
+  invoke language-specific tools that are already cross-platform.
+  Only `shell` and `npm` recipes typically need platform overrides.
+- **CI**: Test Windows scripts on a Windows runner alongside your Unix runners.
+- **Fallback**: Always set `script` as the default — it's used when no platform matches.
 
 ## See also
 
 - [Getting Started](getting-started.md)
 - [Config Reference](config-reference.md)
 - [Cross Compilation](cross-compilation.md)
+- [Troubleshooting](troubleshooting.md)

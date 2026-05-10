@@ -73,7 +73,8 @@ Every recipe has these fields:
 | `type` | string | **Required.** One of the 41 recipe type identifiers |
 | `package` | string | Package/target/module path (most types) |
 | `script` | string | Shell command (`shell` / `npm` types) |
-| `script_win` | string | Windows override for `script` (falls back to `script` if unset) |
+| `script_win` | string | Windows override for `script` (shorthand) |
+| `scripts` | map | Per-OS script overrides. Keys: `macos`, `linux`, `freebsd`, `netbsd`, `openbsd`, `win`, `unix`, `bsd`. Takes priority over `script_win` and `script`. |
 | `deps` | string[] | Dependencies — must complete before this recipe |
 | `env` | map | Recipe-specific environment variables |
 | `inputs` | string[] | Input file globs (for cache hashing) |

@@ -2914,6 +2914,7 @@ mod tests {
             outputs: vec![],
             script: Some("echo ok".into()),
             script_win: None,
+            scripts: HashMap::new(),
             cache: None,
             phony: false,
             env: HashMap::new(),
