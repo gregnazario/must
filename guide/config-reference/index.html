@@ -2044,7 +2044,12 @@
 <tr>
 <td><code>script_win</code></td>
 <td>string</td>
-<td>Windows override for <code>script</code> (falls back to <code>script</code> if unset)</td>
+<td>Windows override for <code>script</code> (shorthand)</td>
+</tr>
+<tr>
+<td><code>scripts</code></td>
+<td>map</td>
+<td>Per-OS script overrides. Keys: <code>macos</code>, <code>linux</code>, <code>freebsd</code>, <code>netbsd</code>, <code>openbsd</code>, <code>win</code>, <code>unix</code>, <code>bsd</code>. Takes priority over <code>script_win</code> and <code>script</code>.</td>
 </tr>
 <tr>
 <td><code>deps</code></td>
