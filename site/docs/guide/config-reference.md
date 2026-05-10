@@ -10,7 +10,6 @@ The `Mustfile.toml` is the single source of truth for your project's build confi
 [env.<profile>]    # optional — profile-specific overrides
 [targets]          # optional — cross-compilation target groups
 [recipe.<name>]    # required — one or more recipes
-[include]          # optional — include other Mustfile.toml files
 ```
 
 ## `[project]`
@@ -70,23 +69,24 @@ Every recipe has these fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | string | **Required.** One of the 41 recipe type identifiers |
+| `type` | string | **Required.** One of the 40 recipe type identifiers |
 | `package` | string | Package/target/module path (most types) |
 | `script` | string | Shell command (`shell` / `npm` types) |
 | `script_win` | string | Windows override for `script` (shorthand) |
-| `scripts` | map | Per-OS script overrides. Keys: `macos`, `linux`, `freebsd`, `netbsd`, `openbsd`, `win`, `unix`, `bsd`. Takes priority over `script_win` and `script`. |
+| `scripts` | map | Per-OS script overrides. Keys: `macos`, `linux`, `freebsd`, `netbsd`, `openbsd`, `win`, `unix`, `bsd`. Distro-level keys like `linux.ubuntu`, `linux.alpine`, `linux.arch`, `linux.fedora` are also supported (read from `/etc/os-release`). See [Cross-Platform Scripts](cross-platform.md) for details. Takes priority over `script_win` and `script`. |
 | `deps` | string[] | Dependencies — must complete before this recipe |
 | `env` | map | Recipe-specific environment variables |
 | `inputs` | string[] | Input file globs (for cache hashing) |
 | `outputs` | string[] | Output file paths |
 | `phony` | bool | Always re-run, skip caching (default: false) |
-| `cache` | string | `"hash"`, `"mtime"`, or `"never"` |
-| `workdir` | string | Working directory relative to project root |
+| `cache` | string | `"hash"`, `"mtime"`, or `"none"` |
 | `features` | string[] | Feature flags (Rust recipes) |
 | `image` | string | Docker image name (Docker recipes) |
 | `dockerfile` | string | Path to Dockerfile |
-| `build_args` | map | Docker build args |
+| `build_args` | string[] | Docker build arguments |
 | `plugin` | string | Plugin name (plugin type) |
+| `url` | string | Download URL (`precompiled-bin` type) |
+| `sha256` | string | Expected SHA-256 hash (`precompiled-bin` type) |
 | `sources` | string[] | Source files (C recipes) |
 | `includes` | string[] | Include directories (C recipes) |
 | `link_libs` | string[] | Libraries to link (C recipes) |
@@ -177,11 +177,12 @@ plugin = "protoc"
 
 ## `[include]`
 
-Include another Mustfile.toml (relative path):
+Include other Mustfile.toml files (relative paths):
 
 ```toml
-[include]
-paths = ["libs/core/Mustfile.toml"]
+[project]
+name = "my-app"
+include = ["libs/core/Mustfile.toml"]
 ```
 
 ## Layered environments

@@ -106,7 +106,7 @@ TOML parsing or validation error.
 
 **Check:**
 - Is `phony = true` set? This forces re-execution every time.
-- Is `cache = "never"` set?
+- Is `cache = "none"` set?
 - For mtime caching: do your `outputs` exist? If outputs are missing, the recipe always re-runs.
 
 ### Cache is stale after switching branches
@@ -130,6 +130,27 @@ must cache invalidate build     # clear one recipe
 must cache invalidate --all     # clear everything
 must clean --cache              # remove outputs + cache
 ```
+
+---
+
+## Platform scripts
+
+### Script override not working
+
+If a `scripts` table key isn't matching, check the resolution order:
+
+1. `scripts.linux.<distro>` (Linux only, distro from `/etc/os-release`)
+2. `scripts.linux` / `scripts.macos` / `scripts.freebsd` (exact OS)
+3. `scripts.bsd` (FreeBSD/NetBSD/OpenBSD) or `scripts.unix` (any Unix)
+4. `scripts.win` (Windows)
+5. `script_win` (Windows shorthand)
+6. `script` (default fallback)
+
+Run `must explain <recipe>` to see which script would be executed.
+
+### `/etc/os-release` not found
+
+Distro-level keys (`linux.ubuntu`, `linux.alpine`) only work on Linux systems with `/etc/os-release`. On other platforms or minimal containers, use `linux` as a catch-all.
 
 ---
 

@@ -4,7 +4,7 @@
 One config. Every language.
 </p>
 
-A polyglot build orchestrator with first-class support for **42 recipe types** across **17+ languages**.
+A polyglot build orchestrator with first-class support for **40 recipe types** across **17+ languages**.
 
 Replace your Makefiles, Justfiles, and Taskfiles with a single `Mustfile.toml` that knows how to build, test, cache, and cross-compile every language in your project.
 
@@ -84,7 +84,7 @@ must explain build  # cache key, inputs, command preview
 
 ## Features
 
-- :material-language-rust: **42 recipe types** with first-class caching
+- :material-language-rust: **40 recipe types** with first-class caching
 - :material-speedometer: **Smart caching** — content-hash for compiled, mtime for shell
 - :material-earth: **Cross-compilation** — automatic toolchain resolution
 - :material-graph: **Dependency graph** — `must graph` visualizes your build

@@ -169,6 +169,15 @@ must import Makefile
 
 Initialize a new Mustfile.toml interactively.
 
+### `must clean [--cache]`
+
+Remove build outputs. With `--cache`, also clears the build cache.
+
+```bash
+must clean           # remove build outputs
+must clean --cache   # remove outputs and cache
+```
+
 ### `must doctor`
 
 Check toolchains and environment.

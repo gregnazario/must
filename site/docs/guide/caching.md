@@ -8,7 +8,7 @@ must uses intelligent caching to avoid redundant work. The strategy depends on t
 |----------|---------|-------------|
 | `hash` | rust-bin, go-bin, c-bin, ts-bin, etc. | Content hash of inputs + env + toolchain version |
 | `mtime` | shell (default) | Modification time of input files |
-| `never` | rust-test, go-test, py-test, etc. | Always re-run (test results should be fresh) |
+| `none` | rust-test, go-test, py-test, etc. | Always re-run (test results should be fresh) |
 
 ## Content-hash caching
 

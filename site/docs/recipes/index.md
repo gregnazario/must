@@ -1,6 +1,6 @@
 # All Recipe Types
 
-must supports **42 recipe types** across **17 languages**. Each recipe type knows how to invoke the right toolchain, compute cache keys, and handle errors.
+must supports **40 recipe types** across **17 languages**. Each recipe type knows how to invoke the right toolchain, compute cache keys, and handle errors.
 
 ## Quick reference
 
@@ -9,41 +9,41 @@ must supports **42 recipe types** across **17 languages**. Each recipe type know
 | `shell` | Any | Shell script | mtime (default) or hash |
 | `rust-bin` | Rust | `cargo build -p <pkg>` | hash |
 | `rust-lib` | Rust | `cargo build --lib -p <pkg>` | hash |
-| `rust-test` | Rust | `cargo test -p <pkg>` | never |
+| `rust-test` | Rust | `cargo test -p <pkg>` | none |
 | `go-bin` | Go | `go build` | hash |
-| `go-test` | Go | `go test` | never |
+| `go-test` | Go | `go test` | none |
 | `c-bin` | C | `cc -o <output> <sources>` | hash |
 | `c-lib` | C | `ar rcs` / `cc -shared` | hash |
 | `ts-bin` | TypeScript | `tsc --project` | hash |
-| `ts-check` | TypeScript | `tsc --noEmit` | never |
-| `ts-lint` | TypeScript | `biome lint` | never |
+| `ts-check` | TypeScript | `tsc --noEmit` | none |
+| `ts-lint` | TypeScript | `biome lint` | none |
 | `npm` | JS/TS | `npm run <script>` | hash |
 | `py-bin` | Python | Python build | hash |
-| `py-test` | Python | `pytest` | never |
-| `py-lint` | Python | `ruff check` + `mypy` | never |
+| `py-test` | Python | `pytest` | none |
+| `py-lint` | Python | `ruff check` + `mypy` | none |
 | `zig-bin` | Zig | `zig build` | hash |
-| `zig-test` | Zig | `zig build test` | never |
+| `zig-test` | Zig | `zig build test` | none |
 | `java-bin` | Java | `./gradlew build` | hash |
-| `java-test` | Java | `./gradlew test` | never |
+| `java-test` | Java | `./gradlew test` | none |
 | `kotlin-bin` | Kotlin | `./gradlew build` | hash |
-| `kotlin-test` | Kotlin | `./gradlew test` | never |
+| `kotlin-test` | Kotlin | `./gradlew test` | none |
 | `swift-bin` | Swift | `swift build -c release` | hash |
-| `swift-test` | Swift | `swift test` | never |
+| `swift-test` | Swift | `swift test` | none |
 | `dotnet-build` | .NET | `dotnet build` | hash |
-| `dotnet-test` | .NET | `dotnet test` | never |
+| `dotnet-test` | .NET | `dotnet test` | none |
 | `dotnet-publish` | .NET | `dotnet publish` | hash |
 | `ruby-bin` | Ruby | `bundle install` + build | hash |
-| `ruby-test` | Ruby | `bundle exec rspec` | never |
+| `ruby-test` | Ruby | `bundle exec rspec` | none |
 | `dart-bin` | Dart | `dart compile exe` | hash |
-| `dart-test` | Dart | `dart test` | never |
+| `dart-test` | Dart | `dart test` | none |
 | `elixir-build` | Elixir | `mix deps.get` + `mix compile` | hash |
-| `elixir-test` | Elixir | `mix test` | never |
+| `elixir-test` | Elixir | `mix test` | none |
 | `flutter-build` | Flutter | `flutter build <platform>` | hash |
-| `flutter-test` | Flutter | `flutter test` | never |
+| `flutter-test` | Flutter | `flutter test` | none |
 | `nim-bin` | Nim | `nim c -d:release` | hash |
-| `nim-test` | Nim | `nim r --hints:off` | never |
+| `nim-test` | Nim | `nim r --hints:off` | none |
 | `docker-build` | Docker | `docker build` | hash |
-| `docker-push` | Docker | `docker push` | never |
+| `docker-push` | Docker | `docker push` | none |
 | `precompiled-bin` | Any | Download + SHA-256 verify | hash |
 | `plugin` | Lua | User-defined | mtime |
 
@@ -56,7 +56,6 @@ All recipes support:
 type    = "..."          # required
 deps    = ["dep1"]       # optional dependencies
 env     = { KEY = "val" }  # optional env vars
-workdir = "subdir/"      # optional working directory
 phony   = false           # optional: always re-run
 ```
 

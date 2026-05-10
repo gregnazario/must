@@ -5,7 +5,7 @@
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
-- **42 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
+- **40 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
 - **Pragmatic caching:** Content-hash caching for compiled recipes; mtime for shell; `must cache` for management
 - **Cross-compilation:** Automatic GOOS/GOARCH, cross-rs containers, and C cross-compilers
 - **Env interpolation:** `${VAR}` expansion in scripts, images, and flags from layered env config
@@ -149,6 +149,8 @@ script = "echo CI passed"
 | `must plugin check <name>` | Validate a plugin without executing it |
 | `must plugin install <url>` | Install a plugin from a URL |
 | `must clean [--cache]` | Remove outputs and optionally cache |
+| `must fmt` | Check code formatting |
+| `must lint` | Run linters |
 | `must init [--template]` | Create a Mustfile.toml from a template |
 | `must import` | Convert a Makefile to Mustfile.toml |
 | `must watch [recipes]` | Watch files and rebuild on change |
@@ -198,7 +200,7 @@ must build --target release
 
 - **Hash strategy:** SHA-256 of inputs + env — branch-switch safe
 - **Mtime strategy:** Compare input/output timestamps — fast
-- **Never:** Always re-run (tests, lints)
+- **None:** Always re-run (tests, lints)
 
 ```toml
 [recipe.codegen]

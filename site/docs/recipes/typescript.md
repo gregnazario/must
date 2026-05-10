@@ -61,7 +61,7 @@ Cache strategy: `never` (npm scripts are not cached).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"never"`), `phony` (always re-run), and `workdir` (working directory).
+All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
 
 ## Examples
 

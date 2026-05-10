@@ -45,9 +45,14 @@ script = "cargo clean && rm -rf dist/"
 | `outputs` | string[] | Output file paths |
 | `deps` | string[] | Dependencies |
 | `env` | map | Environment variables |
-| `workdir` | string | Working directory |
 | `phony` | bool | Always re-run |
-| `cache` | `"hash"` / `"mtime"` / `"never"` | Caching strategy |
+| `cache` | `"hash"` / `"mtime"` / `"none"` | Caching strategy |
+| `script_win` | string | Windows override for `script` |
+| `scripts` | map | Per-OS script overrides (e.g., `macos`, `linux`, `linux.ubuntu`, `win`) |
+
+## Working directory
+
+Shell commands execute in the project root directory (where `Mustfile.toml` is located), regardless of where you run `must` from.
 
 ## Glob expansion
 
