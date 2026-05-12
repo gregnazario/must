@@ -1,6 +1,6 @@
 # All Recipe Types
 
-must supports **40 recipe types** across **17 languages**. Each recipe type knows how to invoke the right toolchain, compute cache keys, and handle errors.
+must supports **41 recipe types** across **17 languages** plus **20 bridge tools**. Each recipe type knows how to invoke the right toolchain, compute cache keys, and handle errors.
 
 ## Quick reference
 
@@ -46,6 +46,7 @@ must supports **40 recipe types** across **17 languages**. Each recipe type know
 | `docker-push` | Docker | `docker push` | none |
 | `precompiled-bin` | Any | Download + SHA-256 verify | hash |
 | `plugin` | Lua | User-defined | mtime |
+| `bridge` | Any | Delegates to existing tool | none |
 
 ## Common fields
 
@@ -80,4 +81,5 @@ See the individual recipe pages for detailed configuration, caching behavior, an
 - [Nim](nim.md) — nim compile/test
 - [Docker](docker.md) — docker build/push
 - [Precompiled Binaries](precompiled-bin.md) — download and cache prebuilt binaries
+- [Bridge](bridge.md) — delegate to Make, npm, Gradle, Bazel, and 16 other tools
 - [Plugins](../guide/plugins.md) — custom Lua recipe types

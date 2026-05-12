@@ -98,8 +98,9 @@ nav:
     - Nim: recipes/nim.md
     - Docker: recipes/docker.md
     - Precompiled Binaries: recipes/precompiled-bin.md
+    - Bridge: recipes/bridge.md
   - Advanced:
-    - Importing from Makefile: advanced/import.md
+    - Importing Build Files: advanced/import.md
     - GitHub Actions: advanced/github-actions.md
     - Architecture: advanced/architecture.md
   - Migration:

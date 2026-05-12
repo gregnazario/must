@@ -1,19 +1,35 @@
-# Importing from Makefile
+# Importing Build Files
 
-must can import existing Makefiles and generate a starter `Mustfile.toml`.
+must can import existing build files and produce a starter `Mustfile.toml`. Supports Makefiles, Justfiles, and Taskfiles.
+
+## Supported formats
+
+| Format | File | `--format` flag | Auto-detected by filename |
+|--------|------|-----------------|---------------------------|
+| Make | `Makefile` | `make` (default) | Any file not matching below |
+| Just | `justfile`, `Justfile` | `just` | `justfile` or `justfile.*` |
+| Taskfile | `Taskfile.yml`, `Taskfile.yaml` | `taskfile` | `Taskfile*.yml` / `Taskfile*.yaml` |
 
 ## Basic usage
 
 ```bash
-must import Makefile
+# Auto-detect format from filename
+must import --makefile Makefile
+must import --makefile justfile
+must import --makefile Taskfile.yml
+
+# Explicit format
+must import --makefile build.tasks --format just
 ```
 
-This reads your Makefile and generates:
+This generates:
 
 1. `Mustfile.toml` — converted recipes
-2. `import-report.md` — detailed report of what was converted and what needs manual review
+2. `MUSTFILE_IMPORT_REPORT.md` — detailed report
 
 ## What gets imported
+
+### From Makefile
 
 | Makefile construct | Mustfile equivalent |
 |-------------------|---------------------|
@@ -25,12 +41,32 @@ This reads your Makefile and generates:
 | Shell functions | Preserved as-is in script |
 | Automatic variables (`$@`, `$<`, `$^`) | Expanded inline |
 
+### From Justfile
+
+| Justfile construct | Mustfile equivalent |
+|--------------------|---------------------|
+| `recipe_name:` | `[recipe.recipe_name]` |
+| `recipe_name: dep1 dep2` | `deps = ["dep1", "dep2"]` |
+| Recipe body | `script = "..."` with `type = "shell"` |
+| `export VAR = "value"` | `[env] VAR = "value"` |
+| `set shell := [...]` | Skipped (noted in report) |
+| `[linux]` / `[windows]` attributes | Skipped (noted in report) |
+
+### From Taskfile
+
+| Taskfile construct | Mustfile equivalent |
+|--------------------|---------------------|
+| `tasks: name: cmds:` | `[recipe.name]` with script |
+| `deps: [build]` | `deps = ["build"]` |
+| `desc: "description"` | Noted in report |
+| `cmds:` list | Joined into single script |
+
 ## Import report
 
-The generated `import-report.md` contains:
+The generated `MUSTFILE_IMPORT_REPORT.md` contains:
 
 - Successfully converted recipes
-- Skipped rules (pattern rules, implicit rules)
+- Skipped rules (pattern rules, attributes, etc.)
 - Variables that need manual review
 - Suggestions for converting to first-class recipe types
 
@@ -72,3 +108,14 @@ package = "my-app"
 ```
 
 Benefits: automatic caching, cross-compilation support, toolchain version tracking.
+
+## Or: use bridge mode instead
+
+If you'd rather not convert, just use `must` directly against your existing build files — no import needed:
+
+```bash
+cd my-makefile-project
+must build    # auto-detects Makefile, runs: make
+```
+
+See [Bridge Recipes](../recipes/bridge.md) for details.
