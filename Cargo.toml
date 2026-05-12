@@ -28,6 +28,7 @@ members = [
     "crates/must-recipe-flutter",
     "crates/must-recipe-precompiled",
     "crates/must-recipe-nim",
+    "crates/must-bridge",
 ]
 
 [workspace.package]

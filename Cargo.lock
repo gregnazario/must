@@ -1213,6 +1213,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "must-bridge"
+version = "0.1.0"
+dependencies = [
+ "must-cache",
+ "must-config",
+ "must-core",
+ "tempfile",
+]
+
+[[package]]
 name = "must-cache"
 version = "0.1.0"
 dependencies = [
@@ -1232,6 +1242,7 @@ dependencies = [
  "clap_complete",
  "glob",
  "indicatif",
+ "must-bridge",
  "must-cache",
  "must-config",
  "must-core",

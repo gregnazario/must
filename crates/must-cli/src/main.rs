@@ -22,7 +22,9 @@ use must_recipe_shell::ShellRecipe;
 use must_recipe_swift::{SwiftBinRecipe, SwiftTestRecipe};
 use must_recipe_ts::{NpmRecipe, TsBinRecipe, TsCheckRecipe, TsLintRecipe};
 use must_recipe_zig::{ZigBinRecipe, ZigTestRecipe};
+use must_bridge::BridgeRecipe;
 use std::collections::HashMap;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
@@ -106,15 +108,19 @@ enum Commands {
         /// Recipe name to explain
         recipe: String,
     },
-    /// Import a Makefile and produce a Mustfile.toml
+    /// Import a Makefile, Justfile, or Taskfile and produce a Mustfile.toml
     Import {
-        /// Path to the Makefile to import
+        /// Path to the file to import (Makefile, justfile, or Taskfile.yml)
         #[arg(long, default_value = "Makefile")]
         makefile: PathBuf,
 
         /// Output path for the generated Mustfile.toml
         #[arg(long, default_value = "Mustfile.toml")]
         out: PathBuf,
+
+        /// Input format: make, just, or taskfile (auto-detected from filename)
+        #[arg(long)]
+        format: Option<String>,
     },
     /// Create a new Mustfile.toml in the current directory
     Init {
@@ -266,13 +272,21 @@ fn main() {
         return;
     }
 
-    if let Commands::Import { makefile, out } = &cli.command {
+    if let Commands::Import { makefile, out, format } = &cli.command {
         let input = std::fs::read_to_string(makefile).map_err(must_core::Error::Io).unwrap();
-        let result = must_import::import(&input);
+        let fmt = format
+            .as_deref()
+            .map(String::from)
+            .unwrap_or_else(|| detect_import_format(makefile));
+        let result = match fmt.as_str() {
+            "just" | "justfile" => must_import::import_justfile(&input),
+            "task" | "taskfile" => must_import::import_taskfile(&input),
+            _ => must_import::import(&input),
+        };
         std::fs::write(out, &result.toml).map_err(must_core::Error::Io).unwrap();
         let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
         std::fs::write(&report_path, &result.report).map_err(must_core::Error::Io).unwrap();
-        println!("Imported {} → {}", makefile.display(), out.display());
+        println!("Imported {} ({}) → {}", makefile.display(), fmt, out.display());
         println!(
             "  {} translated, {} TODO, {} skipped",
             result.translated_count, result.todo_count, result.skipped_count
@@ -289,21 +303,6 @@ fn main() {
 }
 
 async fn run(cli: Cli) -> must_core::Result<()> {
-    if let Commands::Import { makefile, out } = cli.command {
-        let input = std::fs::read_to_string(&makefile).map_err(must_core::Error::Io)?;
-        let result = must_import::import(&input);
-        std::fs::write(&out, &result.toml).map_err(must_core::Error::Io)?;
-        let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
-        std::fs::write(&report_path, &result.report).map_err(must_core::Error::Io)?;
-        println!("Imported {} → {}", makefile.display(), out.display());
-        println!(
-            "  {} translated, {} TODO, {} skipped",
-            result.translated_count, result.todo_count, result.skipped_count
-        );
-        println!("Report: {}", report_path.display());
-        return Ok(());
-    }
-
     if matches!(cli.command, Commands::Doctor) {
         run_doctor();
         return Ok(());
@@ -333,7 +332,17 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         .file
         .unwrap_or_else(|| find_mustfile().unwrap_or_else(|| PathBuf::from("Mustfile.toml")));
 
-    let config = load_config(&mustfile_path)?;
+    let config = if mustfile_path.exists() {
+        load_config(&mustfile_path)?
+    } else if let Some(auto) = must_bridge::auto_config(mustfile_path.parent().unwrap_or(Path::new("."))) {
+        eprintln!("(auto-detected from build files — no Mustfile.toml found)");
+        auto
+    } else {
+        return Err(Error::Config {
+            path: mustfile_path,
+            message: "no Mustfile.toml found and no build files detected".to_string(),
+        });
+    };
 
     let targets = resolve_targets(&cli.target, &config);
 
@@ -917,6 +926,20 @@ async fn run(cli: Cli) -> must_core::Result<()> {
     }
 
     Ok(())
+}
+
+fn detect_import_format(path: &Path) -> String {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    if name == "justfile" || name.starts_with("justfile.") {
+        "just".to_string()
+    } else if name.starts_with("taskfile") && (name.ends_with(".yml") || name.ends_with(".yaml")) {
+        "taskfile".to_string()
+    } else {
+        "make".to_string()
+    }
 }
 
 fn run_init(out: &Path, name: Option<&str>, template: &str) -> must_core::Result<()> {
@@ -1634,6 +1657,13 @@ async fn execute_recipes(
                   r.env = env;
                   recipe_map.insert(name.clone(), Arc::new(r));
               }
+              RecipeType::Bridge => {
+                  let script = recipe_cfg.resolved_script().cloned().unwrap_or_default();
+                  let tool = recipe_cfg.package.clone().unwrap_or_else(|| "unknown".to_string());
+                  let mut r = BridgeRecipe::new(name.clone(), tool, script);
+                  r.deps = recipe_cfg.deps.clone();
+                  recipe_map.insert(name.clone(), Arc::new(r));
+              }
         }
     }
 
@@ -1689,6 +1719,13 @@ async fn execute_recipes(
         );
         pb.set_message("starting...");
 
+        if std::io::stdout().is_terminal() {
+            let pb_print = pb.clone();
+            must_core::set_output_fn(Box::new(move |line: &str| {
+                pb_print.println(line);
+            }));
+        }
+
         let (tx, mut rx) = tokio::sync::mpsc::channel::<must_engine::ProgressEvent>(64);
 
         let pb_clone = pb.clone();
@@ -1719,6 +1756,7 @@ async fn execute_recipes(
 
         let report = engine.execute_with_progress(&sub_dag, &recipe_map, &ctx, tx).await;
         progress_task.await.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+        must_core::clear_output_fn();
         pb.finish_and_clear();
         let report = report?;
 
@@ -2240,6 +2278,11 @@ fn explain_recipe(
             recipe.url.as_deref().unwrap_or("?"),
             recipe.package.as_deref().unwrap_or("?")
         ),
+        RecipeType::Bridge => format!(
+            "{} (via {})",
+            recipe.resolved_script().map(|s| s.as_str()).unwrap_or("?"),
+            recipe.package.as_deref().unwrap_or("?")
+        ),
     };
 
     if !command_preview.is_empty() {
@@ -2433,6 +2476,7 @@ fn recipe_type_tag(rt: &RecipeType) -> &'static str {
         RecipeType::NimBin => "nim-bin",
         RecipeType::NimTest => "nim-test",
         RecipeType::PrecompiledBin => "precompiled-bin",
+        RecipeType::Bridge => "bridge",
     }
 }
 
@@ -2649,6 +2693,7 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::FlutterBuild | RecipeType::FlutterTest => ("flutter", "\x1b[36m"),
         RecipeType::NimBin | RecipeType::NimTest => ("nim", "\x1b[33m"),
         RecipeType::PrecompiledBin => ("bin", "\x1b[32m"),
+        RecipeType::Bridge => ("bridge", "\x1b[33m"),
     }
 }
 
@@ -4131,24 +4176,66 @@ phony = true
         assert!(tmp.path().join("Mustfile.toml").exists());
     }
 
-    #[tokio::test]
-    async fn test_run_import() {
+    #[test]
+    fn test_import_makefile() {
         let tmp = tempfile::TempDir::new().unwrap();
         let makefile = tmp.path().join("Makefile");
         std::fs::write(&makefile, "all:\n\techo hello\n").unwrap();
         let out = tmp.path().join("Mustfile.toml");
-        let cli = Cli {
-            file: None,
-            target: vec![],
-            profile: "default".into(),
-            parallelism: Some(1),
-            dry_run: false,
-            fail_fast: false,
-            verbose: 0,
-            command: Commands::Import { makefile, out },
+        let input = std::fs::read_to_string(&makefile).unwrap();
+        let fmt = detect_import_format(&makefile);
+        let result = match fmt.as_str() {
+            "just" | "justfile" => must_import::import_justfile(&input),
+            "task" | "taskfile" => must_import::import_taskfile(&input),
+            _ => must_import::import(&input),
         };
-        let result = run(cli).await;
-        assert!(result.is_ok());
+        std::fs::write(&out, &result.toml).unwrap();
+        assert!(out.exists());
+        assert!(result.toml.contains("shell"));
+    }
+
+    #[test]
+    fn test_import_justfile() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let justfile = tmp.path().join("justfile");
+        std::fs::write(&justfile, "build:\n    cargo build\n").unwrap();
+        let fmt = detect_import_format(&justfile);
+        assert_eq!(fmt, "just");
+        let input = std::fs::read_to_string(&justfile).unwrap();
+        let result = must_import::import_justfile(&input);
+        assert!(result.toml.contains("shell"));
+    }
+
+    #[test]
+    fn test_import_taskfile() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let taskfile = tmp.path().join("Taskfile.yml");
+        std::fs::write(
+            &taskfile,
+            "tasks:\n  build:\n    cmds:\n      - echo hello\n",
+        )
+        .unwrap();
+        let fmt = detect_import_format(&taskfile);
+        assert_eq!(fmt, "taskfile");
+        let input = std::fs::read_to_string(&taskfile).unwrap();
+        let result = must_import::import_taskfile(&input);
+        assert!(result.toml.contains("shell"));
+    }
+
+    #[test]
+    fn test_detect_import_format() {
+        assert_eq!(detect_import_format(Path::new("justfile")), "just");
+        assert_eq!(detect_import_format(Path::new("Justfile")), "just");
+        assert_eq!(
+            detect_import_format(Path::new("Taskfile.yml")),
+            "taskfile"
+        );
+        assert_eq!(
+            detect_import_format(Path::new("Taskfile.yaml")),
+            "taskfile"
+        );
+        assert_eq!(detect_import_format(Path::new("Makefile")), "make");
+        assert_eq!(detect_import_format(Path::new("GNUmakefile")), "make");
     }
 
     #[tokio::test]

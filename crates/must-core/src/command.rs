@@ -1,4 +1,5 @@
 use crate::error::{Error, Result};
+use crate::output::{print_error, print_output};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, ExitStatus, Stdio};
 
@@ -49,7 +50,7 @@ pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandO
         for line in reader.lines() {
             match line {
                 Ok(l) => {
-                    println!("{l}");
+                    print_output(&l);
                     buf.push_str(&l);
                     buf.push('\n');
                 }
@@ -65,7 +66,7 @@ pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandO
         for line in reader.lines() {
             match line {
                 Ok(l) => {
-                    eprintln!("{l}");
+                    print_error(&l);
                     buf.push_str(&l);
                     buf.push('\n');
                 }

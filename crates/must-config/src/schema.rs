@@ -189,6 +189,7 @@ pub enum RecipeType {
     NimBin,
     NimTest,
     PrecompiledBin,
+    Bridge,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
