@@ -2148,3 +2148,542 @@ name = "plugin-remove-test"
     assert!(output.status.success());
     assert!(!plugin_dir.join("temp.lua").exists(), "plugin should be removed");
 }
+
+#[test]
+fn test_bridge_makefile_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-make-test"
+
+[recipe.build]
+type    = "bridge"
+package = "make"
+script  = "make hello"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Makefile"),
+        "hello:\n\techo hello-from-make\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("hello-from-make"), "should contain make output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_justfile_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-just-test"
+
+[recipe.fmt]
+type    = "bridge"
+package = "just"
+script  = "just fmt"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("justfile"),
+        "fmt:\n\techo formatted-by-just\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "fmt"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("formatted-by-just"), "should contain just output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_npm_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-npm-test"
+
+[recipe.build]
+type    = "bridge"
+package = "npm"
+script  = "npm run build"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("package.json"),
+        r#"{ "scripts": { "build": "echo npm-build-output" } }"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("npm-build-output"), "should contain npm output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_gradle_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-gradle-test"
+
+[recipe.build]
+type    = "bridge"
+package = "gradle"
+script  = "gradle tasks"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(root.join("build.gradle"), "").unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("tasks") || stdout.contains("BUILD"), "should contain gradle output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_rake_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-rake-test"
+
+[recipe.build]
+type    = "bridge"
+package = "rake"
+script  = "rake hello"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Rakefile"),
+        "task :hello do\n  puts 'hello-from-rake'\nend\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("hello-from-rake"), "should contain rake output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_invoke_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-invoke-test"
+
+[recipe.build]
+type    = "bridge"
+package = "invoke"
+script  = "invoke hello"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("tasks.py"),
+        "from invoke import task\n@task\ndef hello(ctx):\n    print('hello-from-invoke')\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("hello-from-invoke"), "should contain invoke output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_cache_is_none() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-cache-test"
+
+[recipe.build]
+type    = "bridge"
+package = "make"
+script  = "make hello"
+cache   = "none"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Makefile"),
+        "hello:\n\techo no-cache\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("no-cache"), "should contain output, got: {stdout}");
+        assert!(!stdout.contains("from_cache"), "bridge should never report from_cache");
+    }
+}
+
+#[test]
+fn test_autodetect_makefile() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Makefile"),
+        "hello:\n\techo autodetected-make\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("auto-detected"), "should show auto-detect message, got stderr: {stderr}");
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("autodetected-make"), "should contain make output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_autodetect_makefile_test_target() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Makefile"),
+        "test:\n\techo autodetected-make-test\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "test"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("autodetected-make-test"), "should contain make test output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_autodetect_justfile() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("justfile"),
+        "build:\n\techo autodetected-just\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("auto-detected"), "should show auto-detect message, got stderr: {stderr}");
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("autodetected-just"), "should contain just output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_autodetect_package_json() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("package.json"),
+        r#"{ "scripts": { "build": "echo autodetected-npm-build" } }"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("auto-detected"), "should show auto-detect message, got stderr: {stderr}");
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("autodetected-npm-build"), "should contain npm output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_autodetect_multi_tool() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Makefile"),
+        "build:\n\techo multi-make-build\n",
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("package.json"),
+        r#"{ "scripts": { "build": "echo multi-npm-build" } }"#,
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let combined = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    assert!(combined.contains("auto-detected"), "should show auto-detect message, got: {combined}");
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("build"), "should have unprefixed build recipe");
+    assert!(stdout.contains("npm-build"), "should have prefixed npm-build recipe");
+}
+
+#[test]
+fn test_autodetect_no_files_error() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let combined = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    assert!(combined.contains("no Mustfile.toml") || combined.contains("no build files"), "should error about missing files, got: {combined}");
+}
+
+#[test]
+fn test_autodetect_list_shows_bridge_recipes() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(root.join("Makefile"), "build:\n\techo hi\n").unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("build"), "should list build recipe");
+    assert!(stdout.contains("test"), "should list test recipe");
+    assert!(stdout.contains("bridge"), "should show bridge type");
+}
+
+#[test]
+fn test_bridge_maven_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-maven-test"
+
+[recipe.build]
+type    = "bridge"
+package = "mvn"
+script  = "mvn --version"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(root.join("pom.xml"), "<project></project>").unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Maven") || stdout.contains("Apache"), "should contain maven output, got: {stdout}");
+    }
+}
+
+#[test]
+fn test_bridge_sbt_explicit() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-sbt-test"
+
+[recipe.build]
+type    = "bridge"
+package = "sbt"
+script  = "sbt --version"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(root.join("build.sbt"), "").unwrap();
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(!stdout.is_empty(), "should have sbt output");
+    }
+}
+
+#[test]
+fn test_bridge_dry_run() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        r#"
+[project]
+name = "bridge-dry-test"
+
+[recipe.build]
+type    = "bridge"
+package = "make"
+script  = "make dangerous-target"
+"#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        root.join("Makefile"),
+        "dangerous-target:\n\texit 1\n",
+    )
+    .unwrap();
+
+    let normal = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    let dry = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "--dry-run", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+
+    assert!(dry.status.success(), "dry-run should always succeed");
+    assert!(!normal.status.success(), "normal run should fail with exit 1");
+}

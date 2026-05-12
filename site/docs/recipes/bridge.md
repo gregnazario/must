@@ -109,3 +109,123 @@ must detects **20 build tools**. Each knows its indicator files and default targ
 | Legacy build system you can't change | Bridge |
 
 Native recipe types offer caching, cross-compilation, and toolchain version detection. Bridge is for when you want the unified `must` interface without rewriting your existing build.
+
+## Examples
+
+### Makefile project (auto-detected)
+
+```bash
+$ ls
+Makefile  src/  include/
+
+$ must build
+(auto-detected from build files — no Mustfile.toml found)
+✓ [#################] 1/1 (starting...)
+  ✓ build
+1 built, 0 cached, 0 failed — 42ms
+
+$ must test
+(auto-detected from build files — no Mustfile.toml found)
+✓ [#################] 1/1 (starting...)
+  ✓ test
+1 built, 0 cached, 0 failed — 18ms
+```
+
+### Just project (auto-detected)
+
+```bash
+$ ls
+justfile  src/
+
+$ must fmt
+(auto-detected from build files — no Mustfile.toml found)
+formatting source...
+  ✓ fmt
+1 built, 0 cached, 0 failed — 95ms
+```
+
+### npm project (auto-detected)
+
+```bash
+$ ls
+package.json  src/
+
+$ must build
+(auto-detected from build files — no Mustfile.toml found)
+building...
+  ✓ build
+1 built, 0 cached, 0 failed — 2.3s
+
+$ must test
+  ✓ test
+1 built, 0 cached, 0 failed — 1.1s
+```
+
+### Gradle project (auto-detected)
+
+```bash
+$ ls
+build.gradle  src/
+
+$ must build
+(auto-detected from build files — no Mustfile.toml found)
+  ✓ build
+1 built, 0 cached, 0 failed — 4.2s
+```
+
+### Explicit bridge with Mustfile.toml
+
+```toml
+[project]
+name = "my-monorepo"
+
+# Delegate build to make
+[recipe.build]
+type    = "bridge"
+package = "make"
+script  = "make -j4 all"
+
+# Delegate test to npm (different tool)
+[recipe.test]
+type    = "bridge"
+package = "npm"
+script  = "npm test"
+
+# Delegate lint to a custom make target
+[recipe.lint]
+type    = "bridge"
+package = "make"
+script  = "make lint"
+deps    = ["build"]
+```
+
+### Mixed Gradle + npm monorepo (auto-detected)
+
+```bash
+$ ls
+build.gradle  package.json  src/
+
+$ must list
+(auto-detected from build files — no Mustfile.toml found)
+NAME                 TYPE         DEPS
+build                bridge
+clean                bridge
+lint                 bridge
+npm-build            bridge
+npm-lint             bridge
+npm-test             bridge
+test                 bridge
+
+$ must build               # runs: gradle build
+$ must npm-build           # runs: npm run build
+$ must test                # runs: gradle test
+$ must npm-test            # runs: npm run test
+```
+
+### Dry-run
+
+```bash
+$ must --dry-run build
+  ✓ build  [dry-run] would run via make: make build
+1 built, 0 cached, 0 failed — 0ms
+```

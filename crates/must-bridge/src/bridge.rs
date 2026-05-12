@@ -74,7 +74,11 @@ impl Recipe for BridgeRecipe {
         let start = Instant::now();
         let mut cmd = shell_command(&self.script);
         cmd.current_dir(&ctx.project_root);
-        let out = run_command(&mut cmd, shell_program(), &format!("{} is required to run this bridge recipe", self.tool))?;
+        let out = run_command(
+            &mut cmd,
+            shell_program(),
+            &format!("a shell is required (bridge delegates to {})", self.tool),
+        )?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if !out.status.success() {
