@@ -317,7 +317,7 @@ mod tests {
     fn ctx() -> BuildContext {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -338,7 +338,7 @@ mod tests {
         }
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -392,7 +392,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -475,7 +475,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -511,7 +511,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = DotnetBuildRecipe::new("build", "MyApp.csproj");
         let result = r.execute(&c);
         match result {
@@ -530,7 +530,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),

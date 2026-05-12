@@ -77,8 +77,8 @@ impl Clone for BuildContext {
 
 impl BuildContext {
     pub fn new(project_root: PathBuf) -> Self {
-        let cache_dir = project_root.join(".mustfile").join("cache");
-        let log_dir = project_root.join(".mustfile").join("logs");
+        let cache_dir = project_root.join(".must").join("cache");
+        let log_dir = project_root.join(".must").join("logs");
         Self {
             project_root,
             cache_dir,

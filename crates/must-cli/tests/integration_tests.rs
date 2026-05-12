@@ -810,7 +810,7 @@ script = "echo cached"
     assert!(status.success(), "initial build should succeed");
 
     // Cache directory should now exist
-    let cache_dir = root.join(".mustfile").join("cache");
+    let cache_dir = root.join(".must").join("cache");
     assert!(
         cache_dir.exists(),
         "cache directory should exist after first build: {}",
@@ -1609,7 +1609,7 @@ fn test_plugin_recipe_execution() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::write(
         plugin_dir.join("hello.lua"),
@@ -1661,7 +1661,7 @@ fn test_plugin_recipe_list() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::write(
         plugin_dir.join("greet.lua"),
@@ -1750,7 +1750,7 @@ fn test_plugin_list_command() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::write(
         plugin_dir.join("hello.lua"),
@@ -1790,7 +1790,7 @@ fn test_plugin_check_valid() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::write(
         plugin_dir.join("valid.lua"),
@@ -1826,7 +1826,7 @@ fn test_plugin_check_invalid_exits_nonzero() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::write(plugin_dir.join("broken.lua"), "bad lua {{{{").unwrap();
 
@@ -2085,7 +2085,7 @@ function execute(ctx)
 end
 "#).unwrap();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
 
     std::fs::write(
         root.join("Mustfile.toml"),
@@ -2116,7 +2116,7 @@ fn test_plugin_remove() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    let plugin_dir = root.join(".mustfile").join("plugins");
+    let plugin_dir = root.join(".must").join("plugins");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::write(
         plugin_dir.join("temp.lua"),

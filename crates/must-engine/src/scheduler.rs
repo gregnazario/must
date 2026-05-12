@@ -77,6 +77,17 @@ struct ExecOutput {
     duration_ms: u64,
 }
 
+fn ensure_gitignore(subdir: &std::path::Path) {
+    let dot_must = match subdir.parent() {
+        Some(p) => p,
+        None => return,
+    };
+    let gitignore = dot_must.join(".gitignore");
+    if !gitignore.exists() {
+        let _ = std::fs::write(&gitignore, "*\n");
+    }
+}
+
 fn run_recipe(
     recipe: Arc<dyn Recipe>,
     ctx: Arc<BuildContext>,
@@ -148,6 +159,7 @@ impl Engine {
         let semaphore = Arc::new(Semaphore::new(self.parallelism));
         let ctx = Arc::new(ctx.clone());
         let _ = std::fs::create_dir_all(&ctx.log_dir);
+        ensure_gitignore(&ctx.log_dir);
         let mut all_results: Vec<ExecutionResult> = Vec::new();
         let mut failed = false;
 
@@ -252,6 +264,7 @@ impl Engine {
         let semaphore = Arc::new(Semaphore::new(self.parallelism));
         let ctx = Arc::new(ctx.clone());
         let _ = std::fs::create_dir_all(&ctx.log_dir);
+        ensure_gitignore(&ctx.log_dir);
         let mut all_results: Vec<ExecutionResult> = Vec::new();
         let mut failed = false;
         let total_recipes: usize = waves.iter().map(|w| w.len()).sum();
@@ -482,7 +495,7 @@ mod tests {
     fn test_ctx() -> BuildContext {
         BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
-            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: std::path::PathBuf::from("/tmp/.must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),

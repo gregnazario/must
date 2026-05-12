@@ -692,7 +692,7 @@ mod tests {
     fn ctx() -> BuildContext {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -864,7 +864,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -902,7 +902,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -933,7 +933,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -967,7 +967,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -1014,7 +1014,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
-            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: std::path::PathBuf::from("/tmp/.must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: triple_str.to_string(),
             profile: "default".to_string(),
@@ -1046,7 +1046,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
-            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: std::path::PathBuf::from("/tmp/.must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: triple_str.to_string(),
             profile: "default".to_string(),
@@ -1079,7 +1079,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -1119,7 +1119,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -1184,7 +1184,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -1213,7 +1213,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -1248,7 +1248,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -1280,7 +1280,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),

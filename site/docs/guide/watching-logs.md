@@ -60,10 +60,10 @@ must log --clear
 
 ## Log location
 
-Logs are stored in `.mustfile/logs/` as `<recipe-name>.log` files.
+Logs are stored in `.must/logs/` as `<recipe-name>.log` files.
 
 Add to `.gitignore`:
 
 ```
-.mustfile/
+.must/
 ```

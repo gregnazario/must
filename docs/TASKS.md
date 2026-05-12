@@ -29,7 +29,7 @@ Goal: replace simple Makefiles. End-state: `must build` runs a shell recipe from
 - [x] `must-config` — serde model for `Mustfile.toml`, validation
 - [x] `must-graph` — DAG, topo sort, cycle detection, wave grouping
 - [x] `must-engine` — Tokio scheduler, env composition, recipe dispatch
-- [x] `must-cache` — on-disk store under `.mustfile/cache/`, mtime strategy
+- [x] `must-cache` — on-disk store under `.must/cache/`, mtime strategy
 - [x] `must-recipe-shell` — generic shell with mtime + opt-in hash
 - [x] `must-cli` — clap entry point, `tracing` subscriber
 
@@ -41,7 +41,7 @@ Goal: replace simple Makefiles. End-state: `must build` runs a shell recipe from
 - [x] `must-graph::dag`: Kahn's algorithm topo sort, cycle reporting with full path
 - [x] `must-engine::env`: layered env composition (process → global → profile → recipe → toolchain)
 - [x] `must-engine::scheduler`: wave executor, `-j` semaphore, `--fail-fast`
-- [x] `must-cache::store`: directory layout `.mustfile/cache/<sha-prefix>/<sha-rest>/`, sled index
+- [x] `must-cache::store`: directory layout `.must/cache/<sha-prefix>/<sha-rest>/`, sled index
 - [x] `must-cache::mtime`: max-input vs. min-output comparison
 - [x] `must-recipe-shell`: spawn shell (`sh -c` on unix, PowerShell on windows — start unix-only), capture output, exit code
 - [x] `must-cli`: clap arg parser, top-level subcommands `build`, `test`, `run`, `<recipe>`, `list`, `clean`, `--dry-run`, `-j`

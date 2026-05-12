@@ -265,8 +265,8 @@ mod tests {
     fn test_ctx() -> BuildContext {
         BuildContext {
             project_root: PathBuf::from("/tmp/test"),
-            cache_dir: PathBuf::from("/tmp/test/.mustfile/cache"),
-            log_dir: PathBuf::from("/tmp/test/.mustfile/logs"),
+            cache_dir: PathBuf::from("/tmp/test/.must/cache"),
+            log_dir: PathBuf::from("/tmp/test/.must/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
             env: HashMap::new(),

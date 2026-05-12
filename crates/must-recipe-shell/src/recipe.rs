@@ -230,7 +230,7 @@ mod tests {
     fn ctx() -> BuildContext {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -328,7 +328,7 @@ mod tests {
 
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -354,7 +354,7 @@ mod tests {
 
         let c = BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
-            cache_dir: std::path::PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: std::path::PathBuf::from("/tmp/.must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -371,14 +371,14 @@ mod tests {
     #[test]
     fn hash_cache_stores_then_hits_on_second_run() {
         let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
 
         let mut r = ShellRecipe::new("codegen", "echo generated");
         r.cache = CacheStrategy::Hash;
 
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -420,7 +420,7 @@ mod tests {
 
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -443,7 +443,7 @@ mod tests {
         r.inputs = vec!["*.txt".to_string()];
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -465,7 +465,7 @@ mod tests {
         r.outputs = vec!["*.log".to_string()];
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -520,7 +520,7 @@ mod tests {
 
         let c = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),

@@ -348,7 +348,7 @@ mod tests {
     fn ctx() -> BuildContext {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -369,7 +369,7 @@ mod tests {
         }
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -409,7 +409,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -484,7 +484,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = PyBinRecipe::new("build", ".");
         let result = r.execute(&c);
         match result {
@@ -511,7 +511,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = PyTestRecipe::new("test", ".");
         let result = r.execute(&c);
         match result {
@@ -531,7 +531,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         c.env.insert("MY_GLOBAL".to_string(), "1".to_string());
         let mut r = PyBinRecipe::new("build", ".");
         r.env = HashMap::from([("MY_EXTRA".to_string(), "2".to_string())]);
@@ -555,7 +555,7 @@ mod tests {
         std::fs::create_dir_all(&sub).unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = PyBinRecipe::new("build", "subpkg");
         let result = r.execute(&c);
         match result {
@@ -574,7 +574,7 @@ mod tests {
         std::fs::write(tmp.path().join("noop.py"), "x = 1\n").unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = PyLintRecipe::new("lint", ".");
         let result = r.execute(&c);
         match result {
@@ -594,7 +594,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = PyBinRecipe::new("build", ".");
         let result = r.execute(&c);
         match result {
@@ -624,7 +624,7 @@ mod tests {
         r.env = HashMap::from([("MY_VAR".to_string(), "hello".to_string())]);
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let result = r.execute(&c);
         match result {
             Ok(out) => assert_eq!(out.recipe_name, "test"),
@@ -638,7 +638,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),

@@ -99,7 +99,7 @@ sequenceDiagram
 - **Mtime**: Compare input file mtimes against last build
 - **Never**: Test recipes always re-run
 
-Cache is stored on disk via `sled` embedded database in `.mustfile/cache/`.
+Cache is stored on disk via `sled` embedded database in `.must/cache/`.
 
 ## Cross-compilation
 

@@ -213,10 +213,10 @@ script  = "protoc --rust_out=src proto/*.proto"
 
 ## Lua Plugins
 
-Extend must with custom recipe types written in Lua. Place `.lua` files in `.mustfile/plugins/`:
+Extend must with custom recipe types written in Lua. Place `.lua` files in `.must/plugins/`:
 
 ```lua
--- .mustfile/plugins/protoc.lua
+-- .must/plugins/protoc.lua
 function execute(ctx)
     local protos = glob("proto/*.proto")
     for _, p in ipairs(protos) do

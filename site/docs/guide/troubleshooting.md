@@ -165,7 +165,7 @@ Distro-level keys (`linux.ubuntu`, `linux.alpine`) only work on Linux systems wi
 ### `must` itself is slow to start
 
 The `must` binary is a single compiled Rust binary. If startup is slow, check:
-- Disk I/O on the cache directory (`.mustfile/cache/`)
+- Disk I/O on the cache directory (`.must/cache/`)
 - Number of input file globs being expanded
 
 ---

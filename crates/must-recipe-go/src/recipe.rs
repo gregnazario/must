@@ -445,7 +445,7 @@ mod tests {
         let recipe = GoBinRecipe::new("my-bin", ".");
         let ctx = BuildContext {
             project_root: root.to_owned(),
-            cache_dir: root.join(".mustfile/cache"),
+            cache_dir: root.join(".must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
@@ -483,7 +483,7 @@ mod tests {
         let recipe = GoTestRecipe::new("my-tests", "./...");
         let ctx = BuildContext {
             project_root: root.to_owned(),
-            cache_dir: root.join(".mustfile/cache"),
+            cache_dir: root.join(".must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
@@ -517,7 +517,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: root.to_owned(),
-            cache_dir: root.join(".mustfile/cache"),
+            cache_dir: root.join(".must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
@@ -547,7 +547,7 @@ mod tests {
         let recipe = GoBinRecipe::new("fail-bin", "./nonexistent");
         let ctx = BuildContext {
             project_root: root.to_owned(),
-            cache_dir: root.join(".mustfile/cache"),
+            cache_dir: root.join(".must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),
@@ -578,7 +578,7 @@ mod tests {
         let recipe = GoBinRecipe::new("cross-bin", ".");
         let ctx = BuildContext {
             project_root: root.to_owned(),
-            cache_dir: root.join(".mustfile/cache"),
+            cache_dir: root.join(".must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "aarch64-unknown-linux-gnu".to_string(),
             profile: "debug".to_string(),
@@ -612,7 +612,7 @@ mod tests {
 
         let ctx = BuildContext {
             project_root: root.to_owned(),
-            cache_dir: root.join(".mustfile/cache"),
+            cache_dir: root.join(".must/cache"),
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "debug".to_string(),

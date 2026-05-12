@@ -374,7 +374,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 let cache_dir = mustfile_path
                     .parent()
                     .unwrap_or_else(|| Path::new("."))
-                    .join(".mustfile")
+                    .join(".must")
                     .join("cache");
                 if cache_dir.exists() {
                     std::fs::remove_dir_all(&cache_dir).map_err(must_core::Error::Io)?;
@@ -514,7 +514,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let cache_dir = mustfile_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."))
-                .join(".mustfile")
+                .join(".must")
                 .join("cache");
             match action {
                 CacheAction::List => {
@@ -598,7 +598,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let project_root = mustfile_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
-            let cache_dir = project_root.join(".mustfile").join("cache");
+            let cache_dir = project_root.join(".must").join("cache");
 
             if !cache_dir.exists() {
                 println!("No cache directory found. Run a build first.");
@@ -662,7 +662,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let project_root = mustfile_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
-            let log_dir = project_root.join(".mustfile").join("logs");
+            let log_dir = project_root.join(".must").join("logs");
 
             if clear {
                 if log_dir.exists() {
@@ -759,12 +759,12 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let project_root = mustfile_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
-            let plugin_dir = project_root.join(".mustfile").join("plugins");
+            let plugin_dir = project_root.join(".must").join("plugins");
 
             match action {
                 PluginAction::List => {
                     if !plugin_dir.exists() {
-                        println!("No plugins directory found. Create .mustfile/plugins/*.lua");
+                        println!("No plugins directory found. Create .must/plugins/*.lua");
                         return Ok(());
                     }
                     let mut found = false;
@@ -785,7 +785,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                         }
                     }
                     if !found {
-                        println!("No plugins found in .mustfile/plugins/");
+                        println!("No plugins found in .must/plugins/");
                     } else {
                         println!("{:<20} STATUS", "NAME");
                         println!("{}", "-".repeat(30));
@@ -1470,7 +1470,7 @@ async fn execute_recipes(
             }
             RecipeType::Plugin => {
                 let plugin_name = recipe_cfg.plugin.as_deref().unwrap_or(name);
-                let plugin_dir = project_root.join(".mustfile").join("plugins");
+                let plugin_dir = project_root.join(".must").join("plugins");
                 let plugin_path = plugin_dir.join(format!("{plugin_name}.lua"));
                 let lua_recipe = must_plugin::LuaRecipe::load(plugin_name, &plugin_path)?;
                 recipe_map.insert(name.clone(), Arc::new(lua_recipe));
@@ -1920,7 +1920,7 @@ struct BuildManifest {
 }
 
 fn history_dir(project_root: &Path) -> PathBuf {
-    project_root.join(".mustfile").join("history")
+    project_root.join(".must").join("history")
 }
 
 fn save_build_manifest(project_root: &Path, report: &must_engine::ExecutionReport) {
@@ -2194,7 +2194,7 @@ fn explain_recipe(
             expand(recipe.image.as_deref().unwrap_or(recipe_name))
         ),
         RecipeType::Plugin => format!(
-            "lua .mustfile/plugins/{}.lua",
+            "lua .must/plugins/{}.lua",
             recipe.plugin.as_deref().unwrap_or(recipe_name)
         ),
         RecipeType::JavaBin => format!(
@@ -2364,7 +2364,7 @@ fn explain_recipe(
     println!("\nCache key: {hash}");
 
     // Check if it's a cache hit
-    let cache_dir = project_root.join(".mustfile").join("cache");
+    let cache_dir = project_root.join(".must").join("cache");
     let key = must_core::CacheKey {
         recipe: recipe_name.to_string(),
         target: "host".to_string(),
@@ -2604,7 +2604,7 @@ fn run_doctor() {
     // --- Cache ---
     let cache_dir = std::env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".mustfile")
+        .join(".must")
         .join("cache");
     if cache_dir.exists() {
         let bytes = dir_size(&cache_dir).unwrap_or(0);
@@ -3434,7 +3434,7 @@ mod tests {
     #[test]
     fn test_history_dir_path() {
         let dir = history_dir(Path::new("/tmp/myproject"));
-        assert_eq!(dir, PathBuf::from("/tmp/myproject/.mustfile/history"));
+        assert_eq!(dir, PathBuf::from("/tmp/myproject/.must/history"));
     }
 
     #[test]
@@ -3978,11 +3978,11 @@ phony = true
     async fn test_run_clean_cache() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
         let cli = make_cli(Commands::Clean { cache: true }, mustfile);
         let result = run(cli).await;
         assert!(result.is_ok());
-        assert!(!tmp.path().join(".mustfile/cache").exists());
+        assert!(!tmp.path().join(".must/cache").exists());
     }
 
     #[tokio::test]
@@ -4070,7 +4070,7 @@ phony = true
     async fn test_run_cache_invalidate_all_empty() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
         let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: true } }, mustfile);
         let result = run(cli).await;
         assert!(result.is_ok());
@@ -4080,7 +4080,7 @@ phony = true
     async fn test_run_cache_invalidate_named() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        std::fs::create_dir_all(tmp.path().join(".mustfile/cache")).unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
         let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: Some("build".into()), all: false } }, mustfile);
         let result = run(cli).await;
         assert!(result.is_ok());
@@ -4145,7 +4145,7 @@ phony = true
         }, mustfile);
         let result = run(cli).await;
         assert!(result.is_ok());
-        assert!(tmp.path().join(".mustfile/plugins/my_plugin.lua").exists());
+        assert!(tmp.path().join(".must/plugins/my_plugin.lua").exists());
     }
 
     #[tokio::test]
@@ -4262,7 +4262,7 @@ phony = true
         let mustfile = write_shell_mustfile(tmp.path());
         let cli = make_cli(Commands::Build { recipes: vec![] }, mustfile);
         run(cli).await.unwrap();
-        let hist = tmp.path().join(".mustfile/history");
+        let hist = tmp.path().join(".must/history");
         assert!(hist.exists(), "build should create history dir");
         let files: Vec<_> = std::fs::read_dir(&hist).unwrap().filter_map(|e| e.ok()).collect();
         assert_eq!(files.len(), 1, "should save one manifest");
@@ -4298,7 +4298,7 @@ phony = true
         let mustfile = write_shell_mustfile(tmp.path());
         let cli1 = make_cli(Commands::Build { recipes: vec![] }, mustfile.clone());
         run(cli1).await.unwrap();
-        let log_dir = tmp.path().join(".mustfile/logs");
+        let log_dir = tmp.path().join(".must/logs");
         assert!(log_dir.exists());
         let cli2 = make_cli(Commands::Log { recipe: None, follow: false, clear: true }, mustfile);
         let result = run(cli2).await;
@@ -4427,7 +4427,7 @@ phony = true
         );
         let _ = run(build_cli).await;
 
-        let log_dir = tmp.path().join(".mustfile").join("logs");
+        let log_dir = tmp.path().join(".must").join("logs");
         let log_files: Vec<_> = std::fs::read_dir(&log_dir)
             .unwrap()
             .filter_map(|e| e.ok())

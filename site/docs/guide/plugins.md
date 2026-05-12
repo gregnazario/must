@@ -4,10 +4,10 @@ Extend must with Lua scripts. Plugins have access to shell execution, file I/O, 
 
 ## Plugin location
 
-Place `.lua` files in `.mustfile/plugins/`:
+Place `.lua` files in `.must/plugins/`:
 
 ```
-.mustfile/
+.must/
   plugins/
     protoc.lua
     codegen.lua
@@ -100,7 +100,7 @@ end
 ## Example: Protocol buffer codegen
 
 ```lua
--- .mustfile/plugins/protoc.lua
+-- .must/plugins/protoc.lua
 
 function inputs(ctx)
     return glob(ctx.project_root .. "/proto/*.proto")

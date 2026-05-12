@@ -412,7 +412,7 @@ mod tests {
     fn ctx() -> BuildContext {
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -433,7 +433,7 @@ mod tests {
         }
         BuildContext {
             project_root: PathBuf::from("/tmp"),
-            cache_dir: PathBuf::from("/tmp/.mustfile/cache"),
+            cache_dir: PathBuf::from("/tmp/.must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
@@ -493,7 +493,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -685,7 +685,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = TsBinRecipe::new("build", "tsconfig.json");
         let result = r.execute(&c);
         assert!(result.is_ok(), "ts bin execute should succeed: {:?}", result);
@@ -713,7 +713,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = TsBinRecipe::new("build", "tsconfig.json");
         let result = r.execute(&c);
         match result {
@@ -746,7 +746,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = TsCheckRecipe::new("typecheck", "tsconfig.json");
         let result = r.execute(&c);
         match result {
@@ -769,7 +769,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = TsLintRecipe::new("lint", "index.ts");
         let result = r.execute(&c);
         match result {
@@ -798,7 +798,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let mut r = TsBinRecipe::new("build", "tsconfig.json");
         r.env = HashMap::from([("TS_ENV".to_string(), "test".to_string())]);
         let result = r.execute(&c);
@@ -822,7 +822,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = NpmRecipe::new("hello", "hello");
         let result = r.execute(&c);
         assert!(result.is_ok(), "npm execute should succeed: {:?}", result);
@@ -845,7 +845,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let mut r = NpmRecipe::new("build-api", "build");
         r.workdir = "packages/api".to_string();
         let result = r.execute(&c);
@@ -873,7 +873,7 @@ mod tests {
         r.env = HashMap::from([("TS_CHECK_VAR".to_string(), "1".to_string())]);
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let result = r.execute(&c);
         match result {
             Ok(out) => assert_eq!(out.recipe_name, "typecheck"),
@@ -897,7 +897,7 @@ mod tests {
         r.env = HashMap::from([("LINT_MODE".to_string(), "strict".to_string())]);
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let result = r.execute(&c);
         match result {
             Ok(out) => assert_eq!(out.recipe_name, "lint"),
@@ -936,7 +936,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -954,7 +954,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -972,7 +972,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -990,7 +990,7 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -1010,7 +1010,7 @@ mod tests {
         std::fs::create_dir_all(&sub).unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
-            cache_dir: tmp.path().join(".mustfile/cache"),
+            cache_dir: tmp.path().join(".must/cache"),
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".into(),
             profile: "default".into(),
@@ -1108,7 +1108,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let mut r = NpmRecipe::new("hello", "hello");
         r.env = HashMap::from([("MY_VAR".to_string(), "world".to_string())]);
         let result = r.execute(&c);
@@ -1138,7 +1138,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = TsBinRecipe::new("build", "tsconfig.json");
         let result = r.execute(&c);
         match result {
@@ -1170,7 +1170,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = TsCheckRecipe::new("typecheck", "tsconfig.json");
         let result = r.execute(&c);
         match result {
@@ -1195,7 +1195,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = NpmRecipe::new("build", "nonexistent-script");
         let result = r.execute(&c);
         match result {
@@ -1220,7 +1220,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let r = NpmRecipe::new("build", "fail");
         let result = r.execute(&c);
         match result {
@@ -1248,7 +1248,7 @@ mod tests {
         .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".mustfile/cache");
+        c.cache_dir = tmp.path().join(".must/cache");
         let mut r = NpmRecipe::new("build", "fail");
         r.workdir = "packages/api".to_string();
         let result = r.execute(&c);

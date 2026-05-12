@@ -15,7 +15,7 @@ must uses intelligent caching to avoid redundant work. The strategy depends on t
 First-class recipe types (Rust, Go, C, TypeScript, etc.) use content-hashed caching:
 
 1. Compute a SHA-256 hash from: recipe name, type, input file contents, env vars, toolchain version, extra flags
-2. Look up the hash in the disk cache (`.mustfile/cache/`)
+2. Look up the hash in the disk cache (`.must/cache/`)
 3. If found → cache hit, skip execution
 4. If not found → execute, store the hash
 
@@ -80,10 +80,10 @@ must cache invalidate --all         # invalidate everything
 
 ## Cache location
 
-Cache is stored in `.mustfile/cache/` relative to the Mustfile.toml directory.
+Cache is stored in `.must/cache/` relative to the Mustfile.toml directory.
 
 Add to `.gitignore`:
 
 ```
-.mustfile/
+.must/
 ```

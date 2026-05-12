@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `must-config`: TOML schema for `Mustfile.toml`; validation (dep resolution, no cycles)
 - `must-graph`: DAG with Kahn's-algorithm topological sort, cycle detection, wave grouping for parallel execution
 - `must-engine`: async Tokio scheduler with `-j` parallelism, `--fail-fast`, layered env composition
-- `must-cache`: on-disk cache under `.mustfile/cache/`; mtime and SHA-256 hash strategies
+- `must-cache`: on-disk cache under `.must/cache/`; mtime and SHA-256 hash strategies
 - `must-recipe-shell`: generic shell recipe (`sh -c`) with mtime/hash caching
 - `must-recipe-rust`: `rust-bin`, `rust-lib`, `rust-test` recipe types via `cargo`
 - `must-recipe-go`: `go-bin`, `go-test` recipe types with GOOS/GOARCH cross-compile support

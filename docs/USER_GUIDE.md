@@ -168,7 +168,7 @@ Remove build outputs and optionally the cache.
 
 ```bash
 must clean           # clean declared outputs
-must clean --cache   # also wipe .mustfile/cache/
+must clean --cache   # also wipe .must/cache/
 ```
 
 ### `must completions <shell>`

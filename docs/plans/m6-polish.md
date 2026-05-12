@@ -94,7 +94,7 @@ fn run_doctor() {
     // 5. Cache health
     let cache_dir = std::env::current_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."))
-        .join(".mustfile")
+        .join(".must")
         .join("cache");
     if cache_dir.exists() {
         let size = dir_size(&cache_dir).unwrap_or(0);
@@ -471,7 +471,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `must-config`: TOML schema for `Mustfile.toml`; validation (name uniqueness, dep resolution)
 - `must-graph`: DAG with Kahn's-algorithm topological sort, cycle detection, wave grouping for parallel execution
 - `must-engine`: async Tokio scheduler with `-j` parallelism, `--fail-fast`, layered env composition
-- `must-cache`: on-disk cache under `.mustfile/cache/`; mtime and SHA-256 hash strategies
+- `must-cache`: on-disk cache under `.must/cache/`; mtime and SHA-256 hash strategies
 - `must-recipe-shell`: generic shell recipe (`sh -c`) with mtime/hash caching
 - `must-recipe-rust`: `rust-bin`, `rust-lib`, `rust-test` recipe types via `cargo`
 - `must-recipe-go`: `go-bin`, `go-test` recipe types with GOOS/GOARCH cross-compile support
@@ -642,7 +642,7 @@ Remove recipe output files.
 
 ```bash
 must clean          # clean outputs
-must clean --cache  # also wipe the .mustfile/cache directory
+must clean --cache  # also wipe the .must/cache directory
 ```
 
 ## Caching

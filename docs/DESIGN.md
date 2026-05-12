@@ -233,7 +233,7 @@ pub trait Cache: Send + Sync {
 }
 ```
 
-Storage layout: `.mustfile/cache/<sha256-prefix>/<sha256-rest>/` with a sled index of `(recipe, target, profile) → CacheKey` for `must --explain`.
+Storage layout: `.must/cache/<sha256-prefix>/<sha256-rest>/` with a sled index of `(recipe, target, profile) → CacheKey` for `must --explain`.
 
 ---
 

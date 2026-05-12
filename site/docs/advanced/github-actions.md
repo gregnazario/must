@@ -79,11 +79,11 @@ jobs:
 
 ## Caching in CI
 
-must's cache is stored in `.mustfile/cache/`. Cache it between runs:
+must's cache is stored in `.must/cache/`. Cache it between runs:
 
 ```yaml
 - uses: actions/cache@v4
   with:
-    path: .mustfile/cache
+    path: .must/cache
     key: must-${{ runner.os }}-${{ hashFiles('**/Mustfile.toml') }}
 ```
