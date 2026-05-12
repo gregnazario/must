@@ -8,9 +8,9 @@ pub(crate) fn write_toml(output: &MustfileOutput) -> String {
     if !output.env.is_empty() {
         out.push_str("\n[env.global]\n");
         for (k, v) in &output.env {
-            // escape backslashes and quotes in value
             let escaped = v.replace('\\', "\\\\").replace('"', "\\\"");
-            out.push_str(&format!("{k} = \"{escaped}\"\n"));
+            let key = toml_key(k);
+            out.push_str(&format!("{key} = \"{escaped}\"\n"));
         }
     }
 
@@ -42,6 +42,15 @@ pub(crate) fn write_toml(output: &MustfileOutput) -> String {
     }
 
     out
+}
+
+fn toml_key(key: &str) -> String {
+    if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        let escaped = key.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("\"{escaped}\"")
+    } else {
+        key.to_string()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -131,5 +140,72 @@ mod tests {
         assert!(toml.contains("phony = true"));
         assert!(toml.contains("deps = [\"build\"]"));
         assert!(toml.contains("rm -rf dist"));
+    }
+
+    #[test]
+    fn env_key_with_dot_prefix_is_quoted() {
+        let mut o = empty_output();
+        o.env.insert(".DEFAULT_GOAL".into(), "help".into());
+        let toml = write_toml(&o);
+        assert!(
+            toml.contains("\".DEFAULT_GOAL\" = \"help\""),
+            "dot-prefixed keys must be quoted, got: {toml}"
+        );
+    }
+
+    #[test]
+    fn env_key_with_dot_in_middle_is_quoted() {
+        let mut o = empty_output();
+        o.env.insert("my.var".into(), "value".into());
+        let toml = write_toml(&o);
+        assert!(
+            toml.contains("\"my.var\" = \"value\""),
+            "keys with dots must be quoted, got: {toml}"
+        );
+    }
+
+    #[test]
+    fn env_key_plain_alphanumeric_is_bare() {
+        let mut o = empty_output();
+        o.env.insert("CC".into(), "gcc".into());
+        let toml = write_toml(&o);
+        assert!(
+            toml.contains("CC = \"gcc\""),
+            "plain keys should stay bare, got: {toml}"
+        );
+    }
+
+    #[test]
+    fn env_key_with_dash_is_bare() {
+        let mut o = empty_output();
+        o.env.insert("my-var".into(), "val".into());
+        let toml = write_toml(&o);
+        assert!(
+            toml.contains("my-var = \"val\""),
+            "keys with dashes should stay bare, got: {toml}"
+        );
+    }
+
+    #[test]
+    fn env_key_with_spaces_is_quoted() {
+        let mut o = empty_output();
+        o.env.insert("my key".into(), "val".into());
+        let toml = write_toml(&o);
+        assert!(
+            toml.contains("\"my key\" = \"val\""),
+            "keys with spaces must be quoted, got: {toml}"
+        );
+    }
+
+    #[test]
+    fn toml_key_unit_tests() {
+        assert_eq!(toml_key("CC"), "CC");
+        assert_eq!(toml_key("my-var"), "my-var");
+        assert_eq!(toml_key("my_var"), "my_var");
+        assert_eq!(toml_key("abc123"), "abc123");
+        assert_eq!(toml_key(".DEFAULT_GOAL"), "\".DEFAULT_GOAL\"");
+        assert_eq!(toml_key("my.var"), "\"my.var\"");
+        assert_eq!(toml_key("my key"), "\"my key\"");
+        assert_eq!(toml_key(""), "\"\"");
     }
 }
