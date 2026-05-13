@@ -1,0 +1,12 @@
+[package]
+name = "cli"
+version = "0.2.0"
+edition = "2024"
+
+[features]
+proto = []
+native-core = []
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"

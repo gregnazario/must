@@ -1,5 +1,8 @@
 .worktrees/
 /target/
 .mustfile/
+.must/
 *.swp
 .DS_Store
+node_modules/
+site_out/

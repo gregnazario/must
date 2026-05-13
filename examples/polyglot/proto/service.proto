@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package platform;
+
+message ServiceRequest {
+  uint64 id = 1;
+  bytes payload = 2;
+}
+
+message ServiceResponse {
+  uint64 id = 1;
+  bytes result = 2;
+}
+
+service PlatformService {
+  rpc Process(ServiceRequest) returns (ServiceResponse);
+}

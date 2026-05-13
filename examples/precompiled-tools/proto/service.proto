@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package api;
+
+message Request {
+  string query = 1;
+}
+
+message Response {
+  string result = 1;
+}

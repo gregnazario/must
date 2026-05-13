@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package plugin_demo;
+
+message Request {
+  string action = 1;
+}
+
+message Response {
+  string result = 1;
+}

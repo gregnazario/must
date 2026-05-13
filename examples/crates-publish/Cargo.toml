@@ -1,0 +1,9 @@
+[package]
+name = "my-crate"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "A sample Rust library crate"
+repository = "https://github.com/myorg/my-crate"
+
+[dependencies]
