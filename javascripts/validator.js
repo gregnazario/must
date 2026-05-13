@@ -1,25 +1,49 @@
 "use strict";
-(function () {
-    "use strict";
+(() => {
     const KNOWN_RECIPE_TYPES = [
-        "shell", "rust-bin", "rust-lib", "rust-test",
-        "go-bin", "go-test",
-        "c-bin", "c-lib",
-        "cpp-bin", "cpp-lib",
-        "ts-bin", "ts-check", "ts-lint", "npm",
-        "py-bin", "py-test", "py-lint",
-        "zig-bin", "zig-test",
-        "java-bin", "java-test",
-        "kotlin-bin", "kotlin-test",
-        "swift-bin", "swift-test",
-        "dotnet-build", "dotnet-test", "dotnet-publish",
-        "ruby-bin", "ruby-test",
-        "dart-bin", "dart-test",
-        "elixir-build", "elixir-test",
-        "flutter-build", "flutter-test",
-        "nim-bin", "nim-test",
-        "docker-build", "docker-push",
-        "precompiled-bin", "bridge", "plugin",
+        "shell",
+        "rust-bin",
+        "rust-lib",
+        "rust-test",
+        "go-bin",
+        "go-test",
+        "c-bin",
+        "c-lib",
+        "cpp-bin",
+        "cpp-lib",
+        "ts-bin",
+        "ts-check",
+        "ts-lint",
+        "npm",
+        "py-bin",
+        "py-test",
+        "py-lint",
+        "zig-bin",
+        "zig-test",
+        "java-bin",
+        "java-test",
+        "kotlin-bin",
+        "kotlin-test",
+        "swift-bin",
+        "swift-test",
+        "dotnet-build",
+        "dotnet-test",
+        "dotnet-publish",
+        "ruby-bin",
+        "ruby-test",
+        "dart-bin",
+        "dart-test",
+        "elixir-build",
+        "elixir-test",
+        "flutter-build",
+        "flutter-test",
+        "nim-bin",
+        "nim-test",
+        "docker-build",
+        "docker-push",
+        "precompiled-bin",
+        "bridge",
+        "plugin",
     ];
     const REQUIRED_FIELDS = {
         shell: ["script"],
@@ -84,7 +108,7 @@
             if (trimmed.length > 0) {
                 result.errors.push({
                     line: i + 1,
-                    message: "Cannot parse: " + trimmed.substring(0, 40),
+                    message: `Cannot parse: ${trimmed.substring(0, 40)}`,
                 });
             }
         }
@@ -93,11 +117,11 @@
     function validateToml(parsed) {
         const warnings = [];
         const errors = [...parsed.errors];
-        const project = parsed.sections["project"];
+        const project = parsed.sections.project;
         if (!project) {
             errors.push({ line: 0, message: "Missing [project] section" });
         }
-        else if (!project["name"]) {
+        else if (!project.name) {
             errors.push({ line: 0, message: "Missing project name in [project]" });
         }
         for (const section of Object.keys(parsed.sections)) {
@@ -106,8 +130,8 @@
                 continue;
             const recipeName = recipeMatch[1];
             const fields = parsed.sections[section];
-            const typeVal = unquote(fields["type"] || "");
-            if (!fields["type"]) {
+            const typeVal = unquote(fields.type || "");
+            if (!fields.type) {
                 errors.push({ line: 0, message: `Recipe '${recipeName}' missing type field` });
                 continue;
             }
@@ -125,8 +149,8 @@
                     }
                 }
             }
-            if (fields["cache"]) {
-                const cacheVal = unquote(fields["cache"]);
+            if (fields.cache) {
+                const cacheVal = unquote(fields.cache);
                 if (!VALID_CACHE_STRATEGIES.includes(cacheVal)) {
                     warnings.push({
                         line: 0,
@@ -138,7 +162,7 @@
         return { errors, warnings };
     }
     function pluralize(count, singular) {
-        return count === 1 ? singular : singular + "s";
+        return count === 1 ? singular : `${singular}s`;
     }
     function formatMessages(items, max) {
         if (items.length <= max) {
@@ -177,7 +201,7 @@
                     let text = `\u2717 ${result.errors.length} ${pluralize(result.errors.length, "error")}`;
                     const details = formatMessages(result.errors, 3);
                     if (details)
-                        text += " \u2014 " + details;
+                        text += ` \u2014 ${details}`;
                     status.textContent = text;
                 }
                 else {
@@ -185,7 +209,7 @@
                     let text = `\u2713 Valid (with ${result.warnings.length} ${pluralize(result.warnings.length, "warning")})`;
                     const details = formatMessages(result.warnings, 2);
                     if (details)
-                        text += " \u2014 " + details;
+                        text += ` \u2014 ${details}`;
                     status.textContent = text;
                 }
             }, 300);
