@@ -155,10 +155,7 @@ impl Recipe for KotlinBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] ./gradlew build (in {})",
-                    self.package
-                ),
+                stdout: format!("[dry-run] ./gradlew build (in {})", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });

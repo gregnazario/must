@@ -171,10 +171,7 @@ impl Recipe for SwiftBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] swift build -c release (in {})",
-                    self.package
-                ),
+                stdout: format!("[dry-run] swift build -c release (in {})", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });

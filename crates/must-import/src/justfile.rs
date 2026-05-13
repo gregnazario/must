@@ -102,10 +102,7 @@ pub(crate) fn parse_justfile(input: &str) -> MustfileOutput {
             }
         } else if !line.trim().is_empty() {
             let trimmed = line.trim();
-            if !trimmed.starts_with('#')
-                && !trimmed.starts_with("import")
-                && !trimmed.is_empty()
-            {
+            if !trimmed.starts_with('#') && !trimmed.starts_with("import") && !trimmed.is_empty() {
                 output.skipped.push(trimmed.to_string());
             }
         }
@@ -149,7 +146,8 @@ mod tests {
 
     #[test]
     fn multiple_recipes() {
-        let input = "build:\n    cargo build\n\ntest: build\n    cargo test\n\nclean:\n    cargo clean";
+        let input =
+            "build:\n    cargo build\n\ntest: build\n    cargo test\n\nclean:\n    cargo clean";
         let output = parse_justfile(input);
         assert_eq!(output.recipes.len(), 3);
         assert_eq!(output.recipes[0].name, "build");
@@ -183,7 +181,10 @@ mod tests {
     fn multiline_script() {
         let input = "release:\n    cargo build --release\n    cp target/release/app dist/";
         let output = parse_justfile(input);
-        assert_eq!(output.recipes[0].script, "cargo build --release\ncp target/release/app dist/");
+        assert_eq!(
+            output.recipes[0].script,
+            "cargo build --release\ncp target/release/app dist/"
+        );
     }
 
     #[test]

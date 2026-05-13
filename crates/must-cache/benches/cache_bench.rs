@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use must_cache::hash::compute_hash;
 use std::collections::BTreeMap;
 use std::path::Path;

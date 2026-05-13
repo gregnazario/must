@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use must_graph::dag::Dag;
 use std::collections::HashMap;
 
@@ -79,7 +79,10 @@ fn bench_reachable_from(c: &mut Criterion) {
         recipes.insert(format!("mid_{i}"), vec!["root".to_string()]);
     }
     for i in 0..20 {
-        recipes.insert(format!("leaf_{i}"), vec!["mid_0".to_string(), format!("mid_{}", i % 50)]);
+        recipes.insert(
+            format!("leaf_{i}"),
+            vec!["mid_0".to_string(), format!("mid_{}", i % 50)],
+        );
     }
     let dag = Dag::new(recipes);
 

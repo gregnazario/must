@@ -26,9 +26,9 @@ pub(crate) fn parse_taskfile(input: &str) -> MustfileOutput {
                 "desc" | "description" => {
                     desc = Some(field.value.trim().trim_matches('"').to_string());
                 }
-                "dir" | "vars" | "env" | "sources" | "generates" | "status"
-                | "preconditions" | "silent" | "interactive" | "internal"
-                | "method" | "prefix" | "ignore_error" | "run" => {
+                "dir" | "vars" | "env" | "sources" | "generates" | "status" | "preconditions"
+                | "silent" | "interactive" | "internal" | "method" | "prefix" | "ignore_error"
+                | "run" => {
                     let _ = desc;
                 }
                 _ => {}
@@ -228,7 +228,8 @@ mod tests {
 
     #[test]
     fn task_with_deps() {
-        let input = "version: '3'\n\ntasks:\n  test:\n    deps: [build]\n    cmds:\n      - cargo test";
+        let input =
+            "version: '3'\n\ntasks:\n  test:\n    deps: [build]\n    cmds:\n      - cargo test";
         let output = parse_taskfile(input);
         assert_eq!(output.recipes.len(), 1);
         assert_eq!(output.recipes[0].deps, vec!["build"]);
@@ -267,7 +268,10 @@ tasks:
     fn multiline_cmds() {
         let input = "version: '3'\n\ntasks:\n  release:\n    cmds:\n      - cargo build --release\n      - cp target/release/app dist/";
         let output = parse_taskfile(input);
-        assert_eq!(output.recipes[0].script, "cargo build --release\ncp target/release/app dist/");
+        assert_eq!(
+            output.recipes[0].script,
+            "cargo build --release\ncp target/release/app dist/"
+        );
     }
 
     #[test]

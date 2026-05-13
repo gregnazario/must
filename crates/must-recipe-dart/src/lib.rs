@@ -156,10 +156,7 @@ impl Recipe for DartBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] dart compile exe {}",
-                    self.package
-                ),
+                stdout: format!("[dry-run] dart compile exe {}", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -345,7 +342,10 @@ mod tests {
     fn dart_bin_cache_key_differs_by_package() {
         let r1 = DartBinRecipe::new("r", "bin/a.dart");
         let r2 = DartBinRecipe::new("r", "bin/b.dart");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]
@@ -392,7 +392,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let bindir = tmp.path().join("bin");
         std::fs::create_dir_all(&bindir).unwrap();
-        std::fs::write(bindir.join("main.dart"), "void main() { print('hello'); }\n").unwrap();
+        std::fs::write(
+            bindir.join("main.dart"),
+            "void main() { print('hello'); }\n",
+        )
+        .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
         c.cache_dir = tmp.path().join(".must/cache");

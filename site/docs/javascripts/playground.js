@@ -1,6 +1,5 @@
 "use strict";
-(function () {
-    "use strict";
+(() => {
     const PLAYGROUNDS = {
         "getting-started": {
             examples: [
@@ -217,9 +216,9 @@
     }
     function addTerminalLine(body, inputRow, text, cls) {
         const line = document.createElement("p");
-        line.className = "must-terminal-line" + (cls ? " must-terminal-line--" + cls : "");
+        line.className = `must-terminal-line${cls ? ` must-terminal-line--${cls}` : ""}`;
         if (cls === "input") {
-            line.innerHTML = '<span class="must-terminal-prompt">$\u00a0</span>' + escapeHtml(text);
+            line.innerHTML = `<span class="must-terminal-prompt">$\u00a0</span>${escapeHtml(text)}`;
         }
         else {
             line.textContent = text;
@@ -229,7 +228,9 @@
     }
     function clearTerminalLines(body) {
         const lines = body.querySelectorAll(".must-terminal-line");
-        lines.forEach((el) => el.remove());
+        for (const el of lines) {
+            el.remove();
+        }
     }
     function scheduleScenarioOutput(body, inputRow, scenario) {
         let delay = 0;
@@ -259,6 +260,8 @@
         term.appendChild(body);
         body.appendChild(inputRow);
         const input = inputRow.querySelector(".must-terminal-input");
+        if (!input)
+            return;
         input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
@@ -273,7 +276,7 @@
                     return;
                 }
                 setTimeout(() => {
-                    addTerminalLine(body, inputRow, "error: unknown command '" + cmd + "'", "error");
+                    addTerminalLine(body, inputRow, `error: unknown command '${cmd}'`, "error");
                     addTerminalLine(body, inputRow, "Try: must build, must test, must list, must doctor, must explain <recipe>", "dim");
                 }, 100);
             }
@@ -284,13 +287,19 @@
         if (!termEl)
             return;
         const body = termEl.querySelector(".must-terminal-body");
+        if (!body)
+            return;
         const inputRow = body.querySelector(".must-terminal-input-row");
+        if (!inputRow)
+            return;
+        const safeBody = body;
+        const safeInputRow = inputRow;
         let idx = 0;
         function next() {
             if (idx >= scenario.output.length)
                 return;
             const item = scenario.output[idx];
-            addTerminalLine(body, inputRow, item.text, item.cls);
+            addTerminalLine(safeBody, safeInputRow, item.text, item.cls);
             idx++;
             if (idx < scenario.output.length) {
                 setTimeout(next, 80 + Math.random() * 60);
@@ -303,6 +312,8 @@
         if (!term)
             return;
         const body = term.querySelector(".must-terminal-body");
+        if (!body)
+            return;
         clearTerminalLines(body);
         const input = body.querySelector(".must-terminal-input");
         if (input) {
@@ -326,11 +337,13 @@
             btns.className = "must-playground-examples";
             playground.examples.forEach((ex, i) => {
                 const btn = document.createElement("button");
-                btn.className = "must-playground-btn" + (i === 0 ? " must-playground-btn--active" : "");
+                btn.className = `must-playground-btn${i === 0 ? " must-playground-btn--active" : ""}`;
                 btn.textContent = ex.label;
                 btn.addEventListener("click", () => {
                     const all = btns.querySelectorAll(".must-playground-btn");
-                    all.forEach((b) => b.classList.remove("must-playground-btn--active"));
+                    for (const b of all) {
+                        b.classList.remove("must-playground-btn--active");
+                    }
                     btn.classList.add("must-playground-btn--active");
                     resetTerminalAndRun(wrapper, ex);
                 });
@@ -351,7 +364,10 @@
     }
     function init() {
         document.querySelectorAll("[data-must-playground]").forEach((el) => {
-            createPlaygroundWidget(el, el.getAttribute("data-must-playground"));
+            const key = el.getAttribute("data-must-playground");
+            if (key) {
+                createPlaygroundWidget(el, key);
+            }
         });
     }
     if (document.readyState === "loading") {

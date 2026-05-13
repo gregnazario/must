@@ -443,7 +443,10 @@ mod tests {
     #[test]
     fn docker_push_with_env_dry_run() {
         let mut r = DockerPushRecipe::new("push", "app:test");
-        r.env = HashMap::from([("DOCKER_HOST".to_string(), "tcp://localhost:2375".to_string())]);
+        r.env = HashMap::from([(
+            "DOCKER_HOST".to_string(),
+            "tcp://localhost:2375".to_string(),
+        )]);
         let mut c = ctx();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();

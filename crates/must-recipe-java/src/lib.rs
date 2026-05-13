@@ -155,10 +155,7 @@ impl Recipe for JavaBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] ./gradlew build (in {})",
-                    self.package
-                ),
+                stdout: format!("[dry-run] ./gradlew build (in {})", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -374,7 +371,11 @@ mod tests {
 
     #[test]
     fn java_bin_execute_real() {
-        if std::process::Command::new("gradle").arg("--version").output().is_err() {
+        if std::process::Command::new("gradle")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();

@@ -360,7 +360,10 @@ mod tests {
     fn elixir_build_cache_key_differs_by_package() {
         let r1 = ElixirBuildRecipe::new("r", "apps/api");
         let r2 = ElixirBuildRecipe::new("r", "apps/web");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]

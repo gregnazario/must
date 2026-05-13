@@ -56,10 +56,9 @@ impl PrecompiledBinRecipe {
         let mut reader = response.body_mut().as_reader();
         let mut tmp_path = dest.to_owned();
         tmp_path.set_extension("tmp");
-        let mut file = std::fs::File::create(&tmp_path)
-            .map_err(|e| format!("create tmp file failed: {e}"))?;
-        std::io::copy(&mut reader, &mut file)
-            .map_err(|e| format!("download write failed: {e}"))?;
+        let mut file =
+            std::fs::File::create(&tmp_path).map_err(|e| format!("create tmp file failed: {e}"))?;
+        std::io::copy(&mut reader, &mut file).map_err(|e| format!("download write failed: {e}"))?;
         drop(file);
 
         if let Some(ref expected) = self.sha256 {
@@ -68,8 +67,12 @@ impl PrecompiledBinRecipe {
             let mut hasher = sha2::Sha256::new();
             let mut buf = [0u8; 8192];
             loop {
-                let n = verify_file.read(&mut buf).map_err(|e| format!("hash read failed: {e}"))?;
-                if n == 0 { break; }
+                let n = verify_file
+                    .read(&mut buf)
+                    .map_err(|e| format!("hash read failed: {e}"))?;
+                if n == 0 {
+                    break;
+                }
                 hasher.update(&buf[..n]);
             }
             let actual = hex::encode(hasher.finalize());
@@ -126,7 +129,14 @@ impl Recipe for PrecompiledBinRecipe {
             recipe: self.name.clone(),
             target: ctx.target.clone(),
             profile: ctx.profile.clone(),
-            hash: compute_hash(&self.name, "precompiled-bin", &[], &BTreeMap::new(), "", &flags),
+            hash: compute_hash(
+                &self.name,
+                "precompiled-bin",
+                &[],
+                &BTreeMap::new(),
+                "",
+                &flags,
+            ),
         })
     }
 
@@ -186,8 +196,14 @@ mod tests {
 
     fn test_ctx() -> BuildContext {
         let mut env = HashMap::new();
-        env.insert("PATH".to_string(), std::env::var("PATH").unwrap_or_default());
-        env.insert("HOME".to_string(), std::env::var("HOME").unwrap_or_default());
+        env.insert(
+            "PATH".to_string(),
+            std::env::var("PATH").unwrap_or_default(),
+        );
+        env.insert(
+            "HOME".to_string(),
+            std::env::var("HOME").unwrap_or_default(),
+        );
         BuildContext {
             project_root: PathBuf::from("/tmp/test"),
             cache_dir: PathBuf::from("/tmp/test/.cache"),

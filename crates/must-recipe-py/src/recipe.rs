@@ -426,7 +426,7 @@ mod tests {
         let out = r.execute(&ctx);
         match out {
             Ok(o) => assert!(o.from_cache, "should be a cache hit"),
-            Err(must_core::Error::ToolNotFound { .. }) => {},
+            Err(must_core::Error::ToolNotFound { .. }) => {}
             Err(e) => panic!("unexpected error: {e:?}"),
         }
     }
@@ -476,8 +476,14 @@ mod tests {
 
     #[test]
     fn py_bin_execute_real_install() {
-        if std::process::Command::new("uv").arg("--version").output().is_err()
-            && std::process::Command::new("pip").arg("--version").output().is_err()
+        if std::process::Command::new("uv")
+            .arg("--version")
+            .output()
+            .is_err()
+            && std::process::Command::new("pip")
+                .arg("--version")
+                .output()
+                .is_err()
         {
             return;
         }
@@ -499,16 +505,16 @@ mod tests {
 
     #[test]
     fn py_test_execute_real() {
-        if std::process::Command::new("pytest").arg("--version").output().is_err() {
+        if std::process::Command::new("pytest")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::write(tmp.path().join("conftest.py"), "").unwrap();
-        std::fs::write(
-            tmp.path().join("test_noop.py"),
-            "def test_noop(): pass\n",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join("test_noop.py"), "def test_noop(): pass\n").unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
         c.cache_dir = tmp.path().join(".must/cache");
@@ -523,8 +529,14 @@ mod tests {
 
     #[test]
     fn py_bin_execute_with_recipe_env() {
-        if std::process::Command::new("uv").arg("--version").output().is_err()
-            && std::process::Command::new("pip").arg("--version").output().is_err()
+        if std::process::Command::new("uv")
+            .arg("--version")
+            .output()
+            .is_err()
+            && std::process::Command::new("pip")
+                .arg("--version")
+                .output()
+                .is_err()
         {
             return;
         }
@@ -545,8 +557,14 @@ mod tests {
 
     #[test]
     fn py_bin_workdir_not_dot() {
-        if std::process::Command::new("uv").arg("--version").output().is_err()
-            && std::process::Command::new("pip").arg("--version").output().is_err()
+        if std::process::Command::new("uv")
+            .arg("--version")
+            .output()
+            .is_err()
+            && std::process::Command::new("pip")
+                .arg("--version")
+                .output()
+                .is_err()
         {
             return;
         }
@@ -567,7 +585,11 @@ mod tests {
 
     #[test]
     fn py_lint_execute_real() {
-        if std::process::Command::new("ruff").arg("--version").output().is_err() {
+        if std::process::Command::new("ruff")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -586,8 +608,14 @@ mod tests {
 
     #[test]
     fn py_bin_cache_store_and_second_hit() {
-        if std::process::Command::new("uv").arg("--version").output().is_err()
-            && std::process::Command::new("pip").arg("--version").output().is_err()
+        if std::process::Command::new("uv")
+            .arg("--version")
+            .output()
+            .is_err()
+            && std::process::Command::new("pip")
+                .arg("--version")
+                .output()
+                .is_err()
         {
             return;
         }
@@ -610,7 +638,11 @@ mod tests {
 
     #[test]
     fn py_test_execute_with_env() {
-        if std::process::Command::new("pytest").arg("--version").output().is_err() {
+        if std::process::Command::new("pytest")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();

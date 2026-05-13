@@ -343,7 +343,10 @@ mod tests {
     fn nim_bin_cache_key_differs_by_package() {
         let r1 = NimBinRecipe::new("r", "src/a.nim");
         let r2 = NimBinRecipe::new("r", "src/b.nim");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]

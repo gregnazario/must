@@ -45,7 +45,11 @@ pub(crate) fn write_toml(output: &MustfileOutput) -> String {
 }
 
 fn toml_key(key: &str) -> String {
-    if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+    if key.is_empty()
+        || !key
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
         let escaped = key.replace('\\', "\\\\").replace('"', "\\\"");
         format!("\"{escaped}\"")
     } else {

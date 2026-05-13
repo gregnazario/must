@@ -98,7 +98,13 @@ pub struct Recipe {
 impl Recipe {
     pub fn resolved_script(&self) -> Option<&String> {
         let os = std::env::consts::OS;
-        let family = if cfg!(unix) { "unix" } else if cfg!(windows) { "windows" } else { "" };
+        let family = if cfg!(unix) {
+            "unix"
+        } else if cfg!(windows) {
+            "windows"
+        } else {
+            ""
+        };
 
         let candidates: Vec<String> = match os {
             "linux" => {
@@ -313,7 +319,8 @@ mod tests {
         let mut r = test_recipe();
         r.script = Some("default".into());
         r.scripts.insert("bsd".into(), "bsd-script".into());
-        if cfg!(target_os = "freebsd") || cfg!(target_os = "netbsd") || cfg!(target_os = "openbsd") {
+        if cfg!(target_os = "freebsd") || cfg!(target_os = "netbsd") || cfg!(target_os = "openbsd")
+        {
             assert_eq!(r.resolved_script().unwrap(), "bsd-script");
         } else {
             assert_eq!(r.resolved_script().unwrap(), "default");
@@ -379,7 +386,10 @@ freebsd = "gmake"
         let config: Config = toml::from_str(toml).unwrap();
         let recipe = &config.recipe["build"];
         assert_eq!(recipe.script.as_deref(), Some("make"));
-        assert_eq!(recipe.scripts.get("macos").unwrap(), "make -j$(sysctl -n hw.ncpu)");
+        assert_eq!(
+            recipe.scripts.get("macos").unwrap(),
+            "make -j$(sysctl -n hw.ncpu)"
+        );
         assert_eq!(recipe.scripts.get("linux").unwrap(), "make -j$(nproc)");
         assert_eq!(recipe.scripts.get("win").unwrap(), "nmake");
         assert_eq!(recipe.scripts.get("freebsd").unwrap(), "gmake");
@@ -392,7 +402,8 @@ freebsd = "gmake"
         r.scripts.insert("linux".into(), "linux-script".into());
         if cfg!(target_os = "linux") {
             if let Some(distro) = linux_distro_id() {
-                r.scripts.insert(format!("linux.{distro}"), "distro-script".into());
+                r.scripts
+                    .insert(format!("linux.{distro}"), "distro-script".into());
                 assert_eq!(r.resolved_script().unwrap(), "distro-script");
             } else {
                 assert_eq!(r.resolved_script().unwrap(), "linux-script");
@@ -429,7 +440,10 @@ script = "make install"
 "#;
         let config: Config = toml::from_str(toml).unwrap();
         let recipe = &config.recipe["install"];
-        assert_eq!(recipe.scripts.get("linux.ubuntu").unwrap(), "apt-get install -y foo");
+        assert_eq!(
+            recipe.scripts.get("linux.ubuntu").unwrap(),
+            "apt-get install -y foo"
+        );
         assert_eq!(recipe.scripts.get("linux.alpine").unwrap(), "apk add foo");
         assert_eq!(recipe.scripts.get("linux.arch").unwrap(), "pacman -S foo");
     }
@@ -438,15 +452,20 @@ script = "make install"
     fn test_linux_distro_id_parses_os_release() {
         let tmp = tempfile::TempDir::new().unwrap();
         let os_release = tmp.path().join("os-release");
-        std::fs::write(&os_release, r#"NAME="Ubuntu"
+        std::fs::write(
+            &os_release,
+            r#"NAME="Ubuntu"
 VERSION="24.04 LTS (Noble Numbat)"
 ID=ubuntu
 ID_LIKE=debian
 PRETTY_NAME="Ubuntu 24.04 LTS"
 VERSION_ID="24.04"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let content = std::fs::read_to_string(&os_release).unwrap();
-        let id = content.lines()
+        let id = content
+            .lines()
             .find_map(|l| l.strip_prefix("ID="))
             .map(|id| id.trim().trim_matches('"').to_lowercase());
         assert_eq!(id, Some("ubuntu".to_string()));

@@ -36,9 +36,8 @@ pub fn inject(lua: &Lua) -> mlua::Result<()> {
     })?;
     globals.set("write_file", write_file_fn)?;
 
-    let file_exists_fn = lua.create_function(|_, path: String| {
-        Ok(std::path::Path::new(&path).exists())
-    })?;
+    let file_exists_fn =
+        lua.create_function(|_, path: String| Ok(std::path::Path::new(&path).exists()))?;
     globals.set("file_exists", file_exists_fn)?;
 
     let mkdir_fn = lua.create_function(|_, path: String| {
@@ -58,13 +57,13 @@ pub fn inject(lua: &Lua) -> mlua::Result<()> {
     })?;
     globals.set("glob", glob_fn)?;
 
-    let env_get_fn = lua.create_function(|_, key: String| {
-        Ok(std::env::var(&key).ok())
-    })?;
+    let env_get_fn = lua.create_function(|_, key: String| Ok(std::env::var(&key).ok()))?;
     globals.set("env_get", env_get_fn)?;
 
     let set_env_fn = lua.create_function(|_, (key, value): (String, String)| {
-        unsafe { std::env::set_var(&key, &value); }
+        unsafe {
+            std::env::set_var(&key, &value);
+        }
         Ok(())
     })?;
     globals.set("set_env", set_env_fn)?;

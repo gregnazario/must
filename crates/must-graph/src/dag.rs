@@ -327,11 +327,7 @@ mod tests {
 
     #[test]
     fn test_reachable_from_middle() {
-        let dag = Dag::new(deps(&[
-            ("a", &[]),
-            ("b", &["a"]),
-            ("c", &["b"]),
-        ]));
+        let dag = Dag::new(deps(&[("a", &[]), ("b", &["a"]), ("c", &["b"])]));
         let reachable = dag.reachable_from("c").unwrap();
         let a_pos = reachable.iter().position(|x| x == "a").unwrap();
         let b_pos = reachable.iter().position(|x| x == "b").unwrap();

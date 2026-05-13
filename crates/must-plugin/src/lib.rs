@@ -2,10 +2,10 @@
 
 pub mod stdlib;
 
+use mlua::Lua;
 use must_core::error::Result;
 use must_core::traits::Recipe;
 use must_core::types::{BuildContext, CacheKey, CacheStrategy, RecipeOutput};
-use mlua::Lua;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tracing::warn;
@@ -105,7 +105,10 @@ impl LuaRecipe {
 
 fn build_lua_context(lua: &Lua, ctx: &BuildContext) -> mlua::Result<mlua::Table> {
     let table = lua.create_table()?;
-    table.set("project_root", ctx.project_root.to_string_lossy().to_string())?;
+    table.set(
+        "project_root",
+        ctx.project_root.to_string_lossy().to_string(),
+    )?;
     table.set("cache_dir", ctx.cache_dir.to_string_lossy().to_string())?;
     table.set("target", ctx.target.as_str())?;
     table.set("profile", ctx.profile.as_str())?;
@@ -173,27 +176,26 @@ impl Recipe for LuaRecipe {
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
         self.with_lua(|lua| {
             let globals = lua.globals();
-            let func: mlua::Function = globals
-                .get("execute")
-                .map_err(|e| must_core::Error::Config {
-                    path: PathBuf::from(&self.name),
-                    message: format!("plugin execute() not found: {e}"),
-                })?;
+            let func: mlua::Function =
+                globals
+                    .get("execute")
+                    .map_err(|e| must_core::Error::Config {
+                        path: PathBuf::from(&self.name),
+                        message: format!("plugin execute() not found: {e}"),
+                    })?;
 
-            let lua_ctx = build_lua_context(lua, ctx).map_err(|e| {
-                must_core::Error::Config {
-                    path: PathBuf::from(&self.name),
-                    message: format!("lua context build error: {e}"),
-                }
+            let lua_ctx = build_lua_context(lua, ctx).map_err(|e| must_core::Error::Config {
+                path: PathBuf::from(&self.name),
+                message: format!("lua context build error: {e}"),
             })?;
 
-            let table: mlua::Table = func.call(lua_ctx).map_err(|e| {
-                must_core::Error::RecipeFailed {
-                    name: self.name.clone(),
-                    code: 1,
-                    stderr: format!("lua execute() error: {e}"),
-                }
-            })?;
+            let table: mlua::Table =
+                func.call(lua_ctx)
+                    .map_err(|e| must_core::Error::RecipeFailed {
+                        name: self.name.clone(),
+                        code: 1,
+                        stderr: format!("lua execute() error: {e}"),
+                    })?;
 
             let stdout: String = table.get("stdout").unwrap_or_default();
             let stderr: String = table.get("stderr").unwrap_or_default();
@@ -606,7 +608,9 @@ end
 
     #[test]
     fn test_stdlib_env_get() {
-        unsafe { std::env::set_var("MUST_TEST_PLUGIN_VAR", "testval"); }
+        unsafe {
+            std::env::set_var("MUST_TEST_PLUGIN_VAR", "testval");
+        }
         let dir = tempfile::TempDir::new().unwrap();
         let plugin_path = dir.path().join("envget.lua");
         std::fs::write(
@@ -899,9 +903,13 @@ end
         let plugin_dir = dir.path().join("plugins");
         std::fs::create_dir_all(&plugin_dir).unwrap();
 
-        std::fs::write(plugin_dir.join("good.lua"), r#"
+        std::fs::write(
+            plugin_dir.join("good.lua"),
+            r#"
 function execute(ctx) return { stdout = "ok", stderr = "", success = true } end
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         std::fs::write(plugin_dir.join("bad.lua"), "invalid lua {{{{").unwrap();
         std::fs::write(plugin_dir.join("notes.txt"), "not a plugin").unwrap();
 

@@ -2,7 +2,7 @@ use glob::glob;
 use must_cache::mtime::check_mtime;
 use must_core::{
     BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_command, shell_command, shell_program, shell_display,
+    run_command, shell_command, shell_display, shell_program,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -494,7 +494,10 @@ mod tests {
         c1.target = "linux".to_string();
         let mut c2 = ctx();
         c2.target = "macos".to_string();
-        assert_ne!(r.cache_key(&c1).unwrap().hash, r.cache_key(&c2).unwrap().hash);
+        assert_ne!(
+            r.cache_key(&c1).unwrap().hash,
+            r.cache_key(&c2).unwrap().hash
+        );
     }
 
     #[test]
@@ -504,7 +507,10 @@ mod tests {
         c1.profile = "debug".to_string();
         let mut c2 = ctx();
         c2.profile = "release".to_string();
-        assert_ne!(r.cache_key(&c1).unwrap().hash, r.cache_key(&c2).unwrap().hash);
+        assert_ne!(
+            r.cache_key(&c1).unwrap().hash,
+            r.cache_key(&c2).unwrap().hash
+        );
     }
 
     #[test]

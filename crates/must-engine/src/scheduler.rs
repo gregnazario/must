@@ -9,9 +9,21 @@ use tracing::{error, info, warn};
 /// Event emitted during build execution for progress tracking.
 #[derive(Debug, Clone, Serialize)]
 pub enum ProgressEvent {
-    Starting { recipe: String, total: usize, completed: usize },
-    Completed { recipe: String, success: bool, from_cache: bool, duration_ms: u64 },
-    WaveDone { completed: usize, total: usize },
+    Starting {
+        recipe: String,
+        total: usize,
+        completed: usize,
+    },
+    Completed {
+        recipe: String,
+        success: bool,
+        from_cache: bool,
+        duration_ms: u64,
+    },
+    WaveDone {
+        completed: usize,
+        total: usize,
+    },
 }
 
 /// Outcome of a single recipe execution.
@@ -88,16 +100,17 @@ fn ensure_gitignore(subdir: &std::path::Path) {
     }
 }
 
-fn run_recipe(
-    recipe: Arc<dyn Recipe>,
-    ctx: Arc<BuildContext>,
-) -> ExecOutput {
+fn run_recipe(recipe: Arc<dyn Recipe>, ctx: Arc<BuildContext>) -> ExecOutput {
     let name = recipe.name().to_string();
     let exec_start = std::time::Instant::now();
     info!(recipe = %name, "starting recipe");
     let result = recipe.execute(&ctx);
     let duration_ms = exec_start.elapsed().as_millis() as u64;
-    ExecOutput { name, result, duration_ms }
+    ExecOutput {
+        name,
+        result,
+        duration_ms,
+    }
 }
 
 fn to_execution_result(out: ExecOutput) -> ExecutionResult {
@@ -181,9 +194,7 @@ impl Engine {
                 let handle = tokio::spawn(async move {
                     let _permit = sem.acquire().await.expect("semaphore closed");
                     let recipe_name = recipe.name().to_string();
-                    let out = tokio::task::spawn_blocking(move || {
-                        run_recipe(recipe, ctx)
-                    }).await;
+                    let out = tokio::task::spawn_blocking(move || run_recipe(recipe, ctx)).await;
                     match out {
                         Ok(o) => (true, Ok(o)),
                         Err(e) => (false, Err(format!("{recipe_name}: task panicked: {e}"))),
@@ -290,15 +301,16 @@ impl Engine {
                     let tx = tx.clone();
                     tokio::spawn(async move {
                         let name = recipe.name().to_string();
-                        let _ = tx.send(ProgressEvent::Starting {
-                            recipe: name.clone(),
-                            total: 0,
-                            completed: 0,
-                        }).await;
+                        let _ = tx
+                            .send(ProgressEvent::Starting {
+                                recipe: name.clone(),
+                                total: 0,
+                                completed: 0,
+                            })
+                            .await;
                         let _permit = sem.acquire().await.expect("semaphore closed");
-                        let out = tokio::task::spawn_blocking(move || {
-                            run_recipe(recipe, ctx)
-                        }).await;
+                        let out =
+                            tokio::task::spawn_blocking(move || run_recipe(recipe, ctx)).await;
                         match out {
                             Ok(o) => {
                                 let name = o.name.clone();
@@ -364,10 +376,12 @@ impl Engine {
                 }
             }
 
-            let _ = progress_tx.send(ProgressEvent::WaveDone {
-                completed,
-                total: total_recipes,
-            }).await;
+            let _ = progress_tx
+                .send(ProgressEvent::WaveDone {
+                    completed,
+                    total: total_recipes,
+                })
+                .await;
 
             if wave_failed && self.fail_fast {
                 break 'waves;
@@ -384,16 +398,15 @@ impl Engine {
     }
 }
 
-async fn tx_clone_send(
-    tx: &tokio::sync::mpsc::Sender<ProgressEvent>,
-    result: &ExecutionResult,
-) {
-    let _ = tx.send(ProgressEvent::Completed {
-        recipe: result.recipe_name.clone(),
-        success: result.success,
-        from_cache: result.from_cache,
-        duration_ms: result.duration_ms,
-    }).await;
+async fn tx_clone_send(tx: &tokio::sync::mpsc::Sender<ProgressEvent>, result: &ExecutionResult) {
+    let _ = tx
+        .send(ProgressEvent::Completed {
+            recipe: result.recipe_name.clone(),
+            success: result.success,
+            from_cache: result.from_cache,
+            duration_ms: result.duration_ms,
+        })
+        .await;
 }
 
 #[cfg(test)]

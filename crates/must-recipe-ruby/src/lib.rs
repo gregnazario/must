@@ -156,10 +156,7 @@ impl Recipe for RubyBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] bundle install (in {})",
-                    self.package
-                ),
+                stdout: format!("[dry-run] bundle install (in {})", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -341,7 +338,10 @@ mod tests {
     fn ruby_bin_cache_key_differs_by_package() {
         let r1 = RubyBinRecipe::new("r", "app-a");
         let r2 = RubyBinRecipe::new("r", "app-b");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]
@@ -386,7 +386,11 @@ mod tests {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(tmp.path().join("Gemfile"), "source 'https://rubygems.org'\n").unwrap();
+        std::fs::write(
+            tmp.path().join("Gemfile"),
+            "source 'https://rubygems.org'\n",
+        )
+        .unwrap();
         let mut c = ctx_with_path();
         c.project_root = tmp.path().to_owned();
         c.cache_dir = tmp.path().join(".must/cache");

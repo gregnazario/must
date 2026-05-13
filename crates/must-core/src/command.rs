@@ -96,20 +96,12 @@ pub fn shell_command(script: &str) -> Command {
 
 /// Returns the shell binary name for the current platform.
 pub fn shell_program() -> &'static str {
-    if cfg!(windows) {
-        "cmd"
-    } else {
-        "sh"
-    }
+    if cfg!(windows) { "cmd" } else { "sh" }
 }
 
 /// Returns the shell flag for inline scripts (`-c` on Unix, `/C` on Windows).
 pub fn shell_arg() -> &'static str {
-    if cfg!(windows) {
-        "/C"
-    } else {
-        "-c"
-    }
+    if cfg!(windows) { "/C" } else { "-c" }
 }
 
 /// Format a script for human-readable display.

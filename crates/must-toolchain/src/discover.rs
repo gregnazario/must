@@ -50,7 +50,12 @@ pub fn go_install_hint() -> String {
 /// Search PATH for a binary with the given name. Returns the full path if found.
 fn which_in_path(name: &str) -> Option<PathBuf> {
     let candidates = if cfg!(windows) {
-        vec![name.to_string(), format!("{name}.exe"), format!("{name}.cmd"), format!("{name}.bat")]
+        vec![
+            name.to_string(),
+            format!("{name}.exe"),
+            format!("{name}.cmd"),
+            format!("{name}.bat"),
+        ]
     } else {
         vec![name.to_string()]
     };

@@ -1598,10 +1598,7 @@ script = "echo ok"
         .current_dir(root)
         .output()
         .unwrap();
-    assert!(
-        !log.status.success(),
-        "log nonexistent should exit nonzero"
-    );
+    assert!(!log.status.success(), "log nonexistent should exit nonzero");
 }
 
 #[test]
@@ -1698,8 +1695,14 @@ plugin = "greet"
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("greet"), "should list greet recipe: {stdout}");
-    assert!(stdout.contains("plugin"), "should show plugin type: {stdout}");
+    assert!(
+        stdout.contains("greet"),
+        "should list greet recipe: {stdout}"
+    );
+    assert!(
+        stdout.contains("plugin"),
+        "should show plugin type: {stdout}"
+    );
 }
 
 #[test]
@@ -1720,29 +1723,48 @@ script = "echo hello"
     .unwrap();
 
     let build = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(build.status.success());
 
     let clear = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "log", "--clear"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "log",
+            "--clear",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(clear.status.success());
     let stdout = String::from_utf8_lossy(&clear.stdout);
-    assert!(stdout.contains("Cleared"), "should confirm cleared: {stdout}");
+    assert!(
+        stdout.contains("Cleared"),
+        "should confirm cleared: {stdout}"
+    );
 
     let log = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "log"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "log",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(log.status.success());
     let stdout = String::from_utf8_lossy(&log.stdout);
-    assert!(stdout.contains("No logs found"), "logs should be empty after clear: {stdout}");
+    assert!(
+        stdout.contains("No logs found"),
+        "logs should be empty after clear: {stdout}"
+    );
 }
 
 #[test]
@@ -1773,16 +1795,27 @@ name = "plugin-list-test"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "plugin", "list"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin",
+            "list",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("hello"), "should list hello plugin: {stdout}");
+    assert!(
+        stdout.contains("hello"),
+        "should list hello plugin: {stdout}"
+    );
     assert!(stdout.contains("bad"), "should list bad plugin: {stdout}");
     assert!(stdout.contains("ok"), "hello should be valid: {stdout}");
-    assert!(stdout.contains("invalid"), "bad should be invalid: {stdout}");
+    assert!(
+        stdout.contains("invalid"),
+        "bad should be invalid: {stdout}"
+    );
 }
 
 #[test]
@@ -1812,7 +1845,13 @@ name = "plugin-check"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "plugin", "check", "valid"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin",
+            "check",
+            "valid",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -1840,7 +1879,13 @@ name = "plugin-check"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "plugin", "check", "broken"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin",
+            "check",
+            "broken",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -1891,10 +1936,17 @@ script = "echo beta-built"
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(output.status.success(), "foreach should succeed\nstdout: {stdout}\nstderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "foreach should succeed\nstdout: {stdout}\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(stdout.contains("alpha"), "should mention alpha: {stdout}");
     assert!(stdout.contains("beta"), "should mention beta: {stdout}");
-    assert!(!stdout.contains("gamma"), "should not mention gamma (no Mustfile.toml): {stdout}");
+    assert!(
+        !stdout.contains("gamma"),
+        "should not mention gamma (no Mustfile.toml): {stdout}"
+    );
 }
 
 #[test]
@@ -1932,10 +1984,16 @@ script = "echo {name}-built"
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(output.status.success(), "foreach with filter should succeed\nstdout: {stdout}");
+    assert!(
+        output.status.success(),
+        "foreach with filter should succeed\nstdout: {stdout}"
+    );
     assert!(stdout.contains("lib-a"), "should contain lib-a: {stdout}");
     assert!(stdout.contains("lib-b"), "should contain lib-b: {stdout}");
-    assert!(!stdout.contains("app"), "should not contain app (filtered out): {stdout}");
+    assert!(
+        !stdout.contains("app"),
+        "should not contain app (filtered out): {stdout}"
+    );
 }
 
 #[test]
@@ -1948,7 +2006,10 @@ fn test_foreach_no_subprojects() {
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("No sub-projects found"), "should report no sub-projects: {stdout}");
+    assert!(
+        stdout.contains("No sub-projects found"),
+        "should report no sub-projects: {stdout}"
+    );
 }
 
 #[test]
@@ -1992,7 +2053,10 @@ script = "exit 1"
         .current_dir(root)
         .output()
         .unwrap();
-    assert!(!output.status.success(), "foreach should fail when sub-project fails");
+    assert!(
+        !output.status.success(),
+        "foreach should fail when sub-project fails"
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("✗"), "should show failure icon: {stdout}");
 }
@@ -2015,28 +2079,46 @@ script = "echo ok"
     .unwrap();
 
     let build1 = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(build1.status.success());
 
     let build2 = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(build2.status.success());
 
     let diff = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "diff"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "diff",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(diff.status.success());
     let stdout = String::from_utf8_lossy(&diff.stdout);
-    assert!(stdout.contains("build"), "should mention build recipe: {stdout}");
-    assert!(stdout.contains("unchanged") || stdout.contains("changed"), "should have diff output: {stdout}");
+    assert!(
+        stdout.contains("build"),
+        "should mention build recipe: {stdout}"
+    );
+    assert!(
+        stdout.contains("unchanged") || stdout.contains("changed"),
+        "should have diff output: {stdout}"
+    );
 }
 
 #[test]
@@ -2060,7 +2142,11 @@ MUST_ARGS = "${MUST_ARGS}"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .env("MUST_ARGS", "hello world")
         .current_dir(root)
         .output()
@@ -2079,11 +2165,15 @@ fn test_plugin_install_from_local_file() {
     let root = dir.path();
 
     let src = root.join("my-plugin.lua");
-    std::fs::write(&src, r#"
+    std::fs::write(
+        &src,
+        r#"
 function execute(ctx)
     return { stdout = "installed!", stderr = "", success = true }
 end
-"#).unwrap();
+"#,
+    )
+    .unwrap();
 
     let plugin_dir = root.join(".must").join("plugins");
 
@@ -2098,17 +2188,26 @@ name = "plugin-install-test"
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
         .args([
-            "--file", &root.join("Mustfile.toml").to_string_lossy(),
-            "plugin", "install", &src.to_string_lossy(),
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin",
+            "install",
+            &src.to_string_lossy(),
         ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(output.status.success(), "plugin install should succeed");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Installed"), "should confirm install: {stdout}");
+    assert!(
+        stdout.contains("Installed"),
+        "should confirm install: {stdout}"
+    );
 
-    assert!(plugin_dir.join("my-plugin.lua").exists(), "plugin file should exist");
+    assert!(
+        plugin_dir.join("my-plugin.lua").exists(),
+        "plugin file should exist"
+    );
 }
 
 #[test]
@@ -2139,14 +2238,20 @@ name = "plugin-remove-test"
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
         .args([
-            "--file", &root.join("Mustfile.toml").to_string_lossy(),
-            "plugin", "remove", "temp",
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "plugin",
+            "remove",
+            "temp",
         ])
         .current_dir(root)
         .output()
         .unwrap();
     assert!(output.status.success());
-    assert!(!plugin_dir.join("temp.lua").exists(), "plugin should be removed");
+    assert!(
+        !plugin_dir.join("temp.lua").exists(),
+        "plugin should be removed"
+    );
 }
 
 #[test]
@@ -2168,21 +2273,24 @@ script  = "make hello"
     )
     .unwrap();
 
-    std::fs::write(
-        root.join("Makefile"),
-        "hello:\n\techo hello-from-make\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("Makefile"), "hello:\n\techo hello-from-make\n").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("hello-from-make"), "should contain make output, got: {stdout}");
+        assert!(
+            stdout.contains("hello-from-make"),
+            "should contain make output, got: {stdout}"
+        );
     }
 }
 
@@ -2205,21 +2313,24 @@ script  = "just fmt"
     )
     .unwrap();
 
-    std::fs::write(
-        root.join("justfile"),
-        "fmt:\n\techo formatted-by-just\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("justfile"), "fmt:\n\techo formatted-by-just\n").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "fmt"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "fmt",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("formatted-by-just"), "should contain just output, got: {stdout}");
+        assert!(
+            stdout.contains("formatted-by-just"),
+            "should contain just output, got: {stdout}"
+        );
     }
 }
 
@@ -2249,14 +2360,21 @@ script  = "npm run build"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("npm-build-output"), "should contain npm output, got: {stdout}");
+        assert!(
+            stdout.contains("npm-build-output"),
+            "should contain npm output, got: {stdout}"
+        );
     }
 }
 
@@ -2282,14 +2400,21 @@ script  = "gradle tasks"
     std::fs::write(root.join("build.gradle"), "").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("tasks") || stdout.contains("BUILD"), "should contain gradle output, got: {stdout}");
+        assert!(
+            stdout.contains("tasks") || stdout.contains("BUILD"),
+            "should contain gradle output, got: {stdout}"
+        );
     }
 }
 
@@ -2319,14 +2444,21 @@ script  = "rake hello"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("hello-from-rake"), "should contain rake output, got: {stdout}");
+        assert!(
+            stdout.contains("hello-from-rake"),
+            "should contain rake output, got: {stdout}"
+        );
     }
 }
 
@@ -2356,14 +2488,21 @@ script  = "invoke hello"
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("hello-from-invoke"), "should contain invoke output, got: {stdout}");
+        assert!(
+            stdout.contains("hello-from-invoke"),
+            "should contain invoke output, got: {stdout}"
+        );
     }
 }
 
@@ -2387,22 +2526,28 @@ cache   = "none"
     )
     .unwrap();
 
-    std::fs::write(
-        root.join("Makefile"),
-        "hello:\n\techo no-cache\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("Makefile"), "hello:\n\techo no-cache\n").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("no-cache"), "should contain output, got: {stdout}");
-        assert!(!stdout.contains("from_cache"), "bridge should never report from_cache");
+        assert!(
+            stdout.contains("no-cache"),
+            "should contain output, got: {stdout}"
+        );
+        assert!(
+            !stdout.contains("from_cache"),
+            "bridge should never report from_cache"
+        );
     }
 }
 
@@ -2411,24 +2556,30 @@ fn test_autodetect_makefile() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    std::fs::write(
-        root.join("Makefile"),
-        "hello:\n\techo autodetected-make\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("Makefile"), "hello:\n\techo autodetected-make\n").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("auto-detected"), "should show auto-detect message, got stderr: {stderr}");
+    assert!(
+        stderr.contains("auto-detected"),
+        "should show auto-detect message, got stderr: {stderr}"
+    );
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("autodetected-make"), "should contain make output, got: {stdout}");
+        assert!(
+            stdout.contains("autodetected-make"),
+            "should contain make output, got: {stdout}"
+        );
     }
 }
 
@@ -2444,14 +2595,21 @@ fn test_autodetect_makefile_test_target() {
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "test"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "test",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("autodetected-make-test"), "should contain make test output, got: {stdout}");
+        assert!(
+            stdout.contains("autodetected-make-test"),
+            "should contain make test output, got: {stdout}"
+        );
     }
 }
 
@@ -2460,24 +2618,30 @@ fn test_autodetect_justfile() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    std::fs::write(
-        root.join("justfile"),
-        "build:\n\techo autodetected-just\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("justfile"), "build:\n\techo autodetected-just\n").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("auto-detected"), "should show auto-detect message, got stderr: {stderr}");
+    assert!(
+        stderr.contains("auto-detected"),
+        "should show auto-detect message, got stderr: {stderr}"
+    );
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("autodetected-just"), "should contain just output, got: {stdout}");
+        assert!(
+            stdout.contains("autodetected-just"),
+            "should contain just output, got: {stdout}"
+        );
     }
 }
 
@@ -2493,17 +2657,27 @@ fn test_autodetect_package_json() {
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("auto-detected"), "should show auto-detect message, got stderr: {stderr}");
+    assert!(
+        stderr.contains("auto-detected"),
+        "should show auto-detect message, got stderr: {stderr}"
+    );
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("autodetected-npm-build"), "should contain npm output, got: {stdout}");
+        assert!(
+            stdout.contains("autodetected-npm-build"),
+            "should contain npm output, got: {stdout}"
+        );
     }
 }
 
@@ -2512,11 +2686,7 @@ fn test_autodetect_multi_tool() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
 
-    std::fs::write(
-        root.join("Makefile"),
-        "build:\n\techo multi-make-build\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("Makefile"), "build:\n\techo multi-make-build\n").unwrap();
 
     std::fs::write(
         root.join("package.json"),
@@ -2525,24 +2695,41 @@ fn test_autodetect_multi_tool() {
     .unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "list",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     let combined = String::from_utf8_lossy(&output.stdout).to_string()
         + &String::from_utf8_lossy(&output.stderr);
-    assert!(combined.contains("auto-detected"), "should show auto-detect message, got: {combined}");
+    assert!(
+        combined.contains("auto-detected"),
+        "should show auto-detect message, got: {combined}"
+    );
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "list",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("build"), "should have unprefixed build recipe");
-    assert!(stdout.contains("npm-build"), "should have prefixed npm-build recipe");
+    assert!(
+        stdout.contains("build"),
+        "should have unprefixed build recipe"
+    );
+    assert!(
+        stdout.contains("npm-build"),
+        "should have prefixed npm-build recipe"
+    );
 }
 
 #[test]
@@ -2551,7 +2738,11 @@ fn test_autodetect_no_files_error() {
     let root = dir.path();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -2559,7 +2750,10 @@ fn test_autodetect_no_files_error() {
     assert!(!output.status.success());
     let combined = String::from_utf8_lossy(&output.stdout).to_string()
         + &String::from_utf8_lossy(&output.stderr);
-    assert!(combined.contains("no Mustfile.toml") || combined.contains("no build files"), "should error about missing files, got: {combined}");
+    assert!(
+        combined.contains("no Mustfile.toml") || combined.contains("no build files"),
+        "should error about missing files, got: {combined}"
+    );
 }
 
 #[test]
@@ -2570,7 +2764,11 @@ fn test_autodetect_list_shows_bridge_recipes() {
     std::fs::write(root.join("Makefile"), "build:\n\techo hi\n").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "list"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "list",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -2603,14 +2801,21 @@ script  = "mvn --version"
     std::fs::write(root.join("pom.xml"), "<project></project>").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Maven") || stdout.contains("Apache"), "should contain maven output, got: {stdout}");
+        assert!(
+            stdout.contains("Maven") || stdout.contains("Apache"),
+            "should contain maven output, got: {stdout}"
+        );
     }
 }
 
@@ -2636,7 +2841,11 @@ script  = "sbt --version"
     std::fs::write(root.join("build.sbt"), "").unwrap();
 
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
@@ -2666,24 +2875,32 @@ script  = "make dangerous-target"
     )
     .unwrap();
 
-    std::fs::write(
-        root.join("Makefile"),
-        "dangerous-target:\n\texit 1\n",
-    )
-    .unwrap();
+    std::fs::write(root.join("Makefile"), "dangerous-target:\n\texit 1\n").unwrap();
 
     let normal = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     let dry = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
-        .args(["--file", &root.join("Mustfile.toml").to_string_lossy(), "--dry-run", "build"])
+        .args([
+            "--file",
+            &root.join("Mustfile.toml").to_string_lossy(),
+            "--dry-run",
+            "build",
+        ])
         .current_dir(root)
         .output()
         .unwrap();
 
     assert!(dry.status.success(), "dry-run should always succeed");
-    assert!(!normal.status.success(), "normal run should fail with exit 1");
+    assert!(
+        !normal.status.success(),
+        "normal run should fail with exit 1"
+    );
 }

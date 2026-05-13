@@ -1,6 +1,4 @@
-use must_config::schema::{
-    CacheMode, Config, EnvMap, Project, Recipe, RecipeType,
-};
+use must_config::schema::{CacheMode, Config, EnvMap, Project, Recipe, RecipeType};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -33,10 +31,7 @@ impl BridgeTool {
         match self {
             BridgeTool::Make => &["Makefile", "GNUmakefile", "makefile"],
             BridgeTool::Npm => &["package.json"],
-            BridgeTool::Gradle => &[
-                "build.gradle",
-                "build.gradle.kts",
-            ],
+            BridgeTool::Gradle => &["build.gradle", "build.gradle.kts"],
             BridgeTool::Maven => &["pom.xml"],
             BridgeTool::Rake => &["Rakefile"],
             BridgeTool::Invoke => &["tasks.py"],
@@ -177,11 +172,7 @@ impl BridgeTool {
                 ("lint", "lint"),
                 ("fmt", "format"),
             ],
-            BridgeTool::Cmake => vec![
-                ("build", "build"),
-                ("test", "test"),
-                ("clean", "clean"),
-            ],
+            BridgeTool::Cmake => vec![("build", "build"), ("test", "test"), ("clean", "clean")],
             BridgeTool::CargoMake => vec![
                 ("build", "build"),
                 ("test", "test"),
@@ -189,11 +180,7 @@ impl BridgeTool {
                 ("lint", "lint"),
                 ("fmt", "format"),
             ],
-            BridgeTool::Ant => vec![
-                ("build", "build"),
-                ("test", "test"),
-                ("clean", "clean"),
-            ],
+            BridgeTool::Ant => vec![("build", "build"), ("test", "test"), ("clean", "clean")],
             BridgeTool::Just => vec![
                 ("build", "build"),
                 ("test", "test"),
@@ -219,11 +206,7 @@ impl BridgeTool {
                 ("fmt", "fmt ::"),
                 ("clean", "clean-all"),
             ],
-            BridgeTool::Meson => vec![
-                ("build", "build"),
-                ("test", "test"),
-                ("clean", "clean"),
-            ],
+            BridgeTool::Meson => vec![("build", "build"), ("test", "test"), ("clean", "clean")],
             BridgeTool::Yarn => vec![
                 ("build", "build"),
                 ("test", "test"),
@@ -242,16 +225,8 @@ impl BridgeTool {
                 ("lint", "lint"),
                 ("fmt", "format"),
             ],
-            BridgeTool::Sbt => vec![
-                ("build", "compile"),
-                ("test", "test"),
-                ("clean", "clean"),
-            ],
-            BridgeTool::Gulp => vec![
-                ("build", "build"),
-                ("test", "test"),
-                ("clean", "clean"),
-            ],
+            BridgeTool::Sbt => vec![("build", "compile"), ("test", "test"), ("clean", "clean")],
+            BridgeTool::Gulp => vec![("build", "build"), ("test", "test"), ("clean", "clean")],
             BridgeTool::Nx => vec![
                 ("build", "run-many --target=build --all"),
                 ("test", "run-many --target=test --all"),
@@ -315,14 +290,11 @@ pub fn auto_config(project_root: &Path) -> Option<Config> {
         for (recipe_name, target) in tool.default_recipes() {
             if recipes.contains_key(recipe_name) && bridges.len() > 1 {
                 let prefixed = format!("{}-{}", tool.name(), recipe_name);
-                recipes.insert(
-                    prefixed,
-                    make_bridge_recipe(tool, target),
-                );
+                recipes.insert(prefixed, make_bridge_recipe(tool, target));
             }
-            recipes.entry(recipe_name.to_string()).or_insert_with(|| {
-                make_bridge_recipe(tool, target)
-            });
+            recipes
+                .entry(recipe_name.to_string())
+                .or_insert_with(|| make_bridge_recipe(tool, target));
         }
     }
 
@@ -482,8 +454,14 @@ mod tests {
 
     #[test]
     fn build_command_cmake() {
-        assert_eq!(BridgeTool::Cmake.build_command("build"), "cmake --build build");
-        assert_eq!(BridgeTool::Cmake.build_command("test"), "ctest --test-dir build");
+        assert_eq!(
+            BridgeTool::Cmake.build_command("build"),
+            "cmake --build build"
+        );
+        assert_eq!(
+            BridgeTool::Cmake.build_command("test"),
+            "ctest --test-dir build"
+        );
     }
 
     #[test]
@@ -633,13 +611,22 @@ mod tests {
     #[test]
     fn build_command_bazel() {
         assert_eq!(BridgeTool::Bazel.build_command("build"), "bazel build");
-        assert_eq!(BridgeTool::Bazel.build_command("test //..."), "bazel test //...");
+        assert_eq!(
+            BridgeTool::Bazel.build_command("test //..."),
+            "bazel test //..."
+        );
     }
 
     #[test]
     fn build_command_meson() {
-        assert_eq!(BridgeTool::Meson.build_command("build"), "meson compile -C builddir");
-        assert_eq!(BridgeTool::Meson.build_command("test"), "meson test -C builddir");
+        assert_eq!(
+            BridgeTool::Meson.build_command("build"),
+            "meson compile -C builddir"
+        );
+        assert_eq!(
+            BridgeTool::Meson.build_command("test"),
+            "meson test -C builddir"
+        );
     }
 
     #[test]
@@ -655,6 +642,9 @@ mod tests {
 
     #[test]
     fn build_command_nx() {
-        assert_eq!(BridgeTool::Nx.build_command("run-many --target=build --all"), "nx run-many --target=build --all");
+        assert_eq!(
+            BridgeTool::Nx.build_command("run-many --target=build --all"),
+            "nx run-many --target=build --all"
+        );
     }
 }

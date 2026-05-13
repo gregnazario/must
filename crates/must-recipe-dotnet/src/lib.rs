@@ -156,10 +156,7 @@ impl Recipe for DotnetBuildRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] dotnet build {}",
-                    self.package
-                ),
+                stdout: format!("[dry-run] dotnet build {}", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -291,10 +288,7 @@ impl Recipe for DotnetPublishRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] dotnet publish {} -c Release",
-                    self.package
-                ),
+                stdout: format!("[dry-run] dotnet publish {} -c Release", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -420,7 +414,10 @@ mod tests {
     fn dotnet_build_cache_key_differs_by_package() {
         let r1 = DotnetBuildRecipe::new("r", "AppA");
         let r2 = DotnetBuildRecipe::new("r", "AppB");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]

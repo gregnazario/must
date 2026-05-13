@@ -330,7 +330,10 @@ mod tests {
     fn zig_bin_cache_key_differs_by_package() {
         let r1 = ZigBinRecipe::new("r", "app-a");
         let r2 = ZigBinRecipe::new("r", "app-b");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]

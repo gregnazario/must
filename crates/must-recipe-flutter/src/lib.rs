@@ -185,10 +185,7 @@ impl Recipe for FlutterBuildRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] flutter build {} (in {})",
-                    platform, self.package
-                ),
+                stdout: format!("[dry-run] flutter build {} (in {})", platform, self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -358,7 +355,10 @@ mod tests {
     fn flutter_build_cache_key_differs_by_package() {
         let r1 = FlutterBuildRecipe::new("r", "app_a");
         let r2 = FlutterBuildRecipe::new("r", "app_b");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]
@@ -370,7 +370,10 @@ mod tests {
             c.target = "ios".to_string();
             r.cache_key(&c).unwrap()
         };
-        assert_ne!(key_android.hash, key_ios.hash, "different targets should have different cache keys");
+        assert_ne!(
+            key_android.hash, key_ios.hash,
+            "different targets should have different cache keys"
+        );
     }
 
     #[test]

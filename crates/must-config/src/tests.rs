@@ -941,7 +941,10 @@ type = "dotnet-build"
     let result = validate(&cfg, Path::new("Mustfile.toml"));
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
 }
 
 #[test]
@@ -958,7 +961,10 @@ type = "ruby-bin"
     let result = validate(&cfg, Path::new("Mustfile.toml"));
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
 }
 
 #[test]
@@ -975,7 +981,10 @@ type = "dart-bin"
     let result = validate(&cfg, Path::new("Mustfile.toml"));
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
 }
 
 #[test]
@@ -992,7 +1001,10 @@ type = "elixir-build"
     let result = validate(&cfg, Path::new("Mustfile.toml"));
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
-    assert!(msg.contains("package"), "should mention missing 'package': {msg}");
+    assert!(
+        msg.contains("package"),
+        "should mention missing 'package': {msg}"
+    );
 }
 
 #[test]
@@ -1492,9 +1504,9 @@ package = "src/main.nim"
 }
 
 #[test]
- fn test_nim_test_recipe() {
-     let cfg = parse(
-         r#"
+fn test_nim_test_recipe() {
+    let cfg = parse(
+        r#"
 [project]
 name = "test"
 
@@ -1502,9 +1514,9 @@ name = "test"
 type = "nim-test"
 package = "tests/test_all.nim"
 "#,
-     );
-     assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::NimTest);
- }
+    );
+    assert_eq!(cfg.recipe["test"].recipe_type, RecipeType::NimTest);
+}
 
 #[test]
 fn test_precompiled_bin_recipe() {
@@ -1521,7 +1533,12 @@ output_path = "bin/protoc"
 "#,
     );
     assert_eq!(cfg.recipe["protoc"].recipe_type, RecipeType::PrecompiledBin);
-    assert_eq!(cfg.recipe["protoc"].url.as_deref(), Some("https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64"));
+    assert_eq!(
+        cfg.recipe["protoc"].url.as_deref(),
+        Some(
+            "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64"
+        )
+    );
     assert_eq!(cfg.recipe["protoc"].sha256.as_deref(), Some("abc123"));
 }
 

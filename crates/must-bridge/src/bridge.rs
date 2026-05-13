@@ -13,7 +13,11 @@ pub struct BridgeRecipe {
 }
 
 impl BridgeRecipe {
-    pub fn new(name: impl Into<String>, tool: impl Into<String>, script: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        tool: impl Into<String>,
+        script: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             deps: Vec::new(),
@@ -61,11 +65,7 @@ impl Recipe for BridgeRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] would run via {}: {}",
-                    self.tool,
-                    self.script
-                ),
+                stdout: format!("[dry-run] would run via {}: {}", self.tool, self.script),
                 stderr: String::new(),
                 duration_ms: 0,
             });

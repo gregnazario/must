@@ -1,4 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand};
+use must_bridge::BridgeRecipe;
 use must_config::load_config;
 use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
@@ -10,19 +11,18 @@ use must_recipe_docker::{DockerBuildRecipe, DockerPushRecipe};
 use must_recipe_dotnet::{DotnetBuildRecipe, DotnetPublishRecipe, DotnetTestRecipe};
 use must_recipe_elixir::{ElixirBuildRecipe, ElixirTestRecipe};
 use must_recipe_flutter::{FlutterBuildRecipe, FlutterTestRecipe};
-use must_recipe_nim::{NimBinRecipe, NimTestRecipe};
-use must_recipe_precompiled::PrecompiledBinRecipe;
 use must_recipe_go::{GoBinRecipe, GoTestRecipe};
 use must_recipe_java::{JavaBinRecipe, JavaTestRecipe};
 use must_recipe_kotlin::{KotlinBinRecipe, KotlinTestRecipe};
+use must_recipe_nim::{NimBinRecipe, NimTestRecipe};
+use must_recipe_precompiled::PrecompiledBinRecipe;
 use must_recipe_py::{PyBinRecipe, PyLintRecipe, PyTestRecipe};
-use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_ruby::{RubyBinRecipe, RubyTestRecipe};
+use must_recipe_rust::{RustBinRecipe, RustLibRecipe, RustTestRecipe};
 use must_recipe_shell::ShellRecipe;
 use must_recipe_swift::{SwiftBinRecipe, SwiftTestRecipe};
 use must_recipe_ts::{NpmRecipe, TsBinRecipe, TsCheckRecipe, TsLintRecipe};
 use must_recipe_zig::{ZigBinRecipe, ZigTestRecipe};
-use must_bridge::BridgeRecipe;
 use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -259,7 +259,9 @@ fn main() {
 
     if let Commands::Completions { shell } = &cli.command {
         let buf = generate_completions(*shell);
-        std::io::Write::write_all(&mut std::io::stdout(), &buf).map_err(Error::Io).unwrap();
+        std::io::Write::write_all(&mut std::io::stdout(), &buf)
+            .map_err(Error::Io)
+            .unwrap();
         return;
     }
 
@@ -272,8 +274,15 @@ fn main() {
         return;
     }
 
-    if let Commands::Import { makefile, out, format } = &cli.command {
-        let input = std::fs::read_to_string(makefile).map_err(must_core::Error::Io).unwrap();
+    if let Commands::Import {
+        makefile,
+        out,
+        format,
+    } = &cli.command
+    {
+        let input = std::fs::read_to_string(makefile)
+            .map_err(must_core::Error::Io)
+            .unwrap();
         let fmt = format
             .as_deref()
             .map(String::from)
@@ -283,10 +292,19 @@ fn main() {
             "task" | "taskfile" => must_import::import_taskfile(&input),
             _ => must_import::import(&input),
         };
-        std::fs::write(out, &result.toml).map_err(must_core::Error::Io).unwrap();
+        std::fs::write(out, &result.toml)
+            .map_err(must_core::Error::Io)
+            .unwrap();
         let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
-        std::fs::write(&report_path, &result.report).map_err(must_core::Error::Io).unwrap();
-        println!("Imported {} ({}) → {}", makefile.display(), fmt, out.display());
+        std::fs::write(&report_path, &result.report)
+            .map_err(must_core::Error::Io)
+            .unwrap();
+        println!(
+            "Imported {} ({}) → {}",
+            makefile.display(),
+            fmt,
+            out.display()
+        );
         println!(
             "  {} translated, {} TODO, {} skipped",
             result.translated_count, result.todo_count, result.skipped_count
@@ -323,7 +341,13 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         return Ok(());
     }
 
-    if let Commands::Foreach { command, filter, parallelism, keep_going } = &cli.command {
+    if let Commands::Foreach {
+        command,
+        filter,
+        parallelism,
+        keep_going,
+    } = &cli.command
+    {
         return run_foreach(command, filter.as_deref(), *parallelism, *keep_going).await;
     }
 
@@ -334,7 +358,9 @@ async fn run(cli: Cli) -> must_core::Result<()> {
 
     let config = if mustfile_path.exists() {
         load_config(&mustfile_path)?
-    } else if let Some(auto) = must_bridge::auto_config(mustfile_path.parent().unwrap_or(Path::new("."))) {
+    } else if let Some(auto) =
+        must_bridge::auto_config(mustfile_path.parent().unwrap_or(Path::new(".")))
+    {
         eprintln!("(auto-detected from build files — no Mustfile.toml found)");
         auto
     } else {
@@ -487,7 +513,10 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             )
             .await?;
         }
-        Commands::Doctor | Commands::Init { .. } | Commands::Completions { .. } | Commands::Foreach { .. } => {
+        Commands::Doctor
+        | Commands::Init { .. }
+        | Commands::Completions { .. }
+        | Commands::Foreach { .. } => {
             // handled before config loading above
             unreachable!()
         }
@@ -658,7 +687,11 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 .unwrap_or_else(|| std::path::Path::new("."));
             run_diff(project_root, revision.as_deref())?;
         }
-        Commands::Log { recipe, follow, clear } => {
+        Commands::Log {
+            recipe,
+            follow,
+            clear,
+        } => {
             let project_root = mustfile_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
@@ -703,11 +736,11 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                             if len < last_len {
                                 printed = 0;
                             }
-                            let content = std::fs::read_to_string(&log_path)
-                                .map_err(Error::Io)?;
+                            let content = std::fs::read_to_string(&log_path).map_err(Error::Io)?;
                             let bytes = content.as_bytes();
                             if (printed as usize) < bytes.len() {
-                                let new_content = String::from_utf8_lossy(&bytes[printed as usize..]);
+                                let new_content =
+                                    String::from_utf8_lossy(&bytes[printed as usize..]);
                                 print!("{new_content}");
                                 printed = bytes.len() as u64;
                             }
@@ -818,13 +851,20 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                     let plugin_name = name.clone().unwrap_or_else(|| {
                         let url_path = url.trim_end_matches('/');
                         let filename = url_path.rsplit('/').next().unwrap_or("plugin");
-                        filename.strip_suffix(".lua").unwrap_or(filename).to_string()
+                        filename
+                            .strip_suffix(".lua")
+                            .unwrap_or(filename)
+                            .to_string()
                     });
 
-                    if plugin_name.contains("..") || plugin_name.contains('/') || plugin_name.contains('\\') {
+                    if plugin_name.contains("..")
+                        || plugin_name.contains('/')
+                        || plugin_name.contains('\\')
+                    {
                         return Err(Error::Config {
                             path: PathBuf::from(&plugin_name),
-                            message: "plugin name must not contain '..' or path separators".to_string(),
+                            message: "plugin name must not contain '..' or path separators"
+                                .to_string(),
                         });
                     }
 
@@ -835,25 +875,24 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                     let dest = plugin_dir.join(format!("{plugin_name}.lua"));
 
                     if url.starts_with("https://") {
-                        let response = reqwest::get(&url).await
-                            .map_err(|e| Error::Config {
-                                path: dest.clone(),
-                                message: format!("failed to fetch {url}: {e}"),
-                            })?;
+                        let response = reqwest::get(&url).await.map_err(|e| Error::Config {
+                            path: dest.clone(),
+                            message: format!("failed to fetch {url}: {e}"),
+                        })?;
                         if !response.status().is_success() {
                             return Err(Error::Config {
                                 path: dest,
                                 message: format!("HTTP {} fetching {url}", response.status()),
                             });
                         }
-                        let content = response.text().await
-                            .map_err(|e| Error::Config {
-                                path: dest.clone(),
-                                message: format!("failed to read response: {e}"),
-                            })?;
+                        let content = response.text().await.map_err(|e| Error::Config {
+                            path: dest.clone(),
+                            message: format!("failed to read response: {e}"),
+                        })?;
                         std::fs::write(&dest, &content).map_err(Error::Io)?;
                     } else if url.contains("://") || url.ends_with(".git") {
-                        let tmp_dir = std::env::temp_dir().join(format!("must-plugin-install-{}", std::process::id()));
+                        let tmp_dir = std::env::temp_dir()
+                            .join(format!("must-plugin-install-{}", std::process::id()));
                         let _ = std::fs::create_dir_all(&tmp_dir);
                         let status = std::process::Command::new("git")
                             .args(["clone", "--depth", "1", &url])
@@ -877,7 +916,10 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                                     let content = std::fs::read_to_string(&p).map_err(Error::Io)?;
                                     let target = plugin_dir.join(p.file_name().unwrap_or_default());
                                     std::fs::write(&target, &content).map_err(Error::Io)?;
-                                    println!("Installed {}", target.file_name().unwrap_or_default().to_string_lossy());
+                                    println!(
+                                        "Installed {}",
+                                        target.file_name().unwrap_or_default().to_string_lossy()
+                                    );
                                     found = true;
                                 }
                             }
@@ -1369,7 +1411,12 @@ async fn execute_recipes(
             RecipeType::Npm => {
                 let mut r = NpmRecipe::new(
                     name.clone(),
-                    expand(&recipe_cfg.resolved_script().cloned().unwrap_or_else(|| name.clone())),
+                    expand(
+                        &recipe_cfg
+                            .resolved_script()
+                            .cloned()
+                            .unwrap_or_else(|| name.clone()),
+                    ),
                 );
                 r.deps = recipe_cfg.deps.clone();
                 r.workdir = recipe_cfg
@@ -1478,7 +1525,10 @@ async fn execute_recipes(
             RecipeType::JavaBin => {
                 let r = JavaBinRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     env,
                 };
@@ -1487,7 +1537,10 @@ async fn execute_recipes(
             RecipeType::JavaTest => {
                 let r = JavaTestRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     env,
                 };
@@ -1496,7 +1549,10 @@ async fn execute_recipes(
             RecipeType::KotlinBin => {
                 let r = KotlinBinRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     env,
                 };
@@ -1505,7 +1561,10 @@ async fn execute_recipes(
             RecipeType::KotlinTest => {
                 let r = KotlinTestRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     env,
                 };
@@ -1514,156 +1573,207 @@ async fn execute_recipes(
             RecipeType::SwiftBin => {
                 let r = SwiftBinRecipe {
                     name: name.clone(),
-                    package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
                     env,
                 };
                 recipe_map.insert(name.clone(), Arc::new(r));
             }
-             RecipeType::SwiftTest => {
-                 let r = SwiftTestRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-             RecipeType::DotnetBuild => {
-                 let r = DotnetBuildRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-             RecipeType::DotnetTest => {
-                 let r = DotnetTestRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-             RecipeType::DotnetPublish => {
-                 let r = DotnetPublishRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-             RecipeType::RubyBin => {
-                 let r = RubyBinRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-             RecipeType::RubyTest => {
-                 let r = RubyTestRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-             RecipeType::DartBin => {
-                 let r = DartBinRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-              RecipeType::DartTest => {
-                  let r = DartTestRecipe {
-                      name: name.clone(),
-                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                      deps: recipe_cfg.deps.clone(),
-                      env,
-                  };
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-             RecipeType::ElixirBuild => {
-                 let r = ElixirBuildRecipe {
-                     name: name.clone(),
-                     package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                     deps: recipe_cfg.deps.clone(),
-                     env,
-                 };
-                 recipe_map.insert(name.clone(), Arc::new(r));
-             }
-              RecipeType::ElixirTest => {
-                  let r = ElixirTestRecipe {
-                      name: name.clone(),
-                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                      deps: recipe_cfg.deps.clone(),
-                      env,
-                  };
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-              RecipeType::FlutterBuild => {
-                  let r = FlutterBuildRecipe {
-                      name: name.clone(),
-                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                      deps: recipe_cfg.deps.clone(),
-                      env,
-                  };
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-              RecipeType::FlutterTest => {
-                  let r = FlutterTestRecipe {
-                      name: name.clone(),
-                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                      deps: recipe_cfg.deps.clone(),
-                      env,
-                  };
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-              RecipeType::NimBin => {
-                  let r = NimBinRecipe {
-                      name: name.clone(),
-                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                      deps: recipe_cfg.deps.clone(),
-                      env,
-                  };
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-              RecipeType::NimTest => {
-                  let r = NimTestRecipe {
-                      name: name.clone(),
-                      package: recipe_cfg.package.clone().unwrap_or_else(|| ".".to_string()),
-                      deps: recipe_cfg.deps.clone(),
-                      env,
-                  };
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-              RecipeType::PrecompiledBin => {
-                  let mut r = PrecompiledBinRecipe::new(
-                      name.clone(),
-                      expand(&recipe_cfg.url.clone().unwrap_or_default()),
-                      recipe_cfg.package.clone().unwrap_or_else(|| format!("bin/{name}")),
-                  );
-                  r.deps = recipe_cfg.deps.clone();
-                  r.sha256 = recipe_cfg.sha256.clone();
-                  r.env = env;
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
-              RecipeType::Bridge => {
-                  let script = recipe_cfg.resolved_script().cloned().unwrap_or_default();
-                  let tool = recipe_cfg.package.clone().unwrap_or_else(|| "unknown".to_string());
-                  let mut r = BridgeRecipe::new(name.clone(), tool, script);
-                  r.deps = recipe_cfg.deps.clone();
-                  recipe_map.insert(name.clone(), Arc::new(r));
-              }
+            RecipeType::SwiftTest => {
+                let r = SwiftTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DotnetBuild => {
+                let r = DotnetBuildRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DotnetTest => {
+                let r = DotnetTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DotnetPublish => {
+                let r = DotnetPublishRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::RubyBin => {
+                let r = RubyBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::RubyTest => {
+                let r = RubyTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DartBin => {
+                let r = DartBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::DartTest => {
+                let r = DartTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::ElixirBuild => {
+                let r = ElixirBuildRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::ElixirTest => {
+                let r = ElixirTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::FlutterBuild => {
+                let r = FlutterBuildRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::FlutterTest => {
+                let r = FlutterTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::NimBin => {
+                let r = NimBinRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::NimTest => {
+                let r = NimTestRecipe {
+                    name: name.clone(),
+                    package: recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| ".".to_string()),
+                    deps: recipe_cfg.deps.clone(),
+                    env,
+                };
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::PrecompiledBin => {
+                let mut r = PrecompiledBinRecipe::new(
+                    name.clone(),
+                    expand(&recipe_cfg.url.clone().unwrap_or_default()),
+                    recipe_cfg
+                        .package
+                        .clone()
+                        .unwrap_or_else(|| format!("bin/{name}")),
+                );
+                r.deps = recipe_cfg.deps.clone();
+                r.sha256 = recipe_cfg.sha256.clone();
+                r.env = env;
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
+            RecipeType::Bridge => {
+                let script = recipe_cfg.resolved_script().cloned().unwrap_or_default();
+                let tool = recipe_cfg
+                    .package
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string());
+                let mut r = BridgeRecipe::new(name.clone(), tool, script);
+                r.deps = recipe_cfg.deps.clone();
+                recipe_map.insert(name.clone(), Arc::new(r));
+            }
         }
     }
 
@@ -1715,7 +1825,7 @@ async fn execute_recipes(
                 "{spinner:.green} [{wide_bar:.cyan/blue}] {pos}/{len} ({msg})",
             )
             .unwrap()
-            .progress_chars("#>-")
+            .progress_chars("#>-"),
         );
         pb.set_message("starting...");
 
@@ -1735,7 +1845,12 @@ async fn execute_recipes(
                     must_engine::ProgressEvent::Starting { recipe, .. } => {
                         pb_clone.set_message(format!("running {recipe}"));
                     }
-                    must_engine::ProgressEvent::Completed { recipe, success, from_cache, .. } => {
+                    must_engine::ProgressEvent::Completed {
+                        recipe,
+                        success,
+                        from_cache,
+                        ..
+                    } => {
                         pb_clone.inc(1);
                         let icon = if success {
                             if from_cache { "✓ (cached)" } else { "✓" }
@@ -1754,8 +1869,12 @@ async fn execute_recipes(
             }
         });
 
-        let report = engine.execute_with_progress(&sub_dag, &recipe_map, &ctx, tx).await;
-        progress_task.await.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+        let report = engine
+            .execute_with_progress(&sub_dag, &recipe_map, &ctx, tx)
+            .await;
+        progress_task
+            .await
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
         must_core::clear_output_fn();
         pb.finish_and_clear();
         let report = report?;
@@ -1837,7 +1956,11 @@ async fn run_foreach(
         let sem = sem.clone();
         let binary = binary.clone();
         let command: Vec<String> = command.to_vec();
-        let dir_name = dir.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let dir_name = dir
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         handles.push(tokio::spawn(async move {
             let _permit = sem.acquire().await.expect("semaphore closed");
@@ -1850,15 +1973,20 @@ async fn run_foreach(
                     let name = dir_name.clone();
                     (name, out.status.success(), out.stdout, out.stderr)
                 }
-                Err(e) => {
-                    (dir_name.clone(), false, Vec::new(), format!("failed to spawn: {e}").into_bytes())
-                }
+                Err(e) => (
+                    dir_name.clone(),
+                    false,
+                    Vec::new(),
+                    format!("failed to spawn: {e}").into_bytes(),
+                ),
             }
         }));
     }
 
     for handle in handles {
-        let (name, success, stdout, stderr) = handle.await.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+        let (name, success, stdout, stderr) = handle
+            .await
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
         if success {
             succeeded += 1;
             println!("\x1b[32m✓\x1b[0m {name}");
@@ -1875,7 +2003,10 @@ async fn run_foreach(
                 }
             }
             if !keep_going {
-                eprintln!("\n{}/{} succeeded, {} failed (stopped early)", succeeded, total, failed);
+                eprintln!(
+                    "\n{}/{} succeeded, {} failed (stopped early)",
+                    succeeded, total, failed
+                );
                 return Err(Error::RecipeFailed {
                     name: "foreach".to_string(),
                     code: 1,
@@ -1946,7 +2077,10 @@ fn save_build_manifest(project_root: &Path, report: &must_engine::ExecutionRepor
             .collect(),
     };
     let path = dir.join(format!("{now}.json"));
-    let _ = std::fs::write(&path, serde_json::to_string_pretty(&manifest).unwrap_or_default());
+    let _ = std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&manifest).unwrap_or_default(),
+    );
 
     let _ = prune_history(&dir, 10);
 }
@@ -1967,7 +2101,8 @@ fn prune_history(dir: &Path, keep: usize) -> std::io::Result<()> {
 
 #[allow(dead_code)]
 fn load_latest_manifest(dir: &Path) -> Option<BuildManifest> {
-    let mut files: Vec<PathBuf> = std::fs::read_dir(dir).ok()?
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|ext| ext == "json"))
@@ -1979,13 +2114,16 @@ fn load_latest_manifest(dir: &Path) -> Option<BuildManifest> {
 }
 
 fn load_manifest_by_offset(dir: &Path, offset: usize) -> Option<BuildManifest> {
-    let mut files: Vec<PathBuf> = std::fs::read_dir(dir).ok()?
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|ext| ext == "json"))
         .collect();
     files.sort();
-    if offset >= files.len() { return None; }
+    if offset >= files.len() {
+        return None;
+    }
     let path = &files[files.len() - 1 - offset];
     let content = std::fs::read_to_string(path).ok()?;
     serde_json::from_str(&content).ok()
@@ -2006,25 +2144,28 @@ fn run_diff(project_root: &Path, revision: Option<&str>) -> must_core::Result<()
         None => 1,
     };
 
-    let current = load_manifest_by_offset(&dir, 0)
-        .ok_or_else(|| Error::Config {
-            path: dir.clone(),
-            message: "no build manifest found".to_string(),
-        })?;
-    let previous = load_manifest_by_offset(&dir, offset)
-        .ok_or_else(|| Error::Config {
-            path: dir.clone(),
-            message: format!("no build manifest found at offset {offset}"),
-        })?;
+    let current = load_manifest_by_offset(&dir, 0).ok_or_else(|| Error::Config {
+        path: dir.clone(),
+        message: "no build manifest found".to_string(),
+    })?;
+    let previous = load_manifest_by_offset(&dir, offset).ok_or_else(|| Error::Config {
+        path: dir.clone(),
+        message: format!("no build manifest found at offset {offset}"),
+    })?;
 
-    let prev_map: HashMap<String, &BuildEntry> = previous.entries.iter()
+    let prev_map: HashMap<String, &BuildEntry> = previous
+        .entries
+        .iter()
         .map(|e| (e.recipe.clone(), e))
         .collect();
-    let curr_map: HashMap<String, &BuildEntry> = current.entries.iter()
+    let curr_map: HashMap<String, &BuildEntry> = current
+        .entries
+        .iter()
         .map(|e| (e.recipe.clone(), e))
         .collect();
 
-    let all_names: std::collections::BTreeSet<&str> = prev_map.keys()
+    let all_names: std::collections::BTreeSet<&str> = prev_map
+        .keys()
         .chain(curr_map.keys())
         .map(|s| s.as_str())
         .collect();
@@ -2034,7 +2175,10 @@ fn run_diff(project_root: &Path, revision: Option<&str>) -> must_core::Result<()
     let mut changed = 0usize;
     let mut unchanged = 0usize;
 
-    println!("{:<20} {:<12} {:<12} CHANGE", "RECIPE", "PREVIOUS", "CURRENT");
+    println!(
+        "{:<20} {:<12} {:<12} CHANGE",
+        "RECIPE", "PREVIOUS", "CURRENT"
+    );
     println!("{}", "-".repeat(65));
 
     for name in &all_names {
@@ -2056,11 +2200,17 @@ fn run_diff(project_root: &Path, revision: Option<&str>) -> must_core::Result<()
                 let curr_status = status_label(c);
                 if p.success != c.success || p.from_cache != c.from_cache {
                     changed += 1;
-                    let delta = if !p.success && c.success { "\x1b[32m+fixed\x1b[0m" }
-                                else if p.success && !c.success { "\x1b[31m+broke\x1b[0m" }
-                                else if !p.from_cache && c.from_cache { "\x1b[36m+cached\x1b[0m" }
-                                else if p.from_cache && !c.from_cache { "\x1b[33m+rebuilt\x1b[0m" }
-                                else { "\x1b[33m+changed\x1b[0m" };
+                    let delta = if !p.success && c.success {
+                        "\x1b[32m+fixed\x1b[0m"
+                    } else if p.success && !c.success {
+                        "\x1b[31m+broke\x1b[0m"
+                    } else if !p.from_cache && c.from_cache {
+                        "\x1b[36m+cached\x1b[0m"
+                    } else if p.from_cache && !c.from_cache {
+                        "\x1b[33m+rebuilt\x1b[0m"
+                    } else {
+                        "\x1b[33m+changed\x1b[0m"
+                    };
                     println!("{name:<20} {prev_status:<12} {curr_status:<12} {delta}");
                 } else {
                     unchanged += 1;
@@ -2083,9 +2233,13 @@ fn run_diff(project_root: &Path, revision: Option<&str>) -> must_core::Result<()
 }
 
 fn status_label(entry: &BuildEntry) -> &'static str {
-    if !entry.success { "failed" }
-    else if entry.from_cache { "cached" }
-    else { "built" }
+    if !entry.success {
+        "failed"
+    } else if entry.from_cache {
+        "cached"
+    } else {
+        "built"
+    }
 }
 
 fn explain_recipe(
@@ -2138,7 +2292,10 @@ fn explain_recipe(
     let expand = |s: &str| -> String { expand_env_vars(s, &env) };
 
     let command_preview = match &recipe.recipe_type {
-        RecipeType::Shell => recipe.resolved_script().map(|s| expand(s)).unwrap_or_default(),
+        RecipeType::Shell => recipe
+            .resolved_script()
+            .map(|s| expand(s))
+            .unwrap_or_default(),
         RecipeType::RustBin | RecipeType::RustLib => format!(
             "cargo build -p {}{}",
             recipe.package.as_deref().unwrap_or(recipe_name),
@@ -2171,7 +2328,13 @@ fn explain_recipe(
             recipe.package.as_deref().unwrap_or(".")
         ),
         RecipeType::TsLint => format!("eslint {}", recipe.package.as_deref().unwrap_or(".")),
-        RecipeType::Npm => format!("npm {}", recipe.resolved_script().map(|s| s.as_str()).unwrap_or("run")),
+        RecipeType::Npm => format!(
+            "npm {}",
+            recipe
+                .resolved_script()
+                .map(|s| s.as_str())
+                .unwrap_or("run")
+        ),
         RecipeType::PyBin => format!(
             "python -m build {}",
             recipe.package.as_deref().unwrap_or(".")
@@ -2221,14 +2384,12 @@ fn explain_recipe(
             "swift test (in {})",
             recipe.package.as_deref().unwrap_or(".")
         ),
-        RecipeType::DotnetBuild => format!(
-            "dotnet build {}",
-            recipe.package.as_deref().unwrap_or(".")
-        ),
-        RecipeType::DotnetTest => format!(
-            "dotnet test {}",
-            recipe.package.as_deref().unwrap_or(".")
-        ),
+        RecipeType::DotnetBuild => {
+            format!("dotnet build {}", recipe.package.as_deref().unwrap_or("."))
+        }
+        RecipeType::DotnetTest => {
+            format!("dotnet test {}", recipe.package.as_deref().unwrap_or("."))
+        }
         RecipeType::DotnetPublish => format!(
             "dotnet publish {} -c Release",
             recipe.package.as_deref().unwrap_or(".")
@@ -2253,10 +2414,9 @@ fn explain_recipe(
             "mix deps.get && mix compile (in {})",
             recipe.package.as_deref().unwrap_or(".")
         ),
-        RecipeType::ElixirTest => format!(
-            "mix test (in {})",
-            recipe.package.as_deref().unwrap_or(".")
-        ),
+        RecipeType::ElixirTest => {
+            format!("mix test (in {})", recipe.package.as_deref().unwrap_or("."))
+        }
         RecipeType::FlutterBuild => format!(
             "flutter build (in {})",
             recipe.package.as_deref().unwrap_or(".")
@@ -2320,9 +2480,22 @@ fn explain_recipe(
         .filter(|(k, _)| {
             !matches!(
                 k.as_str(),
-                "PATH" | "HOME" | "USER" | "SHELL" | "TERM" | "COLORTERM" | "TMPDIR"
-                    | "SystemRoot" | "COMSPEC" | "ProgramFiles" | "ProgramData"
-                    | "LOCALAPPDATA" | "APPDATA" | "HOMEDRIVE" | "HOMEPATH" | "OS"
+                "PATH"
+                    | "HOME"
+                    | "USER"
+                    | "SHELL"
+                    | "TERM"
+                    | "COLORTERM"
+                    | "TMPDIR"
+                    | "SystemRoot"
+                    | "COMSPEC"
+                    | "ProgramFiles"
+                    | "ProgramData"
+                    | "LOCALAPPDATA"
+                    | "APPDATA"
+                    | "HOMEDRIVE"
+                    | "HOMEPATH"
+                    | "OS"
             )
         })
         .map(|(k, v)| (k.as_str(), v.as_str()))
@@ -2331,8 +2504,17 @@ fn explain_recipe(
     if !relevant_env.is_empty() {
         println!("\nEnv (affects hash):");
         for (k, v) in &relevant_env {
-            let secret_suffixes = ["KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", "PRIVATE"];
-            let is_secret = secret_suffixes.iter().any(|s| k.to_uppercase().ends_with(s))
+            let secret_suffixes = [
+                "KEY",
+                "SECRET",
+                "TOKEN",
+                "PASSWORD",
+                "CREDENTIAL",
+                "PRIVATE",
+            ];
+            let is_secret = secret_suffixes
+                .iter()
+                .any(|s| k.to_uppercase().ends_with(s))
                 || k.to_uppercase().contains("SECRET");
             let display = if is_secret {
                 let visible = v.len().min(4);
@@ -2686,7 +2868,9 @@ fn recipe_badge(recipe_type: &RecipeType) -> (&'static str, &'static str) {
         RecipeType::JavaBin | RecipeType::JavaTest => ("java", "\x1b[33m"),
         RecipeType::KotlinBin | RecipeType::KotlinTest => ("kt", "\x1b[35m"),
         RecipeType::SwiftBin | RecipeType::SwiftTest => ("swift", "\x1b[31m"),
-        RecipeType::DotnetBuild | RecipeType::DotnetTest | RecipeType::DotnetPublish => ("c#", "\x1b[35m"),
+        RecipeType::DotnetBuild | RecipeType::DotnetTest | RecipeType::DotnetPublish => {
+            ("c#", "\x1b[35m")
+        }
         RecipeType::RubyBin | RecipeType::RubyTest => ("rb", "\x1b[31m"),
         RecipeType::DartBin | RecipeType::DartTest => ("dart", "\x1b[36m"),
         RecipeType::ElixirBuild | RecipeType::ElixirTest => ("ex", "\x1b[35m"),
@@ -3456,7 +3640,8 @@ mod tests {
         save_build_manifest(tmp.path(), &report);
         let hist = history_dir(tmp.path());
         assert!(hist.exists());
-        let files: Vec<_> = std::fs::read_dir(&hist).unwrap()
+        let files: Vec<_> = std::fs::read_dir(&hist)
+            .unwrap()
             .filter_map(|e| e.ok())
             .collect();
         assert_eq!(files.len(), 1);
@@ -3474,7 +3659,8 @@ mod tests {
             std::fs::write(dir.join(format!("{i:020}.json")), "{}").unwrap();
         }
         prune_history(&dir, 10).unwrap();
-        let remaining: Vec<_> = std::fs::read_dir(&dir).unwrap()
+        let remaining: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .collect();
         assert_eq!(remaining.len(), 10);
@@ -3485,7 +3671,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let dir = tmp.path().join("history");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#).unwrap();
+        std::fs::write(
+            dir.join("001.json"),
+            r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#,
+        )
+        .unwrap();
         std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
         let latest = load_manifest_by_offset(&dir, 0).unwrap();
         assert_eq!(latest.timestamp, "2");
@@ -3496,9 +3686,33 @@ mod tests {
 
     #[test]
     fn test_status_label() {
-        assert_eq!(status_label(&BuildEntry { recipe: "a".into(), success: false, from_cache: false, duration_ms: 0 }), "failed");
-        assert_eq!(status_label(&BuildEntry { recipe: "a".into(), success: true, from_cache: true, duration_ms: 0 }), "cached");
-        assert_eq!(status_label(&BuildEntry { recipe: "a".into(), success: true, from_cache: false, duration_ms: 0 }), "built");
+        assert_eq!(
+            status_label(&BuildEntry {
+                recipe: "a".into(),
+                success: false,
+                from_cache: false,
+                duration_ms: 0
+            }),
+            "failed"
+        );
+        assert_eq!(
+            status_label(&BuildEntry {
+                recipe: "a".into(),
+                success: true,
+                from_cache: true,
+                duration_ms: 0
+            }),
+            "cached"
+        );
+        assert_eq!(
+            status_label(&BuildEntry {
+                recipe: "a".into(),
+                success: true,
+                from_cache: false,
+                duration_ms: 0
+            }),
+            "built"
+        );
     }
 
     #[test]
@@ -3522,7 +3736,11 @@ mod tests {
         let tmp = tempfile::TempDir::new().unwrap();
         let dir = history_dir(tmp.path());
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#).unwrap();
+        std::fs::write(
+            dir.join("001.json"),
+            r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#,
+        )
+        .unwrap();
         assert!(run_diff(tmp.path(), Some("abc")).is_err());
     }
 
@@ -3571,7 +3789,9 @@ mod tests {
     #[test]
     fn test_print_dag_graph_single_recipe() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
         let order = vec!["build".to_string()];
         let dep_map = HashMap::new();
         print_dag_graph(&config, &dep_map, &order);
@@ -3580,8 +3800,12 @@ mod tests {
     #[test]
     fn test_print_dag_graph_with_deps() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::RustBin));
-        config.recipe.insert("test".into(), make_recipe(RecipeType::RustTest));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::RustBin));
+        config
+            .recipe
+            .insert("test".into(), make_recipe(RecipeType::RustTest));
         let order = vec!["build".to_string(), "test".to_string()];
         let dep_map = HashMap::from([
             ("build".to_string(), vec![]),
@@ -3594,15 +3818,29 @@ mod tests {
     fn test_print_dag_graph_all_recipe_types() {
         let mut config = make_config();
         let types = vec![
-            RecipeType::Shell, RecipeType::RustBin, RecipeType::GoBin, RecipeType::CBin,
-            RecipeType::TsBin, RecipeType::Npm, RecipeType::PyBin, RecipeType::ZigBin,
-            RecipeType::DockerBuild, RecipeType::JavaBin, RecipeType::KotlinBin,
-            RecipeType::SwiftBin, RecipeType::DotnetBuild, RecipeType::RubyBin,
-            RecipeType::DartBin, RecipeType::ElixirBuild, RecipeType::FlutterBuild,
+            RecipeType::Shell,
+            RecipeType::RustBin,
+            RecipeType::GoBin,
+            RecipeType::CBin,
+            RecipeType::TsBin,
+            RecipeType::Npm,
+            RecipeType::PyBin,
+            RecipeType::ZigBin,
+            RecipeType::DockerBuild,
+            RecipeType::JavaBin,
+            RecipeType::KotlinBin,
+            RecipeType::SwiftBin,
+            RecipeType::DotnetBuild,
+            RecipeType::RubyBin,
+            RecipeType::DartBin,
+            RecipeType::ElixirBuild,
+            RecipeType::FlutterBuild,
             RecipeType::NimBin,
         ];
         for (i, rt) in types.iter().enumerate() {
-            config.recipe.insert(format!("r{i}"), make_recipe(rt.clone()));
+            config
+                .recipe
+                .insert(format!("r{i}"), make_recipe(rt.clone()));
         }
         let order: Vec<String> = (0..types.len()).map(|i| format!("r{i}")).collect();
         let dep_map = HashMap::new();
@@ -3612,38 +3850,79 @@ mod tests {
     #[test]
     fn test_recipe_badge_all_types() {
         let types = vec![
-            RecipeType::Shell, RecipeType::RustBin, RecipeType::GoBin, RecipeType::CBin,
-            RecipeType::TsBin, RecipeType::TsLint, RecipeType::Npm, RecipeType::PyBin,
-            RecipeType::ZigBin, RecipeType::DockerBuild, RecipeType::Plugin,
-            RecipeType::JavaBin, RecipeType::KotlinBin, RecipeType::SwiftBin,
-            RecipeType::DotnetBuild, RecipeType::RubyBin, RecipeType::DartBin,
-            RecipeType::ElixirBuild, RecipeType::FlutterBuild, RecipeType::NimBin,
+            RecipeType::Shell,
+            RecipeType::RustBin,
+            RecipeType::GoBin,
+            RecipeType::CBin,
+            RecipeType::TsBin,
+            RecipeType::TsLint,
+            RecipeType::Npm,
+            RecipeType::PyBin,
+            RecipeType::ZigBin,
+            RecipeType::DockerBuild,
+            RecipeType::Plugin,
+            RecipeType::JavaBin,
+            RecipeType::KotlinBin,
+            RecipeType::SwiftBin,
+            RecipeType::DotnetBuild,
+            RecipeType::RubyBin,
+            RecipeType::DartBin,
+            RecipeType::ElixirBuild,
+            RecipeType::FlutterBuild,
+            RecipeType::NimBin,
         ];
         for rt in &types {
             let (tag, color) = recipe_badge(rt);
             assert!(!tag.is_empty(), "badge tag should not be empty for {rt:?}");
-            assert!(color.starts_with("\x1b["), "color should be ANSI for {rt:?}");
+            assert!(
+                color.starts_with("\x1b["),
+                "color should be ANSI for {rt:?}"
+            );
         }
     }
 
     #[test]
     fn test_recipe_type_tag_all_types() {
         let types = vec![
-            RecipeType::Shell, RecipeType::RustBin, RecipeType::RustLib, RecipeType::RustTest,
-            RecipeType::GoBin, RecipeType::GoTest, RecipeType::CBin, RecipeType::CLib,
-            RecipeType::TsBin, RecipeType::TsCheck, RecipeType::TsLint, RecipeType::Npm,
-            RecipeType::PyBin, RecipeType::PyTest, RecipeType::PyLint,
-            RecipeType::ZigBin, RecipeType::ZigTest,
-            RecipeType::DockerBuild, RecipeType::DockerPush, RecipeType::Plugin,
-            RecipeType::JavaBin, RecipeType::JavaTest,
-            RecipeType::KotlinBin, RecipeType::KotlinTest,
-            RecipeType::SwiftBin, RecipeType::SwiftTest,
-            RecipeType::DotnetBuild, RecipeType::DotnetTest, RecipeType::DotnetPublish,
-            RecipeType::RubyBin, RecipeType::RubyTest,
-            RecipeType::DartBin, RecipeType::DartTest,
-            RecipeType::ElixirBuild, RecipeType::ElixirTest,
-            RecipeType::FlutterBuild, RecipeType::FlutterTest,
-            RecipeType::NimBin, RecipeType::NimTest,
+            RecipeType::Shell,
+            RecipeType::RustBin,
+            RecipeType::RustLib,
+            RecipeType::RustTest,
+            RecipeType::GoBin,
+            RecipeType::GoTest,
+            RecipeType::CBin,
+            RecipeType::CLib,
+            RecipeType::TsBin,
+            RecipeType::TsCheck,
+            RecipeType::TsLint,
+            RecipeType::Npm,
+            RecipeType::PyBin,
+            RecipeType::PyTest,
+            RecipeType::PyLint,
+            RecipeType::ZigBin,
+            RecipeType::ZigTest,
+            RecipeType::DockerBuild,
+            RecipeType::DockerPush,
+            RecipeType::Plugin,
+            RecipeType::JavaBin,
+            RecipeType::JavaTest,
+            RecipeType::KotlinBin,
+            RecipeType::KotlinTest,
+            RecipeType::SwiftBin,
+            RecipeType::SwiftTest,
+            RecipeType::DotnetBuild,
+            RecipeType::DotnetTest,
+            RecipeType::DotnetPublish,
+            RecipeType::RubyBin,
+            RecipeType::RubyTest,
+            RecipeType::DartBin,
+            RecipeType::DartTest,
+            RecipeType::ElixirBuild,
+            RecipeType::ElixirTest,
+            RecipeType::FlutterBuild,
+            RecipeType::FlutterTest,
+            RecipeType::NimBin,
+            RecipeType::NimTest,
         ];
         for rt in &types {
             let tag = recipe_type_tag(rt);
@@ -3662,7 +3941,11 @@ mod tests {
         let dir = tmp.path().join("history");
         std::fs::create_dir_all(&dir).unwrap();
         assert!(load_latest_manifest(&dir).is_none());
-        std::fs::write(dir.join("001.json"), r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#).unwrap();
+        std::fs::write(
+            dir.join("001.json"),
+            r#"{"timestamp":"1","target":"host","profile":"default","entries":[]}"#,
+        )
+        .unwrap();
         let m = load_latest_manifest(&dir).unwrap();
         assert_eq!(m.timestamp, "1");
         std::fs::write(dir.join("002.json"), r#"{"timestamp":"2","target":"host","profile":"default","entries":[{"recipe":"build","success":true,"from_cache":false,"duration_ms":10}]}"#).unwrap();
@@ -3674,8 +3957,12 @@ mod tests {
     #[test]
     fn test_print_graph_dot() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::Shell));
-        config.recipe.insert("test".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("test".into(), make_recipe(RecipeType::Shell));
         config.recipe.get_mut("test").unwrap().deps = vec!["build".into()];
         assert!(print_graph(&config, "dot").is_ok());
     }
@@ -3683,8 +3970,12 @@ mod tests {
     #[test]
     fn test_print_graph_mermaid() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::RustBin));
-        config.recipe.insert("test".into(), make_recipe(RecipeType::RustTest));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::RustBin));
+        config
+            .recipe
+            .insert("test".into(), make_recipe(RecipeType::RustTest));
         config.recipe.get_mut("test").unwrap().deps = vec!["build".into()];
         assert!(print_graph(&config, "mermaid").is_ok());
     }
@@ -3692,16 +3983,24 @@ mod tests {
     #[test]
     fn test_print_graph_dag() {
         let mut config = make_config();
-        config.recipe.insert("build".into(), make_recipe(RecipeType::GoBin));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::GoBin));
         assert!(print_graph(&config, "dag").is_ok());
     }
 
     #[test]
     fn test_print_graph_text_with_waves() {
         let mut config = make_config();
-        config.recipe.insert("codegen".into(), make_recipe(RecipeType::Shell));
-        config.recipe.insert("build".into(), make_recipe(RecipeType::RustBin));
-        config.recipe.insert("test".into(), make_recipe(RecipeType::RustTest));
+        config
+            .recipe
+            .insert("codegen".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("build".into(), make_recipe(RecipeType::RustBin));
+        config
+            .recipe
+            .insert("test".into(), make_recipe(RecipeType::RustTest));
         config.recipe.get_mut("build").unwrap().deps = vec!["codegen".into()];
         config.recipe.get_mut("test").unwrap().deps = vec!["build".into()];
         assert!(print_graph(&config, "text").is_ok());
@@ -3710,8 +4009,12 @@ mod tests {
     #[test]
     fn test_print_graph_cycle() {
         let mut config = make_config();
-        config.recipe.insert("a".into(), make_recipe(RecipeType::Shell));
-        config.recipe.insert("b".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("a".into(), make_recipe(RecipeType::Shell));
+        config
+            .recipe
+            .insert("b".into(), make_recipe(RecipeType::Shell));
         config.recipe.get_mut("a").unwrap().deps = vec!["b".into()];
         config.recipe.get_mut("b").unwrap().deps = vec!["a".into()];
         assert!(print_graph(&config, "text").is_err());
@@ -3745,7 +4048,8 @@ mod tests {
         let dir = tmp.path().join("history");
         std::fs::create_dir_all(&dir).unwrap();
         prune_history(&dir, 10).unwrap();
-        let remaining: Vec<_> = std::fs::read_dir(&dir).unwrap()
+        let remaining: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .collect();
         assert_eq!(remaining.len(), 0);
@@ -3760,7 +4064,8 @@ mod tests {
             std::fs::write(dir.join(format!("{i:020}.json")), "{}").unwrap();
         }
         prune_history(&dir, 3).unwrap();
-        let remaining: Vec<_> = std::fs::read_dir(&dir).unwrap()
+        let remaining: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .collect();
         assert_eq!(remaining.len(), 3);
@@ -3805,7 +4110,8 @@ mod tests {
         };
         save_build_manifest(tmp.path(), &report);
         let dir = history_dir(tmp.path());
-        let files: Vec<_> = std::fs::read_dir(&dir).unwrap()
+        let files: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .collect();
         assert_eq!(files.len(), 1);
@@ -3836,7 +4142,9 @@ mod tests {
     fn test_resolve_targets_with_all_recipe_types() {
         for rt in &[RecipeType::Shell, RecipeType::RustBin, RecipeType::GoBin] {
             let mut config = make_config();
-            config.recipe.insert("build".into(), make_recipe(rt.clone()));
+            config
+                .recipe
+                .insert("build".into(), make_recipe(rt.clone()));
             let targets = resolve_targets(&[], &config);
             assert_eq!(targets, vec!["host"]);
         }
@@ -3857,7 +4165,9 @@ mod tests {
 
     fn write_shell_mustfile(dir: &std::path::Path) -> PathBuf {
         let mustfile = dir.join("Mustfile.toml");
-        std::fs::write(&mustfile, r#"
+        std::fs::write(
+            &mustfile,
+            r#"
 [project]
 name = "test"
 
@@ -3880,7 +4190,9 @@ phony = true
 type = "shell"
 script = "echo formatted"
 phony = true
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         mustfile
     }
 
@@ -3897,7 +4209,12 @@ phony = true
     async fn test_run_build_specific_recipe() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Build { recipes: vec!["test".into()] }, mustfile);
+        let cli = make_cli(
+            Commands::Build {
+                recipes: vec!["test".into()],
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -3906,7 +4223,12 @@ phony = true
     async fn test_run_run_alias() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Run { recipes: vec!["build".into()] }, mustfile);
+        let cli = make_cli(
+            Commands::Run {
+                recipes: vec!["build".into()],
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -3989,7 +4311,12 @@ phony = true
     async fn test_run_graph_text() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Graph { format: "text".into() }, mustfile);
+        let cli = make_cli(
+            Commands::Graph {
+                format: "text".into(),
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -3998,7 +4325,12 @@ phony = true
     async fn test_run_graph_dot() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Graph { format: "dot".into() }, mustfile);
+        let cli = make_cli(
+            Commands::Graph {
+                format: "dot".into(),
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4007,7 +4339,12 @@ phony = true
     async fn test_run_graph_mermaid() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Graph { format: "mermaid".into() }, mustfile);
+        let cli = make_cli(
+            Commands::Graph {
+                format: "mermaid".into(),
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4016,7 +4353,12 @@ phony = true
     async fn test_run_explain() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Explain { recipe: "build".into() }, mustfile);
+        let cli = make_cli(
+            Commands::Explain {
+                recipe: "build".into(),
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4043,7 +4385,12 @@ phony = true
     async fn test_run_cache_list_empty() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Cache { action: CacheAction::List }, mustfile);
+        let cli = make_cli(
+            Commands::Cache {
+                action: CacheAction::List,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4052,7 +4399,12 @@ phony = true
     async fn test_run_cache_du() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Cache { action: CacheAction::Du }, mustfile);
+        let cli = make_cli(
+            Commands::Cache {
+                action: CacheAction::Du,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4061,7 +4413,15 @@ phony = true
     async fn test_run_cache_invalidate_no_args() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: false } }, mustfile);
+        let cli = make_cli(
+            Commands::Cache {
+                action: CacheAction::Invalidate {
+                    recipe: None,
+                    all: false,
+                },
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4071,7 +4431,15 @@ phony = true
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
         std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
-        let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: true } }, mustfile);
+        let cli = make_cli(
+            Commands::Cache {
+                action: CacheAction::Invalidate {
+                    recipe: None,
+                    all: true,
+                },
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4081,7 +4449,15 @@ phony = true
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
         std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
-        let cli = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: Some("build".into()), all: false } }, mustfile);
+        let cli = make_cli(
+            Commands::Cache {
+                action: CacheAction::Invalidate {
+                    recipe: Some("build".into()),
+                    all: false,
+                },
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4090,7 +4466,14 @@ phony = true
     async fn test_run_log_no_logs() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Log { recipe: None, follow: false, clear: false }, mustfile);
+        let cli = make_cli(
+            Commands::Log {
+                recipe: None,
+                follow: false,
+                clear: false,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4099,7 +4482,14 @@ phony = true
     async fn test_run_log_clear_no_logs() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Log { recipe: None, follow: false, clear: true }, mustfile);
+        let cli = make_cli(
+            Commands::Log {
+                recipe: None,
+                follow: false,
+                clear: true,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4108,7 +4498,14 @@ phony = true
     async fn test_run_log_missing_recipe() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Log { recipe: Some("nonexistent".into()), follow: false, clear: false }, mustfile);
+        let cli = make_cli(
+            Commands::Log {
+                recipe: Some("nonexistent".into()),
+                follow: false,
+                clear: false,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_err());
     }
@@ -4117,7 +4514,12 @@ phony = true
     async fn test_run_plugin_list_no_plugins() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Plugin { action: PluginAction::List }, mustfile);
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::List,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4126,7 +4528,14 @@ phony = true
     async fn test_run_plugin_check_missing() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Plugin { action: PluginAction::Check { plugin: "nonexistent".into() } }, mustfile);
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::Check {
+                    plugin: "nonexistent".into(),
+                },
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_err());
     }
@@ -4136,13 +4545,20 @@ phony = true
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
         let plugin_src = tmp.path().join("my_plugin.lua");
-        std::fs::write(&plugin_src, r#"function execute(ctx) return { outputs = {} } end"#).unwrap();
-        let cli = make_cli(Commands::Plugin {
-            action: PluginAction::Install {
-                url: plugin_src.to_string_lossy().into_owned(),
-                name: Some("my_plugin".into()),
+        std::fs::write(
+            &plugin_src,
+            r#"function execute(ctx) return { outputs = {} } end"#,
+        )
+        .unwrap();
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::Install {
+                    url: plugin_src.to_string_lossy().into_owned(),
+                    name: Some("my_plugin".into()),
+                },
             },
-        }, mustfile);
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
         assert!(tmp.path().join(".must/plugins/my_plugin.lua").exists());
@@ -4152,7 +4568,14 @@ phony = true
     async fn test_run_plugin_remove_nonexistent() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Plugin { action: PluginAction::Remove { plugin: "nonexistent".into() } }, mustfile);
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::Remove {
+                    plugin: "nonexistent".into(),
+                },
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4169,7 +4592,10 @@ phony = true
             dry_run: false,
             fail_fast: false,
             verbose: 0,
-            command: Commands::Init { name: Some("test-proj".into()), template: "rust".into() },
+            command: Commands::Init {
+                name: Some("test-proj".into()),
+                template: "rust".into(),
+            },
         };
         let result = run(cli).await;
         assert!(result.is_ok());
@@ -4226,14 +4652,8 @@ phony = true
     fn test_detect_import_format() {
         assert_eq!(detect_import_format(Path::new("justfile")), "just");
         assert_eq!(detect_import_format(Path::new("Justfile")), "just");
-        assert_eq!(
-            detect_import_format(Path::new("Taskfile.yml")),
-            "taskfile"
-        );
-        assert_eq!(
-            detect_import_format(Path::new("Taskfile.yaml")),
-            "taskfile"
-        );
+        assert_eq!(detect_import_format(Path::new("Taskfile.yml")), "taskfile");
+        assert_eq!(detect_import_format(Path::new("Taskfile.yaml")), "taskfile");
         assert_eq!(detect_import_format(Path::new("Makefile")), "make");
         assert_eq!(detect_import_format(Path::new("GNUmakefile")), "make");
     }
@@ -4242,7 +4662,12 @@ phony = true
     async fn test_run_completions_bash() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Completions { shell: clap_complete::Shell::Bash }, mustfile);
+        let cli = make_cli(
+            Commands::Completions {
+                shell: clap_complete::Shell::Bash,
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_ok());
     }
@@ -4264,7 +4689,10 @@ phony = true
         run(cli).await.unwrap();
         let hist = tmp.path().join(".must/history");
         assert!(hist.exists(), "build should create history dir");
-        let files: Vec<_> = std::fs::read_dir(&hist).unwrap().filter_map(|e| e.ok()).collect();
+        let files: Vec<_> = std::fs::read_dir(&hist)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
         assert_eq!(files.len(), 1, "should save one manifest");
     }
 
@@ -4287,7 +4715,14 @@ phony = true
         let mustfile = write_shell_mustfile(tmp.path());
         let cli1 = make_cli(Commands::Build { recipes: vec![] }, mustfile.clone());
         run(cli1).await.unwrap();
-        let cli2 = make_cli(Commands::Log { recipe: None, follow: false, clear: false }, mustfile);
+        let cli2 = make_cli(
+            Commands::Log {
+                recipe: None,
+                follow: false,
+                clear: false,
+            },
+            mustfile,
+        );
         let result = run(cli2).await;
         assert!(result.is_ok());
     }
@@ -4300,7 +4735,14 @@ phony = true
         run(cli1).await.unwrap();
         let log_dir = tmp.path().join(".must/logs");
         assert!(log_dir.exists());
-        let cli2 = make_cli(Commands::Log { recipe: None, follow: false, clear: true }, mustfile);
+        let cli2 = make_cli(
+            Commands::Log {
+                recipe: None,
+                follow: false,
+                clear: true,
+            },
+            mustfile,
+        );
         let result = run(cli2).await;
         assert!(result.is_ok());
     }
@@ -4309,9 +4751,19 @@ phony = true
     async fn test_run_build_then_cache_list() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        let cli1 = make_cli(
+            Commands::Build {
+                recipes: vec!["build".into()],
+            },
+            mustfile.clone(),
+        );
         run(cli1).await.unwrap();
-        let cli2 = make_cli(Commands::Cache { action: CacheAction::List }, mustfile);
+        let cli2 = make_cli(
+            Commands::Cache {
+                action: CacheAction::List,
+            },
+            mustfile,
+        );
         let result = run(cli2).await;
         assert!(result.is_ok());
     }
@@ -4320,9 +4772,19 @@ phony = true
     async fn test_run_build_then_cache_du() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        let cli1 = make_cli(
+            Commands::Build {
+                recipes: vec!["build".into()],
+            },
+            mustfile.clone(),
+        );
         run(cli1).await.unwrap();
-        let cli2 = make_cli(Commands::Cache { action: CacheAction::Du }, mustfile);
+        let cli2 = make_cli(
+            Commands::Cache {
+                action: CacheAction::Du,
+            },
+            mustfile,
+        );
         let result = run(cli2).await;
         assert!(result.is_ok());
     }
@@ -4331,9 +4793,22 @@ phony = true
     async fn test_run_build_then_cache_invalidate_all() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        let cli1 = make_cli(
+            Commands::Build {
+                recipes: vec!["build".into()],
+            },
+            mustfile.clone(),
+        );
         run(cli1).await.unwrap();
-        let cli2 = make_cli(Commands::Cache { action: CacheAction::Invalidate { recipe: None, all: true } }, mustfile);
+        let cli2 = make_cli(
+            Commands::Cache {
+                action: CacheAction::Invalidate {
+                    recipe: None,
+                    all: true,
+                },
+            },
+            mustfile,
+        );
         let result = run(cli2).await;
         assert!(result.is_ok());
     }
@@ -4342,7 +4817,12 @@ phony = true
     async fn test_run_build_then_outdated() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli1 = make_cli(Commands::Build { recipes: vec!["build".into()] }, mustfile.clone());
+        let cli1 = make_cli(
+            Commands::Build {
+                recipes: vec!["build".into()],
+            },
+            mustfile.clone(),
+        );
         run(cli1).await.unwrap();
         let cli2 = make_cli(Commands::Outdated, mustfile);
         let result = run(cli2).await;
@@ -4353,7 +4833,12 @@ phony = true
     async fn test_run_build_unknown_recipe() {
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
-        let cli = make_cli(Commands::Build { recipes: vec!["nonexistent".into()] }, mustfile);
+        let cli = make_cli(
+            Commands::Build {
+                recipes: vec!["nonexistent".into()],
+            },
+            mustfile,
+        );
         let result = run(cli).await;
         assert!(result.is_err());
     }
@@ -4405,13 +4890,11 @@ phony = true
             dry_run: false,
             fail_fast: false,
             verbose: 0,
-            command: Commands::Watch { recipes: vec!["build".into()] },
+            command: Commands::Watch {
+                recipes: vec!["build".into()],
+            },
         };
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(3),
-            run(cli),
-        )
-        .await;
+        let result = tokio::time::timeout(std::time::Duration::from_secs(3), run(cli)).await;
         match result {
             Ok(Ok(())) | Ok(Err(_)) | Err(_) => {}
         }
@@ -4422,7 +4905,9 @@ phony = true
         let tmp = tempfile::TempDir::new().unwrap();
         let mustfile = write_shell_mustfile(tmp.path());
         let build_cli = make_cli(
-            Commands::Run { recipes: vec!["build".into()] },
+            Commands::Run {
+                recipes: vec!["build".into()],
+            },
             mustfile.clone(),
         );
         let _ = run(build_cli).await;
@@ -4457,11 +4942,7 @@ phony = true
                 clear: false,
             },
         };
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            run(cli),
-        )
-        .await;
+        let result = tokio::time::timeout(std::time::Duration::from_secs(2), run(cli)).await;
         match result {
             Ok(Ok(())) | Ok(Err(_)) | Err(_) => {}
         }

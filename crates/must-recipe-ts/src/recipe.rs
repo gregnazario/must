@@ -668,16 +668,16 @@ mod tests {
 
     #[test]
     fn ts_bin_execute_real() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("src")).unwrap();
-        std::fs::write(
-            tmp.path().join("src/index.ts"),
-            "console.log('hello');\n",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join("src/index.ts"), "console.log('hello');\n").unwrap();
         std::fs::write(
             tmp.path().join("tsconfig.json"),
             r#"{"compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"]}"#,
@@ -688,7 +688,11 @@ mod tests {
         c.cache_dir = tmp.path().join(".must/cache");
         let r = TsBinRecipe::new("build", "tsconfig.json");
         let result = r.execute(&c);
-        assert!(result.is_ok(), "ts bin execute should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "ts bin execute should succeed: {:?}",
+            result
+        );
         let out = result.unwrap();
         assert_eq!(out.recipe_name, "build");
         assert!(!out.from_cache);
@@ -696,16 +700,16 @@ mod tests {
 
     #[test]
     fn ts_bin_cache_store_and_second_hit() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("src")).unwrap();
-        std::fs::write(
-            tmp.path().join("src/index.ts"),
-            "export const x = 1;\n",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join("src/index.ts"), "export const x = 1;\n").unwrap();
         std::fs::write(
             tmp.path().join("tsconfig.json"),
             r#"{"compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"]}"#,
@@ -729,7 +733,11 @@ mod tests {
 
     #[test]
     fn ts_check_execute_real() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -758,7 +766,11 @@ mod tests {
 
     #[test]
     fn ts_lint_execute_real() {
-        if std::process::Command::new("biome").arg("--version").output().is_err() {
+        if std::process::Command::new("biome")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -781,16 +793,16 @@ mod tests {
 
     #[test]
     fn ts_bin_execute_with_env() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("src")).unwrap();
-        std::fs::write(
-            tmp.path().join("src/index.ts"),
-            "export const x = 1;\n",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join("src/index.ts"), "export const x = 1;\n").unwrap();
         std::fs::write(
             tmp.path().join("tsconfig.json"),
             r#"{"compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"]}"#,
@@ -811,7 +823,11 @@ mod tests {
 
     #[test]
     fn npm_execute_real() {
-        if std::process::Command::new("npm").arg("--version").output().is_err() {
+        if std::process::Command::new("npm")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -832,7 +848,11 @@ mod tests {
 
     #[test]
     fn npm_execute_with_workdir() {
-        if std::process::Command::new("npm").arg("--version").output().is_err() {
+        if std::process::Command::new("npm")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -849,21 +869,25 @@ mod tests {
         let mut r = NpmRecipe::new("build-api", "build");
         r.workdir = "packages/api".to_string();
         let result = r.execute(&c);
-        assert!(result.is_ok(), "npm with workdir should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "npm with workdir should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
     fn ts_check_execute_with_env() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("src")).unwrap();
-        std::fs::write(
-            tmp.path().join("src/index.ts"),
-            "export const y = 2;\n",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join("src/index.ts"), "export const y = 2;\n").unwrap();
         std::fs::write(
             tmp.path().join("tsconfig.json"),
             r#"{"compilerOptions":{"strict":true},"include":["src"]}"#,
@@ -884,7 +908,11 @@ mod tests {
 
     #[test]
     fn ts_lint_execute_with_env() {
-        if std::process::Command::new("biome").arg("--version").output().is_err() {
+        if std::process::Command::new("biome")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -928,7 +956,10 @@ mod tests {
     fn ts_bin_cache_key_differs_by_package() {
         let r1 = TsBinRecipe::new("build", "pkg-a");
         let r2 = TsBinRecipe::new("build", "pkg-b");
-        assert_ne!(r1.cache_key(&ctx()).unwrap().hash, r2.cache_key(&ctx()).unwrap().hash);
+        assert_ne!(
+            r1.cache_key(&ctx()).unwrap().hash,
+            r2.cache_key(&ctx()).unwrap().hash
+        );
     }
 
     #[test]
@@ -1097,7 +1128,11 @@ mod tests {
 
     #[test]
     fn npm_execute_with_env() {
-        if std::process::Command::new("npm").arg("--version").output().is_err() {
+        if std::process::Command::new("npm")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -1121,16 +1156,16 @@ mod tests {
 
     #[test]
     fn ts_bin_compile_failure() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("src")).unwrap();
-        std::fs::write(
-            tmp.path().join("src/bad.ts"),
-            "const x: string = 42;\n",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join("src/bad.ts"), "const x: string = 42;\n").unwrap();
         std::fs::write(
             tmp.path().join("tsconfig.json"),
             r#"{"compilerOptions":{"strict":true,"noEmit":true},"include":["src"]}"#,
@@ -1153,7 +1188,11 @@ mod tests {
 
     #[test]
     fn ts_check_type_error() {
-        if std::process::Command::new("tsc").arg("--version").output().is_err() {
+        if std::process::Command::new("tsc")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -1184,7 +1223,11 @@ mod tests {
 
     #[test]
     fn npm_missing_script() {
-        if std::process::Command::new("npm").arg("--version").output().is_err() {
+        if std::process::Command::new("npm")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -1209,7 +1252,11 @@ mod tests {
 
     #[test]
     fn npm_execute_nonzero_exit() {
-        if std::process::Command::new("npm").arg("--version").output().is_err() {
+        if std::process::Command::new("npm")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();
@@ -1235,7 +1282,11 @@ mod tests {
 
     #[test]
     fn npm_workdir_nonzero_exit() {
-        if std::process::Command::new("npm").arg("--version").output().is_err() {
+        if std::process::Command::new("npm")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             return;
         }
         let tmp = tempfile::TempDir::new().unwrap();

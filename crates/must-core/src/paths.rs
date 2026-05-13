@@ -4,9 +4,9 @@ use crate::Error;
 
 pub fn ensure_within_root(root: &Path, path: &Path) -> crate::Result<PathBuf> {
     let resolved = root.join(path);
-    let has_traversal = path.components().any(|c| {
-        matches!(c, std::path::Component::ParentDir)
-    });
+    let has_traversal = path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir));
     if has_traversal {
         return Err(Error::Config {
             path: path.to_owned(),

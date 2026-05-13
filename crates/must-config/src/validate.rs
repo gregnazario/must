@@ -40,9 +40,7 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::DockerBuild | RecipeType::DockerPush => {
                 require_field("image", recipe.image.as_ref(), name)
             }
-            RecipeType::Plugin => {
-                require_field("plugin", recipe.plugin.as_ref(), name)
-            }
+            RecipeType::Plugin => require_field("plugin", recipe.plugin.as_ref(), name),
             RecipeType::JavaBin | RecipeType::JavaTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
@@ -70,12 +68,8 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::NimBin | RecipeType::NimTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
-            RecipeType::PrecompiledBin => {
-                require_field("url", recipe.url.as_ref(), name)
-            }
-            RecipeType::Bridge => {
-                require_field("script", recipe.script.as_ref(), name)
-            }
+            RecipeType::PrecompiledBin => require_field("url", recipe.url.as_ref(), name),
+            RecipeType::Bridge => require_field("script", recipe.script.as_ref(), name),
         };
 
         if let Some(err) = missing {
