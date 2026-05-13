@@ -2,6 +2,10 @@
 
 must provides three Rust recipe types: `rust-bin`, `rust-lib`, and `rust-test`.
 
+## Try it
+
+<div id="playground-rust" data-must-playground="rust"></div>
+
 ## `rust-bin` — Build a binary
 
 ```toml

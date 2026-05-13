@@ -2,6 +2,10 @@
 
 Bridge recipes delegate to existing build tools — no rewriting required. `must` detects your project's build system and runs the right commands.
 
+## Try it
+
+<div id="playground-bridge" data-must-playground="bridge"></div>
+
 ## Auto-detect mode
 
 When no `Mustfile.toml` exists, `must` scans the project root for known build files and generates virtual recipes automatically:

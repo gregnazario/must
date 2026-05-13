@@ -2,6 +2,10 @@
 
 The `Mustfile.toml` is the single source of truth for your project's build configuration.
 
+## Validate your Mustfile.toml
+
+<div id="validator-config" data-must-validator></div>
+
 ## Top-level sections
 
 ```toml

@@ -2,6 +2,10 @@
 
 The `shell` type is the universal recipe — runs any shell command.
 
+## Try it
+
+<div id="playground-shell" data-must-playground="getting-started"></div>
+
 ## Basic usage
 
 ```toml

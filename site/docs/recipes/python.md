@@ -2,6 +2,10 @@
 
 must provides three Python recipe types: `py-bin`, `py-test`, and `py-lint`.
 
+## Try it
+
+<div id="playground-python" data-must-playground="python"></div>
+
 ## `py-bin` — Install dependencies
 
 ```toml

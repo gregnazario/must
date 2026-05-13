@@ -2,6 +2,10 @@
 
 must provides two Docker recipe types: `docker-build` and `docker-push`. Podman is used as a fallback if Docker is not available.
 
+## Try it
+
+<div id="playground-docker" data-must-playground="docker"></div>
+
 ## `docker-build` — Build an image
 
 ```toml

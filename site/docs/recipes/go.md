@@ -2,6 +2,10 @@
 
 must provides two Go recipe types: `go-bin` and `go-test`.
 
+## Try it
+
+<div id="playground-go" data-must-playground="go"></div>
+
 ## `go-bin` — Build a binary
 
 ```toml

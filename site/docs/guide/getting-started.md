@@ -58,6 +58,10 @@ type   = "shell"
 script = "echo 'Hello from must!'"
 ```
 
+## Try it in the browser
+
+<div id="playground-intro" data-must-playground="getting-started"></div>
+
 ## Build
 
 ```bash
@@ -100,6 +104,10 @@ script = "echo 'All checks passed'"
 ```
 
 Now `must build test lint` runs all three, `must ci` runs the umbrella.
+
+## Validate your config
+
+<div id="validator-intro" data-must-validator></div>
 
 ## Check what's stale
 

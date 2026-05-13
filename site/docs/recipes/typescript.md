@@ -2,6 +2,10 @@
 
 must provides four TypeScript recipe types: `ts-bin`, `ts-check`, `ts-lint`, and `npm`.
 
+## Try it
+
+<div id="playground-typescript" data-must-playground="typescript"></div>
+
 ## `ts-bin` — Compile TypeScript
 
 ```toml
