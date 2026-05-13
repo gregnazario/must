@@ -2,6 +2,111 @@
 
 must provides four TypeScript recipe types: `ts-bin`, `ts-check`, `ts-lint`, and `npm`.
 
+## Quick start
+
+Project layout:
+
+```
+myapp/
+├── Mustfile.toml
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── index.ts
+    └── index.test.ts
+```
+
+`package.json`:
+
+```json
+{
+  "name": "myapp",
+  "scripts": {
+    "build": "tsc",
+    "test": "node dist/index.test.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
+```
+
+`tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "include": ["src"]
+}
+```
+
+`src/index.ts`:
+
+```typescript
+export function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+
+console.log(greet("world"));
+```
+
+`src/index.test.ts`:
+
+```typescript
+import { greet } from "./index.js";
+
+function testGreet() {
+  const result = greet("test");
+  if (result !== "Hello, test!") {
+    throw new Error(`expected "Hello, test!", got "${result}"`);
+  }
+  console.log("pass: greet");
+}
+
+testGreet();
+```
+
+`Mustfile.toml`:
+
+```toml
+[project]
+name = "myapp"
+
+[recipe.build]
+type    = "ts-bin"
+package = "tsconfig.json"
+cache   = "hash"
+inputs  = ["src/**/*.ts"]
+outputs = ["dist/**/*.js"]
+
+[recipe.check]
+type    = "ts-check"
+package = "tsconfig.json"
+
+[recipe.test]
+type       = "npm"
+npm_script = "test"
+deps       = ["build"]
+```
+
+Build and run:
+
+```
+$ must build
+● build   compiling tsconfig.json … done (1.2s)
+● test    running npm test … done (0.3s)
+
+$ must run check
+● check   type-checking tsconfig.json … done (0.4s)
+```
+
 ## Try it
 
 <div id="playground-typescript" data-must-playground="typescript"></div>

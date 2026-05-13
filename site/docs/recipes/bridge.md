@@ -2,6 +2,68 @@
 
 Bridge recipes delegate to existing build tools — no rewriting required. `must` detects your project's build system and runs the right commands.
 
+## Quick start
+
+**Auto-detect** -- drop into any project with a `Makefile` and run `must`:
+
+```makefile
+# Makefile
+build:
+	gcc -o app main.c
+
+test: build
+	./app | grep -q "ok"
+
+clean:
+	rm -f app
+```
+
+```bash
+$ ls
+Makefile  main.c
+
+$ must build
+(auto-detected from build files — no Mustfile.toml found)
+✓ [#################] 1/1 (starting...)
+  ✓ build
+1 built, 0 cached, 0 failed — 85ms
+
+$ must test
+(auto-detected from build files — no Mustfile.toml found)
+✓ [#################] 1/1 (starting...)
+  ✓ test
+1 built, 0 cached, 0 failed — 52ms
+
+$ must clean
+(auto-detected from build files — no Mustfile.toml found)
+✓ [#################] 1/1 (starting...)
+  ✓ clean
+1 built, 0 cached, 0 failed — 18ms
+```
+
+**Explicit** -- or configure bridge recipes in `Mustfile.toml` for full control:
+
+```toml
+[project]
+name = "hello"
+version = "0.1.0"
+
+[recipe.build]
+type    = "bridge"
+package = "make"
+script  = "make build"
+
+[recipe.test]
+type    = "bridge"
+package = "make"
+script  = "make test"
+
+[recipe.clean]
+type    = "bridge"
+package = "make"
+script  = "make clean"
+```
+
 ## Try it
 
 <div id="playground-bridge" data-must-playground="bridge"></div>

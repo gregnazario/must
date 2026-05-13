@@ -2,6 +2,52 @@
 
 The `shell` type is the universal recipe — runs any shell command.
 
+## Quick start
+
+Create a project with shell recipes for building, testing, and cleaning a C program:
+
+```toml
+# Mustfile.toml
+[project]
+name = "hello"
+version = "0.1.0"
+
+[recipe.build]
+type    = "shell"
+inputs  = ["src/hello.c"]
+outputs = ["build/hello"]
+script  = "mkdir -p build && gcc -o build/hello src/hello.c"
+
+[recipe.test]
+type   = "shell"
+deps   = ["build"]
+phony  = true
+script = "test \"$(./build/hello)\" = \"hello\""
+
+[recipe.clean]
+type   = "shell"
+phony  = true
+script = "rm -rf build"
+```
+
+```c
+/* src/hello.c */
+#include <stdio.h>
+
+int main(void) {
+    printf("hello\n");
+    return 0;
+}
+```
+
+```bash
+$ must build test
+✓ [#################] 1/1 (starting...)
+  ✓ build
+  ✓ test
+2 built, 0 cached, 0 failed — 120ms
+```
+
 ## Try it
 
 <div id="playground-shell" data-must-playground="getting-started"></div>

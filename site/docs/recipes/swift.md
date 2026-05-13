@@ -2,6 +2,90 @@
 
 must provides two Swift recipe types: `swift-bin` and `swift-test`.
 
+## Quick start
+
+### Project structure
+
+```
+myapp/
+├── Package.swift
+├── Sources/
+│   └── myapp/
+│       └── main.swift
+├── Tests/
+│   └── myappTests/
+│       └── myappTests.swift
+└── Mustfile.toml
+```
+
+### Package.swift
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "myapp",
+    targets: [
+        .executableTarget(name: "myapp"),
+        .testTarget(name: "myappTests", dependencies: ["myapp"]),
+    ]
+)
+```
+
+### Sources/myapp/main.swift
+
+```swift
+func greet(_ name: String) -> String {
+    return "Hello, \(name)!"
+}
+
+print(greet("world"))
+```
+
+### Tests/myappTests/myappTests.swift
+
+```swift
+import XCTest
+@testable import myapp
+
+final class myappTests: XCTestCase {
+    func testGreet() {
+        XCTAssertEqual(greet("world"), "Hello, world!")
+    }
+}
+```
+
+### Mustfile.toml
+
+```toml
+[project]
+name = "myapp"
+
+[recipe.build]
+type    = "swift-bin"
+package = "."
+
+[recipe.test]
+type    = "swift-test"
+package = "."
+deps    = ["build"]
+```
+
+### Build and test
+
+```
+$ must build
+● build swift-bin myapp
+  swift build -c release
+  Build complete!
+
+$ must test
+● build swift-bin myapp (cached)
+● test  swift-test myapp
+  swift test
+  Test Suite passed. Executed 1 test.
+```
+
 ## `swift-bin` — Build a binary
 
 ```toml

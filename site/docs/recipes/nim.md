@@ -2,6 +2,62 @@
 
 must provides two Nim recipe types: `nim-bin` and `nim-test`.
 
+## Quick start
+
+Project structure:
+
+```
+myapp/
+├── Mustfile.toml
+├── myapp.nimble
+└── src/
+    └── myapp.nim
+```
+
+`myapp.nimble`:
+
+```nimble
+version = "0.1.0"
+author = "Author"
+description = "A Nim app"
+license = "MIT"
+
+srcDir = "src"
+bin = @["myapp"]
+```
+
+`src/myapp.nim`:
+
+```nim
+echo "Hello from myapp!"
+```
+
+`Mustfile.toml`:
+
+```toml
+[project]
+name = "myapp"
+version = "0.1.0"
+
+[recipe.build]
+type    = "nim-bin"
+package = "src/myapp.nim"
+
+[recipe.test]
+type    = "nim-test"
+package = "tests/test_all.nim"
+deps    = ["build"]
+```
+
+Build and run:
+
+```
+$ must build
+[build] nim c -d:release src/myapp.nim
+$ ./src/myapp
+Hello from myapp!
+```
+
 ## `nim-bin` — Build a binary
 
 ```toml

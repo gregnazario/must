@@ -2,6 +2,100 @@
 
 must provides two C recipe types: `c-bin` and `c-lib`.
 
+## Quick start
+
+Create a small C project from scratch with a binary that links against a local
+static library, plus a shell recipe that runs the tests.
+
+### Project structure
+
+```
+my-c-project/
+├── Mustfile.toml
+├── include/
+│   └── util.h
+└── src/
+    ├── main.c
+    └── util.c
+```
+
+### Source files
+
+`include/util.h`
+
+```c
+#ifndef UTIL_H
+#define UTIL_H
+
+void greeting(const char *name);
+
+#endif
+```
+
+`src/util.c`
+
+```c
+#include "util.h"
+#include <stdio.h>
+
+void greeting(const char *name) {
+    printf("Hello, %s!\n", name);
+}
+```
+
+`src/main.c`
+
+```c
+#include "util.h"
+#include <stdio.h>
+
+int main(void) {
+    greeting("world");
+    return 0;
+}
+```
+
+### Build configuration
+
+`Mustfile.toml`
+
+```toml
+[project]
+name = "my-c-project"
+
+[recipe.greeter-lib]
+type       = "c-lib"
+sources    = ["src/util.c"]
+includes   = ["include"]
+static_lib = true
+cache      = "hash"
+
+[recipe.greeter]
+type       = "c-bin"
+sources    = ["src/main.c"]
+includes   = ["include"]
+link_libs  = ["m"]
+deps       = ["greeter-lib"]
+cache      = "hash"
+
+[recipe.test]
+type   = "shell"
+script = "./build/greeter | grep -q 'Hello, world!' && echo 'OK'"
+deps   = ["greeter"]
+cache  = "none"
+```
+
+### Build and test
+
+```
+$ must build
+✔ greeter-lib  cached
+✔ greeter       cached
+
+$ must test
+✔ test  OK
+```
+
 ## `c-bin` — Build a binary
 
 ```toml

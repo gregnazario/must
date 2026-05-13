@@ -2,6 +2,80 @@
 
 must provides three .NET recipe types: `dotnet-build`, `dotnet-test`, and `dotnet-publish`.
 
+## Quick start
+
+Project structure:
+
+```
+my-app/
+├── Mustfile.toml
+├── MyApp.csproj
+└── Program.cs
+```
+
+`MyApp.csproj`:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+`Program.cs`:
+
+```csharp
+static string Greet(string name) => $"Hello, {name}!";
+
+Console.WriteLine(Greet("world"));
+```
+
+`Mustfile.toml`:
+
+```toml
+[project]
+name = "my-app"
+version = "0.1.0"
+
+[recipe.build]
+type    = "dotnet-build"
+package = "MyApp.csproj"
+
+[recipe.test]
+type    = "dotnet-test"
+package = "MyApp.csproj"
+deps    = ["build"]
+
+[recipe.publish]
+type    = "dotnet-publish"
+package = "MyApp.csproj"
+deps    = ["test"]
+```
+
+Build the project:
+
+```
+$ must build
+● build dotnet-build MyApp.csproj
+  Microsoft (R) Build Engine version 17.8.0
+  Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+✓ build (1.2s)
+```
+
+Run tests:
+
+```
+$ must test
+● build dotnet-build MyApp.csproj (cached)
+● test dotnet-test MyApp.csproj
+  Passed!  - Failed: 0, Passed: 1, Skipped: 0, Total: 1
+✓ test (0.8s)
+```
+
 ## `dotnet-build` — Build a project
 
 ```toml

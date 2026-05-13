@@ -2,6 +2,82 @@
 
 must provides three Rust recipe types: `rust-bin`, `rust-lib`, and `rust-test`.
 
+## Quick start
+
+Project structure:
+
+```
+myapp/
+├── Cargo.toml
+├── Mustfile.toml
+└── src/
+    └── main.rs
+```
+
+`Cargo.toml`:
+
+```toml
+[package]
+name = "myapp"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "myapp"
+path = "src/main.rs"
+```
+
+`src/main.rs`:
+
+```rust
+use std::env;
+
+fn main() {
+    let name = env::args().nth(1).unwrap_or_else(|| "world".into());
+    println!("Hello, {name}!");
+}
+```
+
+`Mustfile.toml`:
+
+```toml
+[project]
+name = "myapp"
+version = "0.1.0"
+
+[recipe.build]
+type    = "rust-bin"
+package = "myapp"
+
+[recipe.test]
+type    = "rust-test"
+package = "myapp"
+deps    = ["build"]
+
+[recipe.lint]
+type   = "shell"
+script = "cargo clippy -- -D warnings"
+deps   = ["build"]
+```
+
+Build and run:
+
+```
+$ must build
+[build] running cargo build --release -p myapp
+  Compiling myapp v0.1.0
+  Finished release [optimized] target(s)
+
+$ must test
+[test] running cargo test -p myapp
+  running 0 tests
+  test result: ok
+
+$ must lint
+[lint] running cargo clippy -- -D warnings
+  Finished dev [unoptimized + debuginfo]
+```
+
 ## Try it
 
 <div id="playground-rust" data-must-playground="rust"></div>

@@ -2,6 +2,106 @@
 
 must provides two Go recipe types: `go-bin` and `go-test`.
 
+## Quick start
+
+Project layout:
+
+```
+myapp/
+├── go.mod
+├── go.sum
+├── cmd/
+│   └── myapp/
+│       └── main.go
+├── myapp_test.go
+└── Mustfile.toml
+```
+
+`go.mod`:
+
+```go
+module github.com/user/myapp
+
+go 1.22
+```
+
+`cmd/myapp/main.go`:
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+)
+
+var version = "dev"
+
+func greeting(name string) string {
+	return fmt.Sprintf("hello, %s!", name)
+}
+
+func main() {
+	fmt.Printf("myapp %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
+	fmt.Println(greeting("world"))
+}
+```
+
+`myapp_test.go`:
+
+```go
+package main
+
+import "testing"
+
+func TestGreeting(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"world", "hello, world!"},
+		{"must", "hello, must!"},
+		{"", "hello, !"},
+	}
+	for _, tc := range cases {
+		got := greeting(tc.input)
+		if got != tc.want {
+			t.Errorf("greeting(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+```
+
+`Mustfile.toml`:
+
+```toml
+[project]
+name = "myapp"
+version = "0.1.0"
+
+[recipe.build]
+type    = "go-bin"
+package = "./cmd/myapp"
+ldflags = "-X main.version=0.1.0"
+
+[recipe.test]
+type    = "go-test"
+package = "./..."
+deps    = ["build"]
+```
+
+Build and test:
+
+```
+$ must build
+[build] go build -ldflags -X main.version=0.1.0 ./cmd/myapp
+ ok  build  1.2s
+
+$ must test
+[test] go test ./...
+ ok  test  0.8s
+```
+
 ## Try it
 
 <div id="playground-go" data-must-playground="go"></div>

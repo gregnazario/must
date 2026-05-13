@@ -2,6 +2,35 @@
 
 The `precompiled-bin` recipe type downloads prebuilt binaries and caches them with SHA-256 verification.
 
+## Quick start
+
+Download and cache a prebuilt tool from a GitHub release:
+
+```toml
+# Mustfile.toml
+[project]
+name = "my-project"
+version = "0.1.0"
+
+[recipe.rg]
+type   = "precompiled-bin"
+url    = "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz"
+sha256 = "5a78ec8fbed3c1e55e1a19faacf4941b9c3e0d13b6e7e3c6b6b0e94be22f01b6"
+output = ".tools/rg"
+```
+
+```bash
+$ must build
+✓ [#################] 1/1 (starting...)
+  ✓ rg  downloading https://github.com/BurntSushi/ripgrep/releases/...
+1 built, 0 cached, 0 failed — 1.8s
+
+$ must build
+✓ [#################] 1/1 (starting...)
+  ✓ rg  (cached)
+0 built, 1 cached, 0 failed — 12ms
+```
+
 ## When to use
 
 - Downloading tools your project depends on (e.g., `protoc`, `buf`, `dart-sass`)

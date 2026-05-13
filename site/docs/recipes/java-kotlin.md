@@ -4,6 +4,89 @@ must provides four JVM recipe types: `java-bin`, `java-test`, `kotlin-bin`, and 
 
 Both Java and Kotlin recipes use Gradle (`./gradlew`) as the build tool.
 
+## Quick start
+
+```
+my-app/
+├── build.gradle.kts
+├── settings.gradle.kts
+├── Mustfile.toml
+└── src/
+    ├── main/java/com/example/
+    │   └── App.java
+    └── test/java/com/example/
+        └── AppTest.java
+```
+
+**`build.gradle.kts`**
+
+```kotlin
+plugins {
+    application
+}
+
+application {
+    mainClass.set("com.example.App")
+}
+```
+
+**`src/main/java/com/example/App.java`**
+
+```java
+package com.example;
+
+public class App {
+    public static void main(String[] args) {
+        System.out.println("Hello from must!");
+    }
+}
+```
+
+**`src/test/java/com/example/AppTest.java`**
+
+```java
+package com.example;
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+class AppTest {
+    @Test
+    void greetingIsNotEmpty() {
+        assertNotEquals("", "Hello from must!");
+    }
+}
+```
+
+**`Mustfile.toml`**
+
+```toml
+[project]
+name = "my-app"
+version = "0.1.0"
+
+[recipe.build]
+type    = "java-bin"
+package = "."
+
+[recipe.test]
+type    = "java-test"
+package = "."
+deps    = ["build"]
+```
+
+Build and test:
+
+```
+$ must build
+● build  java-bin  ./gradlew build
+  BUILD SUCCESSFUL
+
+$ must test
+● test  java-test  ./gradlew test
+  BUILD SUCCESSFUL
+```
+
 ## `java-bin` — Build a Java project
 
 ```toml

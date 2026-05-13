@@ -2,6 +2,94 @@
 
 must provides two Elixir recipe types: `elixir-build` and `elixir-test`.
 
+## Quick start
+
+```
+myapp/
+├── Mustfile.toml
+├── mix.exs
+├── lib/
+│   └── myapp.ex
+└── test/
+    └── myapp_test.exs
+```
+
+`mix.exs`:
+
+```elixir
+defmodule Myapp.MixProject do
+  use Mix.Project
+
+  def project do
+    [
+      app: :myapp,
+      version: "0.1.0",
+      elixir: "~> 1.16",
+      deps: []
+    ]
+  end
+end
+```
+
+`lib/myapp.ex`:
+
+```elixir
+defmodule Myapp do
+  def greet do
+    "Hello from Myapp!"
+  end
+end
+```
+
+`test/myapp_test.exs`:
+
+```elixir
+defmodule MyappTest do
+  use ExUnit.Case
+
+  test "greet returns hello message" do
+    assert Myapp.greet() == "Hello from Myapp!"
+  end
+end
+```
+
+`Mustfile.toml`:
+
+```toml
+[project]
+name = "myapp"
+version = "0.1.0"
+
+[recipe.build]
+type    = "elixir-build"
+package = "."
+
+[recipe.test]
+type    = "elixir-test"
+package = "."
+deps    = ["build"]
+```
+
+Build and test:
+
+```
+$ must build
+● build  mix deps.get && mix compile
+  Resolving Hex dependencies...
+  Dependency resolution completed:
+  All dependencies up to date
+  Compiling 1 file (.ex)
+  ✓ build  (1.2s)
+
+$ must test
+● test   mix test
+  .
+
+  Finished in 0.03 seconds
+  1 test, 0 failures
+  ✓ test   (0.8s)
+```
+
 ## `elixir-build` — Compile a project
 
 ```toml

@@ -6,6 +6,98 @@ must provides three Python recipe types: `py-bin`, `py-test`, and `py-lint`.
 
 <div id="playground-python" data-must-playground="python"></div>
 
+## Quick start
+
+### Project structure
+
+```
+myapp/
+├── pyproject.toml
+├── Mustfile.toml
+├── src/
+│   └── myapp/
+│       ├── __init__.py
+│       └── main.py
+└── tests/
+    └── test_main.py
+```
+
+### pyproject.toml
+
+```toml
+[project]
+name = "myapp"
+version = "0.1.0"
+requires-python = ">=3.10"
+```
+
+### src/myapp/__init__.py
+
+```python
+__version__ = "0.1.0"
+```
+
+### src/myapp/main.py
+
+```python
+def greet(name: str) -> str:
+    return f"hello, {name}"
+
+
+def main() -> None:
+    print(greet("world"))
+
+
+if __name__ == "__main__":
+    main()
+```
+
+### tests/test_main.py
+
+```python
+from myapp.main import greet
+
+
+def test_greet() -> None:
+    assert greet("world") == "hello, world"
+```
+
+### Mustfile.toml
+
+```toml
+[project]
+name = "myapp"
+
+[recipe.build]
+type    = "py-bin"
+package = "."
+
+[recipe.test]
+type    = "py-test"
+package = "."
+deps    = ["build"]
+
+[recipe.lint]
+type    = "py-lint"
+package = "src/"
+deps    = ["build"]
+```
+
+### Build, test, and lint
+
+```
+$ must build
+● build  py-bin  myapp  done (1.2s)
+
+$ must test
+● build  py-bin    myapp  cached
+● test   py-test   myapp  done (0.8s)
+
+$ must lint
+● build  py-bin    myapp  cached
+● lint   py-lint   myapp  done (1.5s)
+```
+
 ## `py-bin` — Install dependencies
 
 ```toml
