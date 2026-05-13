@@ -6,3 +6,5 @@
 .DS_Store
 node_modules/
 site_out/
+Cargo.lock
+!crates/must-cli/tests/**/Cargo.lock
