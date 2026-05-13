@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://mustfile.ai/advanced/import/">
       
       
-        <link rel="prev" href="../../recipes/precompiled-bin/">
+        <link rel="prev" href="../../recipes/bridge/">
       
       
         <link rel="next" href="../github-actions/">
@@ -27,7 +27,7 @@
     
     
       
-        <title>Importing from Makefile - Mustfile</title>
+        <title>Importing Build Files - Mustfile</title>
       
     
     
@@ -52,6 +52,8 @@
         <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#importing-from-makefile" class="md-skip">
+        <a href="#importing-build-files" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Importing from Makefile
+              Importing Build Files
             
           </span>
         </div>
@@ -168,6 +170,11 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
@@ -250,6 +257,8 @@
           
   
   
+    
+  
   Guide
 
         </a>
@@ -269,6 +278,8 @@
         <a href="../../recipes/" class="md-tabs__link">
           
   
+  
+    
   
   Recipes
 
@@ -292,6 +303,8 @@
           
   
   
+    
+  
   Advanced
 
         </a>
@@ -311,6 +324,8 @@
         <a href="../../migration/make/" class="md-tabs__link">
           
   
+  
+    
   
   Migration
 
@@ -418,6 +433,28 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -760,6 +797,48 @@
   
     
     
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -777,8 +856,9 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../recipes/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -792,8 +872,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
@@ -806,32 +892,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../recipes/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    All Recipe Types
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -1310,6 +1370,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1326,6 +1414,14 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1397,7 +1493,7 @@
   <span class="md-ellipsis">
     
   
-    Importing from Makefile
+    Importing Build Files
   
 
     
@@ -1415,7 +1511,7 @@
   <span class="md-ellipsis">
     
   
-    Importing from Makefile
+    Importing Build Files
   
 
     
@@ -1441,6 +1537,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#supported-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#basic-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1460,6 +1567,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="What gets imported">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-makefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Makefile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-justfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Justfile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-taskfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Taskfile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1478,6 +1624,17 @@
     <span class="md-ellipsis">
       
         Converting to first-class types
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#or-use-bridge-mode-instead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Or: use bridge mode instead
       
     </span>
   </a>
@@ -1563,6 +1720,16 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1783,6 +1950,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#supported-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#basic-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1802,6 +1980,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="What gets imported">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-makefile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Makefile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-justfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Justfile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-taskfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Taskfile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1820,6 +2037,17 @@
     <span class="md-ellipsis">
       
         Converting to first-class types
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#or-use-bridge-mode-instead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Or: use bridge mode instead
       
     </span>
   </a>
@@ -1846,17 +2074,55 @@
   
 
 
-<h1 id="importing-from-makefile">Importing from Makefile<a class="headerlink" href="#importing-from-makefile" title="Permanent link">&para;</a></h1>
-<p>must can import existing Makefiles and generate a starter <code>Mustfile.toml</code>.</p>
+<h1 id="importing-build-files">Importing Build Files<a class="headerlink" href="#importing-build-files" title="Permanent link">&para;</a></h1>
+<p>must can import existing build files and produce a starter <code>Mustfile.toml</code>. Supports Makefiles, Justfiles, and Taskfiles.</p>
+<h2 id="supported-formats">Supported formats<a class="headerlink" href="#supported-formats" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>File</th>
+<th><code>--format</code> flag</th>
+<th>Auto-detected by filename</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Make</td>
+<td><code>Makefile</code></td>
+<td><code>make</code> (default)</td>
+<td>Any file not matching below</td>
+</tr>
+<tr>
+<td>Just</td>
+<td><code>justfile</code>, <code>Justfile</code></td>
+<td><code>just</code></td>
+<td><code>justfile</code> or <code>justfile.*</code></td>
+</tr>
+<tr>
+<td>Taskfile</td>
+<td><code>Taskfile.yml</code>, <code>Taskfile.yaml</code></td>
+<td><code>taskfile</code></td>
+<td><code>Taskfile*.yml</code> / <code>Taskfile*.yaml</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>must<span class="w"> </span>import<span class="w"> </span>Makefile
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Auto-detect format from filename</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>must<span class="w"> </span>import<span class="w"> </span>--makefile<span class="w"> </span>Makefile
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>must<span class="w"> </span>import<span class="w"> </span>--makefile<span class="w"> </span>justfile
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>must<span class="w"> </span>import<span class="w"> </span>--makefile<span class="w"> </span>Taskfile.yml
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Explicit format</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>must<span class="w"> </span>import<span class="w"> </span>--makefile<span class="w"> </span>build.tasks<span class="w"> </span>--format<span class="w"> </span>just
 </span></code></pre></div>
-<p>This reads your Makefile and generates:</p>
+<p>This generates:</p>
 <ol>
 <li><code>Mustfile.toml</code> — converted recipes</li>
-<li><code>import-report.md</code> — detailed report of what was converted and what needs manual review</li>
+<li><code>MUSTFILE_IMPORT_REPORT.md</code> — detailed report</li>
 </ol>
 <h2 id="what-gets-imported">What gets imported<a class="headerlink" href="#what-gets-imported" title="Permanent link">&para;</a></h2>
+<h3 id="from-makefile">From Makefile<a class="headerlink" href="#from-makefile" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -1895,11 +2161,73 @@
 </tr>
 </tbody>
 </table>
+<h3 id="from-justfile">From Justfile<a class="headerlink" href="#from-justfile" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Justfile construct</th>
+<th>Mustfile equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>recipe_name:</code></td>
+<td><code>[recipe.recipe_name]</code></td>
+</tr>
+<tr>
+<td><code>recipe_name: dep1 dep2</code></td>
+<td><code>deps = ["dep1", "dep2"]</code></td>
+</tr>
+<tr>
+<td>Recipe body</td>
+<td><code>script = "..."</code> with <code>type = "shell"</code></td>
+</tr>
+<tr>
+<td><code>export VAR = "value"</code></td>
+<td><code>[env] VAR = "value"</code></td>
+</tr>
+<tr>
+<td><code>set shell := [...]</code></td>
+<td>Skipped (noted in report)</td>
+</tr>
+<tr>
+<td><code>[linux]</code> / <code>[windows]</code> attributes</td>
+<td>Skipped (noted in report)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="from-taskfile">From Taskfile<a class="headerlink" href="#from-taskfile" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Taskfile construct</th>
+<th>Mustfile equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tasks: name: cmds:</code></td>
+<td><code>[recipe.name]</code> with script</td>
+</tr>
+<tr>
+<td><code>deps: [build]</code></td>
+<td><code>deps = ["build"]</code></td>
+</tr>
+<tr>
+<td><code>desc: "description"</code></td>
+<td>Noted in report</td>
+</tr>
+<tr>
+<td><code>cmds:</code> list</td>
+<td>Joined into single script</td>
+</tr>
+</tbody>
+</table>
 <h2 id="import-report">Import report<a class="headerlink" href="#import-report" title="Permanent link">&para;</a></h2>
-<p>The generated <code>import-report.md</code> contains:</p>
+<p>The generated <code>MUSTFILE_IMPORT_REPORT.md</code> contains:</p>
 <ul>
 <li>Successfully converted recipes</li>
-<li>Skipped rules (pattern rules, implicit rules)</li>
+<li>Skipped rules (pattern rules, attributes, etc.)</li>
 <li>Variables that need manual review</li>
 <li>Suggestions for converting to first-class recipe types</li>
 </ul>
@@ -1934,6 +2262,12 @@
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">package</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my-app&quot;</span>
 </span></code></pre></div>
 <p>Benefits: automatic caching, cross-compilation support, toolchain version tracking.</p>
+<h2 id="or-use-bridge-mode-instead">Or: use bridge mode instead<a class="headerlink" href="#or-use-bridge-mode-instead" title="Permanent link">&para;</a></h2>
+<p>If you'd rather not convert, just use <code>must</code> directly against your existing build files — no import needed:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>my-makefile-project
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>must<span class="w"> </span>build<span class="w">    </span><span class="c1"># auto-detects Makefile, runs: make</span>
+</span></code></pre></div>
+<p>See <a href="../../recipes/bridge/">Bridge Recipes</a> for details.</p>
 
 
 
@@ -1951,6 +2285,8 @@
             </div>
           
           
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
@@ -1989,14 +2325,20 @@
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
     
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.code.select", "content.tabs.link", "content.tooltips"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/playground.js"></script>
+      
+        <script src="../../javascripts/validator.js"></script>
       
     
   </body>

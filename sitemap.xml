@@ -2,150 +2,154 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://mustfile.ai/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/changelog/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/contributing/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/advanced/architecture/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/advanced/github-actions/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/advanced/import/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/caching/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/cli-reference/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/config-reference/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/cross-compilation/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/cross-platform/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/getting-started/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/plugins/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/profiles/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/troubleshooting/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/guide/watching-logs/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/migration/just/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/migration/make/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/migration/taskfile/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
+    </url>
+    <url>
+         <loc>https://mustfile.ai/recipes/bridge/</loc>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/cc/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/dart/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/docker/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/dotnet/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/elixir/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/flutter/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/go/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/java-kotlin/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/nim/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/precompiled-bin/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/python/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/ruby/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/rust/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/shell/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/swift/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/typescript/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
     <url>
          <loc>https://mustfile.ai/recipes/zig/</loc>
-         <lastmod>2026-05-10</lastmod>
+         <lastmod>2026-05-13</lastmod>
     </url>
 </urlset>
