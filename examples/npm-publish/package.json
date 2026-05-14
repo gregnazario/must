@@ -1,0 +1,21 @@
+{
+  "name": "my-npm-lib",
+  "version": "1.0.0",
+  "description": "A sample TypeScript library",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js",
+    "lint": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/myorg/my-npm-lib"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@web-platform/core",
+  "version": "0.3.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo core tests passed"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
