@@ -5,10 +5,10 @@
 ## Installation
 
 ```bash
-cargo install --locked mustfile
+cargo install --locked must
 ```
 
-Or download a prebuilt binary from the [releases page](https://github.com/aptoslabs/mustfile/releases).
+Or download a prebuilt binary from the [releases page](https://github.com/aptoslabs/must/releases).
 
 ## Quick start
 

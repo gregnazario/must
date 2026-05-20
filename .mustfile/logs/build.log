@@ -1,0 +1,9 @@
+--- stderr ---
+   Compiling must-config v0.1.0 (/Users/greg/git/mustfile/crates/must-config)
+   Compiling must-plugin v0.1.0 (/Users/greg/git/mustfile/crates/must-plugin)
+   Compiling must-import v0.1.0 (/Users/greg/git/mustfile/crates/must-import)
+   Compiling must-recipe-cc v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-cc)
+   Compiling must-engine v0.1.0 (/Users/greg/git/mustfile/crates/must-engine)
+   Compiling must-bridge v0.1.0 (/Users/greg/git/mustfile/crates/must-bridge)
+   Compiling must-cli v0.1.0 (/Users/greg/git/mustfile/crates/must-cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.12s

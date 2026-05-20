@@ -2,7 +2,7 @@
 
 ## Goal
 
-Bring mustfile to a shippable v1 state: two new utility subcommands (`doctor`, `graph`), GitHub Actions CI + release workflows, a user guide, and a changelog.
+Bring must to a shippable v1 state: two new utility subcommands (`doctor`, `graph`), GitHub Actions CI + release workflows, a user guide, and a changelog.
 
 ## Worktree
 
@@ -216,7 +216,7 @@ fn print_graph(config: &Config, format: &str) -> must_core::Result<()> {
 
     match format {
         "dot" => {
-            println!("digraph mustfile {{");
+            println!("digraph must {{");
             println!("  rankdir=LR;");
             for name in &order {
                 if let Some(deps) = dep_map.get(name) {
@@ -497,10 +497,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Installation
 
 ```bash
-cargo install --locked mustfile
+cargo install --locked must
 ```
 
-Or download a prebuilt binary from the [releases page](https://github.com/greg/mustfile/releases).
+Or download a prebuilt binary from the [releases page](https://github.com/greg/must/releases).
 
 ## Quick start
 
@@ -713,7 +713,7 @@ Mark M6 tasks as done in `docs/TASKS.md`, then create the v1.0.0 tag.
 - `[x]` Cross-platform paths (sh -c on unix already works on macOS + Linux)
 - `[x]` GitHub Actions CI
 - `[x]` GitHub Actions release workflow
-- `[-]` `cargo install --locked mustfile` (requires crates.io publish — deferred)
+- `[-]` `cargo install --locked must` (requires crates.io publish — deferred)
 - `[-]` Prebuilt binaries (workflow created; actual publish deferred until pushed)
 - `[-]` `install.sh` (deferred)
 - `[x]` `docs/USER_GUIDE.md`

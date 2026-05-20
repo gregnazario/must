@@ -1,0 +1,32 @@
+--- stderr ---
+  Installing must-cli v0.1.0 (/Users/greg/git/mustfile/crates/must-cli)
+    Updating crates.io index
+     Locking 270 packages to latest compatible versions
+      Adding lua-src v550.0.0 (available: v550.1.0)
+      Adding luajit-src v210.6.6+707c12b (available: v210.7.1+18b087c)
+   Compiling must-cache v0.1.0 (/Users/greg/git/mustfile/crates/must-cache)
+   Compiling must-recipe-dotnet v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-dotnet)
+   Compiling must-recipe-swift v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-swift)
+   Compiling must-recipe-docker v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-docker)
+   Compiling must-recipe-kotlin v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-kotlin)
+   Compiling must-recipe-shell v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-shell)
+   Compiling must-recipe-go v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-go)
+   Compiling must-recipe-precompiled v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-precompiled)
+   Compiling must-recipe-rust v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-rust)
+   Compiling must-recipe-ts v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-ts)
+   Compiling must-recipe-java v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-java)
+   Compiling must-recipe-elixir v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-elixir)
+   Compiling must-recipe-py v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-py)
+   Compiling must-engine v0.1.0 (/Users/greg/git/mustfile/crates/must-engine)
+   Compiling must-recipe-zig v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-zig)
+   Compiling must-plugin v0.1.0 (/Users/greg/git/mustfile/crates/must-plugin)
+   Compiling must-recipe-dart v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-dart)
+   Compiling must-recipe-cc v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-cc)
+   Compiling must-recipe-flutter v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-flutter)
+   Compiling must-bridge v0.1.0 (/Users/greg/git/mustfile/crates/must-bridge)
+   Compiling must-recipe-nim v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-nim)
+   Compiling must-recipe-ruby v0.1.0 (/Users/greg/git/mustfile/crates/must-recipe-ruby)
+   Compiling must-cli v0.1.0 (/Users/greg/git/mustfile/crates/must-cli)
+    Finished `release` profile [optimized] target(s) in 5.04s
+   Replacing /Users/greg/.cargo/bin/must
+    Replaced package `must-cli v0.1.0 (/Users/greg/git/mustfile/crates/must-cli)` with `must-cli v0.1.0 (/Users/greg/git/mustfile/crates/must-cli)` (executable `must`)

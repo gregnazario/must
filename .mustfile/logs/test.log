@@ -1,0 +1,666 @@
+
+running 18 tests
+test store::tests::test_hash_string_is_deterministic_hex ... ok
+test hash::tests::test_changed_toolchain_changes_hash ... ok
+test hash::tests::test_changed_content_changes_hash ... ok
+test mtime::tests::test_miss_when_output_missing ... ok
+test hash::tests::test_hash_file ... ok
+test hash::tests::test_same_inputs_same_hash ... ok
+test hash::tests::test_changed_env_changes_hash ... ok
+test hash::tests::test_input_order_does_not_matter ... ok
+test mtime::tests::test_hit_when_output_newer ... ok
+test mtime::tests::test_stale_when_input_newer ... ok
+test store::tests::test_invalidate_nonexistent_is_ok ... ok
+test store::tests::test_lookup_miss_on_empty ... ok
+test store::tests::test_invalidate_returns_miss ... ok
+test store::tests::test_store_with_nonexistent_output_skips_copy ... ok
+test store::tests::test_store_and_hit ... ok
+test store::tests::test_lookup_stale_when_hash_changes ... ok
+test store::tests::test_stale_when_entry_dir_deleted ... ok
+test store::tests::test_store_copies_output_file ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+
+running 31 tests
+test tests::test_expand_env_vars_no_match ... ok
+test tests::test_expand_env_vars_partial ... ok
+test tests::test_expand_env_vars_basic ... ok
+test tests::test_dir_size_empty_dir ... ok
+test tests::test_find_mustfile_returns_something_or_none_without_panic ... ok
+test tests::test_print_check_fail ... ok
+test tests::test_print_check_ok ... ok
+test tests::test_print_graph_cycle_returns_error ... ok
+test tests::test_print_graph_dot_single_recipe ... ok
+test tests::test_print_graph_text_no_recipes ... ok
+test tests::test_print_graph_mermaid_with_deps ... ok
+test tests::test_print_graph_unknown_format_falls_back_to_text ... ok
+test tests::test_resolve_targets_deduplicates_preserving_order ... ok
+test tests::test_resolve_targets_direct_triple_passthrough ... ok
+test tests::test_resolve_targets_empty_returns_host ... ok
+test tests::test_resolve_targets_group_expansion ... ok
+test tests::test_resolve_targets_mixed_group_and_direct ... ok
+test tests::test_import_roundtrip ... ok
+test tests::test_explain_unknown_recipe_returns_error ... ok
+test tests::test_dir_size_counts_file_bytes ... ok
+test tests::test_dir_size_recursive ... ok
+test tests::test_explain_recipe_with_hash_cache_mode ... ok
+test tests::test_explain_shell_recipe_no_inputs ... ok
+test tests::test_explain_recipe_with_env_vars_displays_them ... ok
+test tests::test_explain_recipe_with_input_files ... ok
+test tests::test_explain_recipe_invalid_glob_does_not_panic ... ok
+test tests::test_explain_recipe_with_none_cache_mode ... ok
+test tests::test_explain_recipe_with_mtime_cache_mode ... ok
+test tests::test_explain_recipe_long_env_value_truncated ... ok
+test tests::test_explain_recipe_with_deps ... ok
+test tests::test_explain_all_recipe_types ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+
+running 41 tests
+Apple clang version 21.0.0 (clang-2100.0.123.102)
+Target: arm64-apple-darwin25.4.0
+Thread model: posix
+InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+test test_foreach_no_subprojects ... ok
+test test_clean_when_no_cache_dir ... ok
+test test_explain_unknown_recipe_exits_nonzero ... ok
+test test_dry_run_flag ... ok
+go version go1.26.2 darwin/arm64
+[2m2026-05-05T20:44:00.623447Z[0m [31mERROR[0m [2mmust_engine::scheduler[0m[2m:[0m recipe failed [3mrecipe[0m[2m=[0mbuild [3merror[0m[2m=[0mrecipe 'build' failed with exit code 1:
+
+test test_list_command ... ok
+
+0 built, 0 cached, 1 failed — 8ms
+test test_failing_recipe_exits_nonzero ... ok
+test test_foreach_failure_propagates ... ok
+test test_list_shows_deps ... ok
+test test_build_with_two_targets_shows_header ... ok
+
+3 built, 0 cached, 0 failed — 25ms
+test test_log_missing_recipe_exits_nonzero ... ok
+test test_log_no_logs_found ... ok
+test test_deps_dag_topo_order ... ok
+test test_log_clear ... ok
+cached
+test test_log_after_build ... ok
+test test_explain_recipe_with_inputs ... ok
+test test_explain_command ... ok
+test test_plugin_check_invalid_exits_nonzero ... ok
+test test_log_lists_recipes ... ok
+test test_plugin_recipe_list ... ok
+test test_explain_recipe_with_env_vars ... ok
+test test_plugin_check_valid ... ok
+test test_multi_target_expansion ... ok
+test test_foreach_discovers_subprojects ... ok
+test test_plugin_list_command ... ok
+test test_plugin_recipe_execution ... ok
+test test_foreach_with_filter ... ok
+Python 3.14.4
+test test_unknown_recipe_exits_nonzero ... ok
+
+1 built, 0 cached, 0 failed — 84ms
+
+1 built, 0 cached, 0 failed — 13ms
+test test_c_bin_recipe_local ... ok
+
+1 built, 0 cached, 0 failed — 17ms
+test test_test_subcommand ... ok
+test test_resolve_targets_group_expansion ... ok
+
+1 built, 0 cached, 0 failed — 102ms
+0.16.0
+test test_clean_cache_command ... ok
+pytest 9.0.2
+
+0 built, 1 cached, 0 failed — 2ms
+test test_simple_shell_mtime_cache ... ok
+
+1 built, 0 cached, 0 failed — 116ms
+
+1 built, 0 cached, 0 failed — 197ms
+test test_go_bin_recipe ... ok
+
+0 built, 1 cached, 0 failed — 53ms
+
+1 built, 0 cached, 0 failed — 108ms
+test test_py_test_recipe ... ok
+test test_shell_hash_cache_content_sensitive ... ok
+test test_rust_bin_recipe ... ok
+
+1 built, 0 cached, 0 failed — 665ms
+test test_c_bin_recipe_container ... ok
+test test_docker_build_recipe ... ok
+
+4 built, 0 cached, 0 failed — 845ms
+
+4 built, 0 cached, 0 failed — 211ms
+test test_parallelism ... ok
+test test_py_bin_recipe ... ok
+test test_zig_bin_recipe ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.00s
+
+
+running 50 tests
+test tests::test_docker_build_minimal ... ok
+test tests::test_docker_push_recipe ... ok
+test tests::test_cache_modes ... ok
+test tests::test_docker_build_recipe ... ok
+test tests::test_cross_config_local ... ok
+test tests::test_c_lib_recipe ... ok
+test tests::test_cross_config_container ... ok
+test tests::test_c_bin_recipe ... ok
+test tests::test_go_test_recipe ... ok
+test tests::test_global_env_scalars ... ok
+test tests::test_load_config_missing_file ... ok
+test tests::test_go_bin_recipe ... ok
+test tests::test_minimal_config ... ok
+test tests::test_missing_project_name_is_error ... ok
+test tests::test_project_with_version ... ok
+test tests::test_profile_env ... ok
+test tests::test_py_test_recipe ... ok
+test tests::test_recipe_env_overrides ... ok
+test tests::test_py_bin_recipe ... ok
+test tests::test_py_lint_recipe ... ok
+test tests::test_recipe_with_deps ... ok
+test tests::test_rust_lib_and_test_recipes ... ok
+test tests::test_rust_bin_recipe ... ok
+test tests::test_targets ... ok
+test tests::test_shell_recipe_minimal ... ok
+test tests::test_shell_recipe_full ... ok
+test tests::test_unknown_recipe_type_is_error ... ok
+test tests::test_validation_c_bin_missing_sources ... ok
+test tests::test_validation_docker_build_missing_image ... ok
+test tests::test_validation_docker_push_missing_image ... ok
+test tests::test_validation_empty_package_rejected ... ok
+test tests::test_validation_fails_for_chain_with_missing_link ... ok
+test tests::test_validation_go_bin_missing_package ... ok
+test tests::test_load_config_from_file ... ok
+test tests::test_validation_fails_for_unknown_dep ... ok
+test tests::test_validation_npm_missing_script ... ok
+test tests::test_validation_py_bin_missing_package ... ok
+test tests::test_validation_rust_bin_missing_package ... ok
+test tests::test_load_config_invalid_toml ... ok
+test tests::test_validation_passes_for_valid_deps ... ok
+test tests::test_validation_shell_missing_script ... ok
+test tests::test_validation_zig_bin_missing_package ... ok
+test tests::test_validation_ts_bin_missing_package ... ok
+test tests::test_load_config_validates_deps ... ok
+test tests::test_validation_valid_recipe_with_all_fields ... ok
+test tests::test_zig_bin_recipe ... ok
+test tests::test_zig_test_recipe ... ok
+test tests::test_include_missing_file_is_error ... ok
+test tests::test_include_main_wins_on_conflict ... ok
+test tests::test_include_merges_recipes ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 12 tests
+test env::tests::test_unknown_recipe_name_returns_base_env ... ok
+test env::tests::test_global_env_applied ... ok
+test env::tests::test_recipe_env_overrides_global ... ok
+test env::tests::test_toolchain_env_has_highest_priority ... ok
+test scheduler::tests::test_engine_unknown_recipe_in_dag_returns_error ... ok
+test scheduler::tests::test_execution_report_cached_count ... ok
+test scheduler::tests::test_engine_two_successes_report_counts ... ok
+test env::tests::test_profile_env_overrides_global ... ok
+test scheduler::tests::test_engine_fail_fast_stops_after_failure ... ok
+test scheduler::tests::test_engine_single_success ... ok
+test scheduler::tests::test_engine_single_failure_no_fail_fast ... ok
+test scheduler::tests::test_engine_handles_panicking_recipe ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test dag::tests::test_cycle_detection ... ok
+test dag::tests::test_topo_sort_simple ... ok
+test dag::tests::test_waves ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 44 tests
+test lexer::tests::blank_line ... ok
+test lexer::tests::comment_no_space ... ok
+test lexer::tests::empty_input_yields_empty_vec ... ok
+test lexer::tests::comment_line ... ok
+test lexer::tests::include_directive ... ok
+test lexer::tests::double_colon_rule ... ok
+test lexer::tests::macro_line_with_equals_is_unrecognized ... ok
+test lexer::tests::multi_line ... ok
+test lexer::tests::phony_empty ... ok
+test lexer::tests::phony_with_targets ... ok
+test lexer::tests::pattern_rule ... ok
+test lexer::tests::recipe_line ... ok
+test lexer::tests::rule_header_no_deps ... ok
+test lexer::tests::trailing_whitespace_stripped ... ok
+test lexer::tests::var_assign_append ... ok
+test lexer::tests::rule_header_with_deps ... ok
+test lexer::tests::var_assign_conditional ... ok
+test lexer::tests::unrecognized_ifeq ... ok
+test lexer::tests::var_assign_simple ... ok
+test lexer::tests::var_assign_immediate ... ok
+test lexer::tests::var_assign_with_expansion ... ok
+test parser::tests::comment_and_blank_are_skipped ... ok
+test parser::tests::empty_tokens_empty_ast ... ok
+test parser::tests::include_becomes_todo ... ok
+test parser::tests::non_phony_rule_is_not_phony ... ok
+test parser::tests::pattern_rule_becomes_todo ... ok
+test parser::tests::rule_with_no_recipe_lines ... ok
+test parser::tests::rule_with_recipe_lines ... ok
+test parser::tests::unrecognized_token_preserved ... ok
+test parser::tests::phony_decl_sets_phony_true ... ok
+test parser::tests::variable_token_produces_variable_node ... ok
+test translate::tests::empty_ast_zero_counts ... ok
+test translate::tests::empty_value_var_is_skipped ... ok
+test translate::tests::include_increments_todo ... ok
+test translate::tests::pattern_rule_increments_todo ... ok
+test translate::tests::rule_node_goes_into_recipes ... ok
+test translate::tests::unrecognized_increments_skipped ... ok
+test translate::tests::variable_node_goes_into_env ... ok
+test writer::tests::dep_name_with_special_chars_is_escaped ... ok
+test writer::tests::empty_output_has_project_section ... ok
+test writer::tests::env_section_only_when_nonempty ... ok
+test writer::tests::env_value_escaping ... ok
+test writer::tests::recipe_name_with_slash_is_quoted ... ok
+test writer::tests::recipe_with_deps_and_phony ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test fixture_includes_become_todos ... ok
+test fixture_pattern_rules_become_todos ... ok
+test fixture_phony ... ok
+test fixture_vars_only ... ok
+test fixture_simple_rules ... ok
+test fixture_shell_substitution_passes_through ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 16 tests
+test tests::test_discover_plugins_empty_dir ... ok
+test tests::test_plugin_with_deps ... ok
+test tests::test_stdlib_env_get ... ok
+test tests::test_plugin_env_access ... ok
+test tests::test_load_and_execute_simple_plugin ... ok
+test tests::test_plugin_missing_execute_fails ... ok
+test tests::test_plugin_lua_error_in_execute ... ok
+test tests::test_stdlib_file_exists ... ok
+test tests::test_plugin_inputs_outputs ... ok
+test tests::test_plugin_execute_failure ... ok
+test tests::test_stdlib_glob ... ok
+test tests::test_stdlib_mkdir ... ok
+test tests::test_stdlib_file_io ... ok
+test tests::test_discover_plugins ... ok
+test tests::test_stdlib_shell_exec ... ok
+test tests::test_stdlib_shell_exec_failure ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 33 tests
+test recipe::tests::test_cbin_cache_strategy_is_hash ... ok
+test recipe::tests::test_cbin_deps_empty_by_default ... ok
+test recipe::tests::test_cbin_dry_run ... ok
+test recipe::tests::test_cbin_deps_non_empty ... ok
+test recipe::tests::test_cbin_inputs_from_sources ... ok
+test recipe::tests::test_cbin_name_accessor ... ok
+test recipe::tests::test_clib_cache_strategy_is_hash ... ok
+test recipe::tests::test_clib_deps_non_empty ... ok
+test recipe::tests::test_cbin_outputs_in_build_dir ... ok
+test recipe::tests::test_clib_dry_run_static ... ok
+test recipe::tests::test_clib_dry_run_shared ... ok
+test recipe::tests::test_cbin_execute_cross_no_compiler_returns_toolchain_not_found ... ok
+test recipe::tests::test_clib_inputs_empty_when_no_sources ... ok
+test recipe::tests::test_clib_inputs_returns_sources_joined_to_root ... ok
+test recipe::tests::test_clib_name_accessor ... ok
+test recipe::tests::test_clib_shared_output_is_dot_so ... ok
+test recipe::tests::test_clib_static_output_is_dot_a ... ok
+test recipe::tests::test_clib_execute_cross_no_compiler_returns_toolchain_not_found ... ok
+test recipe::tests::test_cbin_cache_key_fields ... ok
+test recipe::tests::test_run_command_success ... ok
+test recipe::tests::test_run_command_failure ... ok
+test recipe::tests::test_clib_static_cache_key_fields ... ok
+test recipe::tests::test_cbin_execute_compile_failure ... ok
+test recipe::tests::test_clib_shared_cache_key_fields ... ok
+test recipe::tests::test_clib_static_execute_on_host ... ok
+test recipe::tests::test_cbin_execute_with_cflags_and_nonempty_env ... ok
+test recipe::tests::test_cbin_execute_with_recipe_env ... ok
+test recipe::tests::test_cbin_execute_with_include_dir ... ok
+test recipe::tests::test_cbin_execute_compiles_on_host ... ok
+test recipe::tests::test_cbin_execute_with_cross_config_linker ... ok
+test recipe::tests::test_clib_shared_execute_on_host ... ok
+test recipe::tests::test_clib_static_execute_with_includes_and_cflags ... ok
+test recipe::tests::test_clib_shared_execute_with_link_libs_and_cflags ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 7 tests
+test recipe::tests::docker_build_cache_strategy_is_hash ... ok
+test recipe::tests::docker_build_name_and_image ... ok
+test recipe::tests::docker_push_cache_strategy_is_never ... ok
+test recipe::tests::docker_build_key_includes_build_args ... ok
+test recipe::tests::docker_push_dry_run ... ok
+test recipe::tests::docker_build_dry_run ... ok
+test recipe::tests::docker_build_cache_hit ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 24 tests
+test recipe::tests::test_go_bin_extra_flags_includes_all_fields ... ok
+test recipe::tests::test_go_bin_recipe_cache_strategy_is_hash ... ok
+test recipe::tests::test_go_bin_recipe_deps_returns_expected_slice ... ok
+test recipe::tests::test_go_bin_recipe_empty_deps ... ok
+test recipe::tests::test_go_bin_recipe_inputs_is_empty ... ok
+test recipe::tests::test_go_bin_recipe_name ... ok
+test recipe::tests::test_go_bin_recipe_outputs_is_empty ... ok
+test recipe::tests::test_go_test_recipe_inputs_is_empty ... ok
+test recipe::tests::test_go_test_recipe_cache_strategy_is_never ... ok
+test recipe::tests::test_go_test_recipe_deps_returns_expected_slice ... ok
+test recipe::tests::test_go_test_recipe_name ... ok
+test recipe::tests::test_go_test_recipe_outputs_is_empty ... ok
+test recipe::tests::test_go_bin_cache_key_covers_go_version_and_hash ... ok
+test recipe::tests::test_go_bin_execute_dry_run ... ok
+test recipe::tests::test_go_bin_execute_not_installed_returns_toolchain_error ... ok
+test recipe::tests::test_go_test_execute_dry_run ... ok
+test recipe::tests::test_go_test_cache_key ... ok
+test recipe::tests::test_go_bin_cache_key_changes_with_ldflags ... ok
+test recipe::tests::test_go_bin_execute_invalid_package_returns_error ... ok
+test recipe::tests::test_go_bin_execute_with_ldflags ... ok
+test recipe::tests::test_go_bin_execute_cross_compile ... ok
+test recipe::tests::test_go_bin_execute_with_build_tags ... ok
+test recipe::tests::test_go_bin_execute_real_build ... ok
+test recipe::tests::test_go_test_execute_real_test ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+
+running 9 tests
+test recipe::tests::py_bin_cache_strategy_is_hash ... ok
+test recipe::tests::py_bin_name_and_package ... ok
+test recipe::tests::py_test_cache_strategy_is_never ... ok
+test recipe::tests::py_lint_dry_run ... ok
+test recipe::tests::py_lint_cache_strategy_is_never ... ok
+test recipe::tests::py_cache_key_differs_by_package ... ok
+test recipe::tests::py_test_dry_run ... ok
+test recipe::tests::py_bin_dry_run ... ok
+test recipe::tests::py_bin_cache_hit ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 21 tests
+test recipe::tests::rust_bin_deps_empty_by_default ... ok
+test recipe::tests::rust_bin_name_and_package ... ok
+test recipe::tests::rust_bin_cache_strategy_is_hash ... ok
+test recipe::tests::rust_bin_output_path_debug ... ok
+test recipe::tests::rust_bin_inputs_always_empty ... ok
+test recipe::tests::rust_lib_cache_strategy_is_hash ... ok
+test recipe::tests::rust_bin_output_path_release ... ok
+test recipe::tests::rust_lib_inputs_empty ... ok
+test recipe::tests::rust_test_cache_strategy_is_never ... ok
+test recipe::tests::rust_test_dry_run_returns_without_spawning ... ok
+test recipe::tests::rust_test_name_deps_inputs ... ok
+test recipe::tests::rust_test_outputs_always_empty ... ok
+test recipe::tests::rust_test_dry_run_with_filter ... ok
+test recipe::tests::rust_test_cache_key_includes_filter ... ok
+test recipe::tests::rust_bin_execute_dry_run_skips_cargo ... ok
+test recipe::tests::rust_bin_execute_dry_run_release ... ok
+test recipe::tests::rust_lib_execute_dry_run_with_features_and_release ... ok
+test recipe::tests::rust_lib_execute_dry_run ... ok
+test recipe::tests::rust_bin_execute_dry_run_with_features ... ok
+test recipe::tests::rust_bin_execute_returns_from_cache_when_hit ... ok
+test recipe::tests::rust_lib_execute_returns_from_cache_when_hit ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+
+running 13 tests
+test recipe::tests::default_cache_strategy_is_mtime ... ok
+test recipe::tests::deps_empty_by_default ... ok
+test recipe::tests::dry_run_skips_execution ... ok
+test recipe::tests::cache_key_returns_stable_hash ... ok
+test recipe::tests::hash_cache_strategy_when_set ... ok
+test recipe::tests::inputs_empty_when_no_globs ... ok
+test recipe::tests::name_and_script_roundtrip ... ok
+test recipe::tests::outputs_empty_when_no_patterns ... ok
+test recipe::tests::mtime_cache_hit_returns_from_cache ... ok
+test recipe::tests::execute_fails_on_nonzero_exit ... ok
+test recipe::tests::execute_runs_script_and_returns_ok ... ok
+test recipe::tests::execute_with_ctx_and_recipe_env ... ok
+test recipe::tests::hash_cache_stores_then_hits_on_second_run ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+
+running 25 tests
+test recipe::tests::npm_default_workdir_is_dot ... ok
+test recipe::tests::npm_cache_strategy_is_never ... ok
+test recipe::tests::npm_dry_run_returns_without_spawning ... ok
+test recipe::tests::npm_deps_empty_by_default ... ok
+test recipe::tests::npm_name_and_script ... ok
+test recipe::tests::npm_outputs_always_empty ... ok
+test recipe::tests::npm_dry_run_shows_workdir ... ok
+test recipe::tests::ts_bin_cache_strategy_is_hash ... ok
+test recipe::tests::npm_cache_key_differs_by_script ... ok
+test recipe::tests::ts_bin_deps_empty_by_default ... ok
+test recipe::tests::npm_cache_key_differs_by_workdir ... ok
+test recipe::tests::ts_bin_inputs_always_empty ... ok
+test recipe::tests::ts_bin_name_and_package ... ok
+test recipe::tests::ts_bin_outputs_always_empty ... ok
+test recipe::tests::ts_check_cache_key_includes_package ... ok
+test recipe::tests::ts_check_cache_strategy_is_never ... ok
+test recipe::tests::ts_check_dry_run_returns_without_spawning ... ok
+test recipe::tests::ts_check_name_and_package ... ok
+test recipe::tests::ts_check_outputs_always_empty ... ok
+test recipe::tests::ts_lint_cache_strategy_is_never ... ok
+test recipe::tests::ts_lint_dry_run_returns_without_spawning ... ok
+test recipe::tests::ts_lint_name_and_package ... ok
+test recipe::tests::ts_lint_outputs_always_empty ... ok
+test recipe::tests::ts_bin_dry_run_returns_without_spawning ... ok
+test recipe::tests::ts_bin_execute_returns_from_cache_when_hit ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 6 tests
+test recipe::tests::zig_test_cache_strategy_is_never ... ok
+test recipe::tests::zig_bin_name_and_package ... ok
+test recipe::tests::zig_bin_cache_strategy_is_hash ... ok
+test recipe::tests::zig_test_dry_run ... ok
+test recipe::tests::zig_bin_dry_run ... ok
+test recipe::tests::zig_bin_cache_hit ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 48 tests
+test container::tests::test_container_runtime_binary_names ... ok
+test container::tests::test_image_for_aarch64_c_bin ... ok
+test container::tests::test_image_for_aarch64_musl ... ok
+test container::tests::test_image_for_x86_64_c_bin ... ok
+test container::tests::test_image_for_x86_64_c_lib ... ok
+test container::tests::test_image_for_unknown_triple ... ok
+test container::tests::test_image_for_rust_cross_compilation ... ok
+test container::tests::test_image_for_x86_64_musl ... ok
+test container::tests::test_translate_path_outside_project_root ... ok
+test container::tests::test_translate_path_under_project_root ... ok
+test container::tests::test_wrap_command_structure ... ok
+test discover::tests::test_c_install_hint_contains_triple ... ok
+test discover::tests::test_go_install_hint_contains_go_dev ... ok
+test discover::tests::test_rust_install_hint_contains_rustup_target_add ... ok
+test discover::tests::test_rust_install_hint_host ... ok
+test discover::tests::test_discover_c_compiler_host_does_not_panic ... ok
+test discover::tests::test_rust_target_installed_host_returns_true ... ok
+test local_toolchain::tests::test_c_cross_env_cflags_always_present ... ok
+test local_toolchain::tests::test_c_cross_env_none_compiler_host_defaults ... ok
+test local_toolchain::tests::test_c_cross_env_with_clang_compiler ... ok
+test local_toolchain::tests::test_c_cross_env_with_compiler_path ... ok
+test local_toolchain::tests::test_c_cross_env_with_generic_compiler_name ... ok
+test local_toolchain::tests::test_go_cross_env_aarch64_apple_darwin ... ok
+test local_toolchain::tests::test_go_cross_env_host_returns_empty ... ok
+test local_toolchain::tests::test_go_cross_env_riscv64 ... ok
+test local_toolchain::tests::test_go_cross_env_x86_64_linux ... ok
+test local_toolchain::tests::test_go_cross_env_x86_64_windows ... ok
+test local_toolchain::tests::test_rust_cross_env_aarch64_with_linker ... ok
+test local_toolchain::tests::test_rust_cross_env_host_returns_empty ... ok
+test local_toolchain::tests::test_rust_cross_env_no_linker_returns_empty ... ok
+test local_toolchain::tests::test_rust_cross_env_with_linker_produces_uppercased_key ... ok
+test local_toolchain::tests::test_rust_cross_env_x86_64_with_linker ... ok
+test triple::tests::test_host_constructor ... ok
+test triple::tests::test_parse_aarch64_apple_darwin ... ok
+test triple::tests::test_parse_aarch64_linux_gnu ... ok
+test triple::tests::test_parse_aarch64_linux_musl ... ok
+test triple::tests::test_parse_host ... ok
+test triple::tests::test_parse_rejects_too_few_parts ... ok
+test triple::tests::test_parse_rejects_unknown_arch ... ok
+test triple::tests::test_parse_x86_64_apple_darwin ... ok
+test triple::tests::test_parse_x86_64_linux_gnu ... ok
+test triple::tests::test_parse_x86_64_linux_musl ... ok
+test triple::tests::test_parse_x86_64_windows_gnu ... ok
+test triple::tests::test_parse_x86_64_windows_msvc ... ok
+test discover::tests::test_go_installed_does_not_panic ... ok
+test discover::tests::test_rust_target_installed_does_not_panic ... ok
+test container::tests::test_container_toolchain_new_no_image_returns_err ... ok
+test container::tests::test_container_available_does_not_panic ... ok
+
+test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/debug/deps/must_cache-9b77dea52aeeb56d)
+     Running unittests src/main.rs (target/debug/deps/must-a3efa57b38500d3a)
+     Running tests/integration_tests.rs (target/debug/deps/integration_tests-05b69f6f2539c1f2)
+error: unknown recipe 'bogus'
+  FAILED build: recipe 'build' failed with exit code 1:
+
+error: recipe 'build' failed with exit code 1:
+one or more recipes failed
+error: unknown recipe 'nonexistent'
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+     Running unittests src/lib.rs (target/debug/deps/must_config-a1d4919b3afe1ef9)
+     Running unittests src/lib.rs (target/debug/deps/must_core-6c6fe124b867d6f4)
+     Running unittests src/lib.rs (target/debug/deps/must_engine-55ae15ba714e02f3)
+     Running unittests src/lib.rs (target/debug/deps/must_graph-08c1545c05374485)
+     Running unittests src/lib.rs (target/debug/deps/must_import-dd320d7da8dff554)
+     Running tests/integration.rs (target/debug/deps/integration-a13f46f3655badda)
+     Running unittests src/lib.rs (target/debug/deps/must_plugin-0a66643c02b21cdf)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_cc-3865382a52cc9a64)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_docker-d7e3bbd55977f630)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_go-55db3a65492d3ebc)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_py-88df97627d316858)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_rust-211c7799a40ec860)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_shell-1e33a96b607fc085)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_ts-43bc22c71acd20ca)
+     Running unittests src/lib.rs (target/debug/deps/must_recipe_zig-8706bf817bc28ac9)
+     Running unittests src/lib.rs (target/debug/deps/must_toolchain-327e1ba26e0be088)
+   Doc-tests must_cache
+   Doc-tests must_config
+   Doc-tests must_core
+   Doc-tests must_engine
+   Doc-tests must_graph
+   Doc-tests must_import
+   Doc-tests must_plugin
+   Doc-tests must_recipe_cc
+   Doc-tests must_recipe_docker
+   Doc-tests must_recipe_go
+   Doc-tests must_recipe_py
+   Doc-tests must_recipe_rust
+   Doc-tests must_recipe_shell
+   Doc-tests must_recipe_ts
+   Doc-tests must_recipe_zig
+   Doc-tests must_toolchain

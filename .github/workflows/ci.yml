@@ -83,6 +83,59 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  examples:
+    name: Examples (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2.7.8
+      - name: Build must
+        run: cargo build --release -p must-cli
+      - name: Install toolchains
+        run: |
+          # C/C++ (pre-installed on ubuntu, Xcode on macos)
+          # Go
+          go version || true
+          # Python
+          python3 --version
+          pip install pytest ruff
+          # Node.js
+          npm --version
+          npm install -g typescript @biomejs/biome
+          # Ruby
+          ruby --version
+          # Elixir
+          curl -fsSL https://github.com/elixir-lang/elixir/releases/download/v1.17.3/Downloads-precompiled.zip -o elixir.zip && unzip -q elixir.zip -d elixir && echo "$PWD/elixir/bin" >> $GITHUB_PATH
+          # Dart
+          curl -fsSL https://storage.googleapis.com/dart-archive/channels/stable/release/3.7.0/sdk/dartsdk-linux-x64-release.zip -o dart.zip && unzip -q dart.zip -d dart && echo "$PWD/dart/dart-sdk/bin" >> $GITHUB_PATH
+      - name: Install Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: stable
+      - name: Install Java + Gradle
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406 # v2
+        with:
+          version: master
+      - name: Install Swift (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL https://download.swift.org/swift-6.0.3-release/ubuntu2404/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-ubuntu24.04.tar.gz | tar xz
+          echo "$PWD/swift-6.0.3-RELEASE-ubuntu24.04/usr/bin" >> $GITHUB_PATH
+      - name: Test examples (dry-run)
+        run: |
+          export MUST="$PWD/target/release/must"
+          bash examples/test_examples.sh dry-run
+
   bench:
     name: Benchmarks
     runs-on: ubuntu-latest

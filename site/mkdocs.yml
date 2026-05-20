@@ -1,6 +1,6 @@
 site_name: Mustfile
 site_description: Polyglot build orchestrator — one config, every language
-site_url: https://mustfile.ai
+site_url: https://must.ai
 repo_name: anomalyco/mustfile
 repo_url: https://github.com/anomalyco/mustfile
 edit_uri: edit/main/site/docs/

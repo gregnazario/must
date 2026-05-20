@@ -66,7 +66,7 @@ Goal: dogfood — Mustfile builds Mustfile.
   - [x] `rust-lib` (cdylib/staticlib variants)
   - [x] `rust-test` (cargo test invocation, test filter passthrough)
 - [x] `must-cli::explain`: `--explain RECIPE` prints cache-key inputs and which one changed
-- [-] Dogfood: write `mustfile/Mustfile.toml` defining `build`, `test`, `release` for the workspace
+- [-] Dogfood: write `must/Mustfile.toml` defining `build`, `test`, `release` for the workspace
 - [-] CI: build with `cargo run -p must-cli -- build` to validate the bootstrap path
 - [-] Integration test scenarios: `rust-bin`, `shell-with-hash-cache`
 
@@ -153,14 +153,14 @@ Goal: tag v1.
 - [x] Cross-platform paths: ensure shell recipes work on macOS + Linux (Windows shell deferred)
 - [x] Release tooling:
   - [x] GitHub Actions matrix builds for x86_64-linux-gnu, aarch64-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin (Windows deferred)
-  - [-] `cargo install --locked mustfile` works from crates.io — deferred (requires publish)
+  - [-] `cargo install --locked must` works from crates.io — deferred (requires publish)
   - [-] Prebuilt binaries attached to GitHub releases — deferred (workflow created; triggers on tag push)
   - [-] `install.sh` script — deferred
 - [x] Documentation: `docs/USER_GUIDE.md`, schema reference, recipe-type reference
 - [x] CHANGELOG.md following Keep a Changelog
 - [x] Tag `v1.0.0`
 
-**Done when:** `cargo install --locked mustfile` installs from crates.io; the resulting binary runs the integration corpus successfully.
+**Done when:** `cargo install --locked must` installs from crates.io; the resulting binary runs the integration corpus successfully.
 
 ---
 

@@ -37,7 +37,7 @@ jobs:
       - name: Build site
         run: mkdocs build -f site/mkdocs.yml -d ../site_out
       - name: Add CNAME
-        run: echo "mustfile.ai" > site_out/CNAME
+        run: echo "must.ai" > site_out/CNAME
       - name: Upload artifact
         uses: actions/upload-pages-artifact@56afc609e7420260d3c3820fcb4c40bcddfd17e7 # v3
         with:

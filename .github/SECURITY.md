@@ -6,8 +6,8 @@
 
 Instead, please report them via:
 
-- **Email:** security@mustfile.ai
-- **GitHub Security Advisory:** [Report a vulnerability](https://github.com/anomalyco/mustfile/security/advisories/new)
+- **Email:** security@must.ai
+- **GitHub Security Advisory:** [Report a vulnerability](https://github.com/anomalyco/must/security/advisories/new)
 
 You should receive a response within 48 hours. If you don't, please follow up via email.
 
@@ -23,7 +23,7 @@ You should receive a response within 48 hours. If you don't, please follow up vi
 
 The following are in scope:
 
-- Code execution vulnerabilities in the mustfile CLI
+- Code execution vulnerabilities in the must CLI
 - Path traversal or arbitrary file access
 - Supply chain issues in dependency handling
 - Plugin sandbox escapes

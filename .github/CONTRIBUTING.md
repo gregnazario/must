@@ -5,8 +5,8 @@ Thanks for your interest in contributing! This guide covers everything you need 
 ## Quick Start
 
 ```bash
-git clone https://github.com/anomalyco/mustfile.git
-cd mustfile
+git clone https://github.com/anomalyco/must.git
+cd must
 cargo build
 cargo test
 ```
@@ -39,7 +39,7 @@ cargo llvm-cov                          # coverage report
 ### Project Structure
 
 ```
-mustfile/
+must/
 ├── crates/
 │   ├── must-core/          # Core types: BuildContext, Recipe trait, Error, run_command
 │   ├── must-cache/         # Disk cache: DiskCache, CacheKey, compute_hash

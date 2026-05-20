@@ -36,7 +36,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["Greg"]
-repository = "https://github.com/gregnazario/mustfile"
+repository = "https://github.com/gregnazario/must"
 
 [workspace.dependencies]
 thiserror = "2"

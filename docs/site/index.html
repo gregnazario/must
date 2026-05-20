@@ -89,7 +89,7 @@
       <a href="#demo">Demo</a>
       <a href="#types">Types</a>
       <a href="#plugins">Plugins</a>
-      <a href="https://github.com/gregnazario/mustfile">GitHub</a>
+      <a href="https://github.com/gregnazario/must">GitHub</a>
     </nav>
   </div>
 </header>
@@ -124,7 +124,7 @@
       </div>
       <div class="feature">
         <h4>Lua Plugins</h4>
-        <p>Extend must with <code>.lua</code> scripts. Shell exec, file I/O, glob, env access — all built in. Drop a file in <code>.mustfile/plugins/</code> and go.</p>
+        <p>Extend must with <code>.lua</code> scripts. Shell exec, file I/O, glob, env access — all built in. Drop a file in <code>.must/plugins/</code> and go.</p>
       </div>
       <div class="feature">
         <h4>Build Logs</h4>
@@ -248,7 +248,7 @@ must outdated
     <h3>Extend with Lua</h3>
     <div class="plugin-split">
       <div>
-        <h4>Plugin (.mustfile/plugins/protoc.lua)</h4>
+        <h4>Plugin (.must/plugins/protoc.lua)</h4>
 <pre><span style="color:#ff7b72">function</span> <span style="color:#d2a8ff">execute</span>(ctx)
     <span style="color:#ff7b72">local</span> protos = <span style="color:#d2a8ff">glob</span>(<span style="color:#a5d6ff">"proto/*.proto"</span>)
     <span style="color:#ff7b72">for</span> _, p <span style="color:#ff7b72">in</span> <span style="color:#d2a8ff">ipairs</span>(protos) <span style="color:#ff7b72">do</span>
@@ -283,7 +283,7 @@ plugin = <span style="color:#a5d6ff">"protoc"</span></pre>
 
 <footer>
   <div class="container">
-    <p>MIT License. Built with must. <a href="https://github.com/gregnazario/mustfile">View on GitHub</a></p>
+    <p>MIT License. Built with must. <a href="https://github.com/gregnazario/must">View on GitHub</a></p>
   </div>
 </footer>
 

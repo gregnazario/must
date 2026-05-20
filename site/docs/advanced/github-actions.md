@@ -5,7 +5,7 @@ must provides a GitHub Actions composite action for CI.
 ## Basic usage
 
 ```yaml
-- uses: anomalyco/mustfile@main
+- uses: anomalyco/must@main
   with:
     command: build
     profile: release
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: anomalyco/mustfile@main
+      - uses: anomalyco/must@main
         with:
           command: build
           profile: release

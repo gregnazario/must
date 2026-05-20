@@ -4,7 +4,7 @@
 #
 # Project layout:
 #   Mustfile.toml                This file
-#   .mustfile/plugins/
+#   .must/plugins/
 #     protoc.lua                 Protocol buffer codegen
 #     embed.lua                  Asset embedding
 

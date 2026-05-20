@@ -5,13 +5,13 @@
 === "curl (macOS / Linux)"
 
     ```bash
-    curl -fsSL https://github.com/anomalyco/mustfile/releases/latest/download/install.sh | sh
+    curl -fsSL https://github.com/anomalyco/must/releases/latest/download/install.sh | sh
     ```
 
 === "cargo"
 
     ```bash
-    cargo install --locked mustfile
+    cargo install --locked must
     ```
 
 === "Homebrew"
@@ -23,13 +23,13 @@
 
 === "Windows"
 
-    Download `must-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/anomalyco/mustfile/releases/latest).
+    Download `must-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/anomalyco/must/releases/latest).
 
 === "From source"
 
     ```bash
-    git clone https://github.com/anomalyco/mustfile.git
-    cd mustfile
+    git clone https://github.com/anomalyco/must.git
+    cd must
     cargo install --path crates/must-cli
     ```
 

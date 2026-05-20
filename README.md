@@ -19,7 +19,7 @@ Mustfile sits between pure task runners (Make, Just) and full build systems (Baz
 cargo install --path crates/must-cli
 ```
 
-Or download a prebuilt binary from [Releases](https://github.com/gregnazario/mustfile/releases).
+Or download a prebuilt binary from [Releases](https://github.com/gregnazario/must/releases).
 
 ## Quick Start
 
@@ -310,7 +310,7 @@ Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml)
 
 ## Documentation
 
-- [Doc Site](https://mustfile.ai) — full guides, recipe reference, and migration docs
+- [Doc Site](https://must.ai) — full guides, recipe reference, and migration docs
 - [Architecture](docs/DESIGN.md) — execution model and internals
 - [Migration](docs/MIGRATION_GUIDE.md) — migrating from Make, Just, and Taskfile
 

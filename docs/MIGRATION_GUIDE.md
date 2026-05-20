@@ -266,7 +266,7 @@ must import                              # reads ./Makefile → ./Mustfile.toml
 must import --makefile GNUmakefile --out Mustfile.toml
 ```
 
-This handles variable assignments, simple rules, and phony declarations. Pattern rules, `include`, and `eval` are flagged with `# TODO mustfile:` comments in the output alongside a `MUSTFILE_IMPORT_REPORT.md`.
+This handles variable assignments, simple rules, and phony declarations. Pattern rules, `include`, and `eval` are flagged with `# TODO must:` comments in the output alongside a `MUSTFILE_IMPORT_REPORT.md`.
 
 ### Gotchas
 

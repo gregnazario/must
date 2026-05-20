@@ -93,9 +93,9 @@ Each box is a Cargo crate. `must-core` is the shared types/traits crate every ot
 ## Workspace / crate layout
 
 ```
-mustfile/
-├── Cargo.toml                # workspace root
-├── Mustfile.toml             # dogfood: build mustfile with mustfile
+must/
+
+├── Mustfile.toml             # dogfood: build must with must
 ├── docs/                     # this directory
 └── crates/
     ├── must-cli/             # binary; clap + tracing + entry point
@@ -351,7 +351,7 @@ The error path is a first-class concern: when a toolchain is missing, Mustfile p
 
 ## Makefile import (`must import`)
 
-Best-effort one-shot translation. Goal: cover ~80% of common Makefiles cleanly, flag the rest with explicit `# TODO mustfile:` comments rather than guessing.
+Best-effort one-shot translation. Goal: cover ~80% of common Makefiles cleanly, flag the rest with explicit `# TODO must:` comments rather than guessing.
 
 ```mermaid
 flowchart LR
@@ -363,7 +363,7 @@ flowchart LR
     A -- Simple rule --> Sr["[recipe.&lt;name&gt;]<br/>type = shell"]
     A -- Phony target --> Ph[phony = true]
     A -- "$&#40;shell ...&#41;" --> Sh["inline $&#40;...&#41; in script"]
-    A -- Pattern rule --> Td["# TODO mustfile:<br/>preserve original"]
+    A -- Pattern rule --> Td["# TODO must:<br/>preserve original"]
     A -- include / eval / define --> Td
 
     Ev --> O[Mustfile.toml]

@@ -12,10 +12,10 @@ Replace your Makefiles, Justfiles, and Taskfiles with a single `Mustfile.toml` t
 
 ```bash
 # Install
-curl -fsSL https://github.com/anomalyco/mustfile/releases/latest/download/install.sh | sh
+    curl -fsSL https://github.com/anomalyco/must/releases/latest/download/install.sh | sh
 
 # Or with cargo
-cargo install --locked mustfile
+    cargo install --locked must
 ```
 
 Create a `Mustfile.toml`:

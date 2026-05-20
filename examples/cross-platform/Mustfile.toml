@@ -20,8 +20,9 @@ name = "cross-platform-demo"
 version = "0.1.0"
 
 [recipe.info]
-type  = "shell"
-phony = true
+type   = "shell"
+script = "uname -a"
+phony  = true
 
 [recipe.info.scripts]
 macos   = "sw_vers"
@@ -43,8 +44,9 @@ freebsd = "mkdir -p build && cc -o build/app src/main.c"
 win     = "if not exist build mkdir build && cl /Fe:build/app.exe src/main.c"
 
 [recipe.clean]
-type  = "shell"
-phony = true
+type   = "shell"
+script = "rm -rf build"
+phony  = true
 
 [recipe.clean.scripts]
 macos   = "rm -rf build"

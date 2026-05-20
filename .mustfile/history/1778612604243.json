@@ -1,0 +1,25 @@
+{
+  "timestamp": "1778612604243",
+  "target": "host",
+  "profile": "default",
+  "entries": [
+    {
+      "recipe": "build",
+      "success": true,
+      "from_cache": false,
+      "duration_ms": 127
+    },
+    {
+      "recipe": "release",
+      "success": true,
+      "from_cache": false,
+      "duration_ms": 120
+    },
+    {
+      "recipe": "install",
+      "success": true,
+      "from_cache": false,
+      "duration_ms": 515
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 .worktrees/
 /target/
-.mustfile/
+.must/
 .must/
 *.swp
 .DS_Store

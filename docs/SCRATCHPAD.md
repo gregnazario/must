@@ -120,7 +120,7 @@ Implementing GNU Make semantics correctly is a multi-month project on its own (s
 
 ## Naming / branding bikeshed
 
-- Tool name: `must` (binary), `mustfile` (project / crate).
+- Tool name: `must` (binary), `must` (project / crate).
 - Config file: `Mustfile.toml`. Capital M to mirror `Makefile`. The `.toml` extension makes editors happy.
 - Tagline candidates:
   - "What Make should have been."
