@@ -17,7 +17,9 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
         }
 
         let missing = match &recipe.recipe_type {
-            RecipeType::Shell => require_field("script", recipe.script.as_ref(), name),
+            RecipeType::Shell | RecipeType::Npm | RecipeType::Bridge => {
+                require_any_script(recipe, name)
+            }
             RecipeType::RustBin | RecipeType::RustLib | RecipeType::RustTest => {
                 require_field("package", recipe.package.as_ref(), name)
             }
@@ -30,7 +32,6 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
             RecipeType::TsBin | RecipeType::TsCheck | RecipeType::TsLint => {
                 require_field("package", recipe.package.as_ref(), name)
             }
-            RecipeType::Npm => require_field("script", recipe.script.as_ref(), name),
             RecipeType::PyBin | RecipeType::PyTest | RecipeType::PyLint => {
                 require_field("package", recipe.package.as_ref(), name)
             }
@@ -69,7 +70,6 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
                 require_field("package", recipe.package.as_ref(), name)
             }
             RecipeType::PrecompiledBin => require_field("url", recipe.url.as_ref(), name),
-            RecipeType::Bridge => require_field("script", recipe.script.as_ref(), name),
         };
 
         if let Some(err) = missing {
@@ -78,6 +78,20 @@ pub fn validate(config: &Config, path: &Path) -> must_core::Result<()> {
     }
 
     Ok(())
+}
+
+fn require_any_script(recipe: &crate::schema::Recipe, recipe_name: &str) -> Option<Error> {
+    let has_script = recipe.script.as_ref().is_some_and(|s| !s.is_empty())
+        || recipe.script_win.as_ref().is_some_and(|s| !s.is_empty())
+        || !recipe.scripts.is_empty();
+    if has_script {
+        None
+    } else {
+        Some(Error::Config {
+            path: PathBuf::new(),
+            message: format!("recipe '{recipe_name}' is missing required field 'script'"),
+        })
+    }
 }
 
 fn require_field(field: &str, value: Option<&String>, recipe_name: &str) -> Option<Error> {

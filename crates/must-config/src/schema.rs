@@ -93,6 +93,8 @@ pub struct Recipe {
     pub url: Option<String>,
     #[serde(default)]
     pub sha256: Option<String>,
+    #[serde(default, alias = "output")]
+    pub output_path: Option<String>,
 }
 
 impl Recipe {
@@ -260,6 +262,7 @@ mod tests {
             plugin: None,
             url: None,
             sha256: None,
+            output_path: None,
         }
     }
 
