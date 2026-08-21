@@ -12,7 +12,6 @@ fn run_dotnet(
     args: &[&str],
     ctx: &BuildContext,
     extra_env: &HashMap<String, String>,
-    workdir: &std::path::Path,
 ) -> Result<RecipeOutput> {
     let name = args.first().copied().unwrap_or("dotnet");
     let start = Instant::now();
@@ -20,7 +19,7 @@ fn run_dotnet(
     for arg in args {
         cmd.arg(arg);
     }
-    cmd.current_dir(workdir);
+    cmd.current_dir(&ctx.project_root);
     cmd.env_clear();
     for (k, v) in &ctx.env {
         cmd.env(k, v);
@@ -90,14 +89,6 @@ fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     }
 }
 
-fn workdir_path(ctx: &BuildContext, workdir: &str) -> std::path::PathBuf {
-    if workdir == "." {
-        ctx.project_root.clone()
-    } else {
-        ctx.project_root.join(workdir)
-    }
-}
-
 pub struct DotnetBuildRecipe {
     pub name: String,
     pub deps: Vec<String>,
@@ -161,9 +152,8 @@ impl Recipe for DotnetBuildRecipe {
                 duration_ms: 0,
             });
         }
-        let dir = workdir_path(ctx, &self.package);
         let args = vec!["build", &self.package];
-        let mut result = run_dotnet(&args, ctx, &self.env, &dir)?;
+        let mut result = run_dotnet(&args, ctx, &self.env)?;
         result.recipe_name = self.name.clone();
         store_cache(&key, ctx);
         Ok(result)
@@ -222,9 +212,8 @@ impl Recipe for DotnetTestRecipe {
                 duration_ms: 0,
             });
         }
-        let dir = workdir_path(ctx, &self.package);
         let args = vec!["test", &self.package];
-        let mut result = run_dotnet(&args, ctx, &self.env, &dir)?;
+        let mut result = run_dotnet(&args, ctx, &self.env)?;
         result.recipe_name = self.name.clone();
         Ok(result)
     }
@@ -293,9 +282,8 @@ impl Recipe for DotnetPublishRecipe {
                 duration_ms: 0,
             });
         }
-        let dir = workdir_path(ctx, &self.package);
         let args = vec!["publish", &self.package, "-c", "Release"];
-        let mut result = run_dotnet(&args, ctx, &self.env, &dir)?;
+        let mut result = run_dotnet(&args, ctx, &self.env)?;
         result.recipe_name = self.name.clone();
         store_cache(&key, ctx);
         Ok(result)
@@ -552,5 +540,92 @@ mod tests {
         let r = DotnetPublishRecipe::new("publish", ".");
         assert!(r.inputs(&ctx()).unwrap().is_empty());
         assert!(r.outputs(&ctx()).unwrap().is_empty());
+    }
+
+    #[cfg(unix)]
+    fn shim_ctx(tmp: &tempfile::TempDir, record: &std::path::Path) -> BuildContext {
+        use std::os::unix::fs::PermissionsExt;
+        let bin = tmp.path().join("shimbin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let shim = bin.join("dotnet");
+        std::fs::write(
+            &shim,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"{r}\"\ncat .mustcwd >> \"{r}\" 2>&1\n",
+                r = record.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(tmp.path().join(".mustcwd"), "project-root\n").unwrap();
+        let mut c = ctx_with_path();
+        let path = c.env.get("PATH").cloned().unwrap_or_default();
+        c.env
+            .insert("PATH".to_string(), format!("{}:{}", bin.display(), path));
+        c.env
+            .insert("MUST_RECORD".to_string(), record.display().to_string());
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".must/cache");
+        c
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn dotnet_build_runs_in_project_root_with_package_arg() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let record = tmp.path().join("record.txt");
+        std::fs::write(tmp.path().join("MyApp.csproj"), "").unwrap();
+        let c = shim_ctx(&tmp, &record);
+        let r = DotnetBuildRecipe::new("build", "MyApp.csproj");
+        match r.execute(&c) {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "build");
+                assert!(!out.from_cache);
+                let recorded = std::fs::read_to_string(&record).unwrap();
+                assert_eq!(recorded, "build\nMyApp.csproj\nproject-root\n");
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn dotnet_test_runs_in_project_root_with_package_arg() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let record = tmp.path().join("record.txt");
+        std::fs::write(tmp.path().join("MyApp.Tests.csproj"), "").unwrap();
+        let c = shim_ctx(&tmp, &record);
+        let r = DotnetTestRecipe::new("test", "MyApp.Tests.csproj");
+        match r.execute(&c) {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "test");
+                assert!(!out.from_cache);
+                let recorded = std::fs::read_to_string(&record).unwrap();
+                assert_eq!(recorded, "test\nMyApp.Tests.csproj\nproject-root\n");
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn dotnet_publish_runs_in_project_root_with_package_arg() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let record = tmp.path().join("record.txt");
+        std::fs::write(tmp.path().join("MyApp.csproj"), "").unwrap();
+        let c = shim_ctx(&tmp, &record);
+        let r = DotnetPublishRecipe::new("publish", "MyApp.csproj");
+        match r.execute(&c) {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "publish");
+                assert!(!out.from_cache);
+                let recorded = std::fs::read_to_string(&record).unwrap();
+                assert_eq!(
+                    recorded,
+                    "publish\nMyApp.csproj\n-c\nRelease\nproject-root\n"
+                );
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 }

@@ -26,7 +26,6 @@ fn run_nim(
     args: &[&str],
     ctx: &BuildContext,
     extra_env: &HashMap<String, String>,
-    workdir: &std::path::Path,
 ) -> Result<RecipeOutput> {
     let name = args.first().copied().unwrap_or("nim");
     let start = Instant::now();
@@ -34,7 +33,7 @@ fn run_nim(
     for arg in args {
         cmd.arg(arg);
     }
-    cmd.current_dir(workdir);
+    cmd.current_dir(&ctx.project_root);
     cmd.env_clear();
     for (k, v) in &ctx.env {
         cmd.env(k, v);
@@ -104,14 +103,6 @@ fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     }
 }
 
-fn workdir_path(ctx: &BuildContext, package: &str) -> std::path::PathBuf {
-    if package == "." {
-        ctx.project_root.clone()
-    } else {
-        ctx.project_root.join(package)
-    }
-}
-
 pub struct NimBinRecipe {
     pub name: String,
     pub deps: Vec<String>,
@@ -171,17 +162,13 @@ impl Recipe for NimBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] nim c -d:release {} (in {})",
-                    self.package, self.package
-                ),
+                stdout: format!("[dry-run] nim c -d:release {}", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
         }
-        let dir = workdir_path(ctx, &self.package);
         let args = vec!["c", "-d:release", &self.package];
-        let mut result = run_nim(&args, ctx, &self.env, &dir)?;
+        let mut result = run_nim(&args, ctx, &self.env)?;
         result.recipe_name = self.name.clone();
         store_cache(&key, ctx);
         Ok(result)
@@ -235,17 +222,13 @@ impl Recipe for NimTestRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: vec![],
-                stdout: format!(
-                    "[dry-run] nim r --hints:off {} (in {})",
-                    self.package, self.package
-                ),
+                stdout: format!("[dry-run] nim r --hints:off {}", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
         }
-        let dir = workdir_path(ctx, &self.package);
         let args = vec!["r", "--hints:off", &self.package];
-        let mut result = run_nim(&args, ctx, &self.env, &dir)?;
+        let mut result = run_nim(&args, ctx, &self.env)?;
         result.recipe_name = self.name.clone();
         Ok(result)
     }
@@ -399,12 +382,12 @@ mod tests {
     }
 
     #[test]
-    fn nim_bin_workdir_dot() {
+    fn nim_bin_dry_run_dot_package() {
         let r = NimBinRecipe::new("build", ".");
         let mut c = ctx();
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("."));
+        assert!(out.stdout.contains("nim c -d:release ."));
     }
 
     #[test]
@@ -457,5 +440,75 @@ mod tests {
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("--hints:off"));
+    }
+
+    #[cfg(unix)]
+    fn shim_ctx(tmp: &tempfile::TempDir, record: &std::path::Path) -> BuildContext {
+        use std::os::unix::fs::PermissionsExt;
+        let bin = tmp.path().join("shimbin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let shim = bin.join("nim");
+        std::fs::write(
+            &shim,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"{r}\"\ncat .mustcwd >> \"{r}\" 2>&1\n",
+                r = record.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(tmp.path().join(".mustcwd"), "project-root\n").unwrap();
+        let mut c = ctx();
+        let path = std::env::var("PATH").unwrap_or_default();
+        c.env
+            .insert("PATH".to_string(), format!("{}:{}", bin.display(), path));
+        c.env
+            .insert("MUST_RECORD".to_string(), record.display().to_string());
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".must/cache");
+        c
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn nim_bin_runs_in_project_root_with_package_arg() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let record = tmp.path().join("record.txt");
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(tmp.path().join("src/main.nim"), "echo 1\n").unwrap();
+        let c = shim_ctx(&tmp, &record);
+        let r = NimBinRecipe::new("build", "src/main.nim");
+        match r.execute(&c) {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "build");
+                assert!(!out.from_cache);
+                let recorded = std::fs::read_to_string(&record).unwrap();
+                assert_eq!(recorded, "c\n-d:release\nsrc/main.nim\nproject-root\n");
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn nim_test_runs_in_project_root_with_package_arg() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let record = tmp.path().join("record.txt");
+        std::fs::create_dir_all(tmp.path().join("tests")).unwrap();
+        std::fs::write(tmp.path().join("tests/test_all.nim"), "discard 1\n").unwrap();
+        let c = shim_ctx(&tmp, &record);
+        let r = NimTestRecipe::new("test", "tests/test_all.nim");
+        match r.execute(&c) {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "test");
+                assert!(!out.from_cache);
+                let recorded = std::fs::read_to_string(&record).unwrap();
+                assert_eq!(
+                    recorded,
+                    "r\n--hints:off\ntests/test_all.nim\nproject-root\n"
+                );
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 }

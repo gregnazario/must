@@ -163,13 +163,7 @@ impl Recipe for PyBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!(
-                    "[dry-run] {} {} {} (in {})",
-                    tool,
-                    prefix.join(" "),
-                    self.package,
-                    self.package
-                ),
+                stdout: format!("[dry-run] {} {} {}", tool, prefix.join(" "), self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -177,8 +171,7 @@ impl Recipe for PyBinRecipe {
         let (tool, prefix) = detect_uv_or_pip();
         let mut args: Vec<&str> = prefix.to_vec();
         args.push(&self.package);
-        let dir = workdir_path(ctx, &self.package);
-        let mut result = run_cmd_in(tool, &args, ctx, &self.env, &dir)?;
+        let mut result = run_cmd_in(tool, &args, ctx, &self.env, &ctx.project_root)?;
         result.recipe_name = self.name.clone();
         store_cache(&key, ctx);
         Ok(result)
@@ -556,7 +549,7 @@ mod tests {
     }
 
     #[test]
-    fn py_bin_workdir_not_dot() {
+    fn py_bin_execute_with_named_package() {
         if std::process::Command::new("uv")
             .arg("--version")
             .output()
@@ -682,5 +675,56 @@ mod tests {
         let r = PyBinRecipe::new("build", ".");
         let result = r.execute(&ctx);
         assert!(result.is_err(), "should fail without PATH");
+    }
+
+    #[cfg(unix)]
+    fn shim_ctx(tmp: &tempfile::TempDir, record: &std::path::Path) -> BuildContext {
+        use std::os::unix::fs::PermissionsExt;
+        let bin = tmp.path().join("shimbin");
+        std::fs::create_dir_all(&bin).unwrap();
+        for name in ["uv", "pip"] {
+            let shim = bin.join(name);
+            std::fs::write(
+                &shim,
+                format!(
+                    "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"{r}\"\ncat .mustcwd >> \"{r}\" 2>&1\n",
+                    r = record.display()
+                ),
+            )
+            .unwrap();
+            std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        std::fs::write(tmp.path().join(".mustcwd"), "project-root\n").unwrap();
+        let mut c = ctx_with_path();
+        let path = c.env.get("PATH").cloned().unwrap_or_default();
+        c.env
+            .insert("PATH".to_string(), format!("{}:{}", bin.display(), path));
+        c.env
+            .insert("MUST_RECORD".to_string(), record.display().to_string());
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".must/cache");
+        c
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn py_bin_runs_in_project_root_with_package_arg() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let record = tmp.path().join("record.txt");
+        std::fs::create_dir_all(tmp.path().join("packages/api")).unwrap();
+        std::fs::write(tmp.path().join("packages/api/pyproject.toml"), "").unwrap();
+        let c = shim_ctx(&tmp, &record);
+        let r = PyBinRecipe::new("install", "packages/api");
+        match r.execute(&c) {
+            Ok(out) => {
+                assert_eq!(out.recipe_name, "install");
+                assert!(!out.from_cache);
+                let recorded = std::fs::read_to_string(&record).unwrap();
+                assert!(recorded.contains("install\npackages/api\n"));
+                assert!(recorded.ends_with("project-root\n"));
+                assert!(!recorded.contains("packages/api/packages/api"));
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 }
