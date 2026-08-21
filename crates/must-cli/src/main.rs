@@ -2564,7 +2564,7 @@ fn explain_recipe(
         .collect();
 
     if !relevant_env.is_empty() {
-        println!("\nEnv (affects hash):");
+        println!("\nEnv (system vars hidden; the full environment affects the hash):");
         for (k, v) in &relevant_env {
             let secret_suffixes = [
                 "KEY",
