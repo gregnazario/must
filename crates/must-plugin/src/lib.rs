@@ -6,6 +6,7 @@ use mlua::Lua;
 use must_core::error::Result;
 use must_core::traits::Recipe;
 use must_core::types::{BuildContext, CacheKey, CacheStrategy, RecipeOutput};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tracing::warn;
@@ -24,11 +25,15 @@ impl LuaRecipe {
         let workdir = std::sync::Arc::new(std::sync::Mutex::new(
             std::env::current_dir().unwrap_or_default(),
         ));
-        stdlib::inject(&lua, std::sync::Arc::clone(&workdir)).map_err(|e| {
-            must_core::Error::Config {
-                path: path.to_path_buf(),
-                message: format!("failed to inject stdlib: {e}"),
-            }
+        let plugin_env = std::sync::Arc::new(std::sync::Mutex::new(HashMap::new()));
+        stdlib::inject(
+            &lua,
+            std::sync::Arc::clone(&workdir),
+            std::sync::Arc::clone(&plugin_env),
+        )
+        .map_err(|e| must_core::Error::Config {
+            path: path.to_path_buf(),
+            message: format!("failed to inject stdlib: {e}"),
         })?;
 
         let script = std::fs::read_to_string(path).map_err(must_core::Error::Io)?;
@@ -768,6 +773,54 @@ end
         let recipe = LuaRecipe::load("setenv", &plugin_path).unwrap();
         let output = recipe.execute(&test_ctx()).unwrap();
         assert_eq!(output.stdout.trim(), "hello");
+    }
+
+    #[test]
+    fn test_stdlib_set_env_applies_to_shell_exec() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("setenvshell.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    set_env("MUST_PLUGIN_SHELL_VAR", "visible")
+    local result = shell_exec("echo $MUST_PLUGIN_SHELL_VAR")
+    return { stdout = result.stdout, stderr = "", success = result.success }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("setenvshell", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert!(
+            output.stdout.contains("visible"),
+            "shell_exec must see plugin env, got: {}",
+            output.stdout
+        );
+    }
+
+    #[test]
+    fn test_stdlib_set_env_does_not_leak_process_env() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("setenvnoleak.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    set_env("MUST_PLUGIN_NO_LEAK", "plugin-only")
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("setenvnoleak", &plugin_path).unwrap();
+        recipe.execute(&test_ctx()).unwrap();
+        assert!(
+            std::env::var("MUST_PLUGIN_NO_LEAK").is_err(),
+            "set_env must not mutate the process environment"
+        );
     }
 
     #[test]

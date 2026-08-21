@@ -1,18 +1,28 @@
 use mlua::Lua;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 pub type SharedWorkdir = Arc<Mutex<PathBuf>>;
+pub type SharedEnv = Arc<Mutex<HashMap<String, String>>>;
 
-pub fn inject(lua: &Lua, workdir: SharedWorkdir) -> mlua::Result<()> {
+pub fn inject(lua: &Lua, workdir: SharedWorkdir, plugin_env: SharedEnv) -> mlua::Result<()> {
     let globals = lua.globals();
+
+    let shell_workdir = Arc::clone(&workdir);
+    let shell_env = Arc::clone(&plugin_env);
 
     let shell_exec_fn = lua.create_function(move |lua_inner, cmd: String| {
         let mut command = must_core::shell_command(&cmd);
-        if let Ok(dir) = workdir.lock()
+        if let Ok(dir) = shell_workdir.lock()
             && dir.is_dir()
         {
             command.current_dir(&*dir);
+        }
+        if let Ok(env) = shell_env.lock() {
+            for (k, v) in env.iter() {
+                command.env(k, v);
+            }
         }
         let output = command.output();
         match output {
@@ -66,12 +76,21 @@ pub fn inject(lua: &Lua, workdir: SharedWorkdir) -> mlua::Result<()> {
     })?;
     globals.set("glob", glob_fn)?;
 
-    let env_get_fn = lua.create_function(|_, key: String| Ok(std::env::var(&key).ok()))?;
+    let env_get_env = Arc::clone(&plugin_env);
+    let env_get_fn = lua.create_function(move |_, key: String| {
+        if let Ok(env) = env_get_env.lock()
+            && let Some(v) = env.get(&key)
+        {
+            return Ok(Some(v.clone()));
+        }
+        Ok(std::env::var(&key).ok())
+    })?;
     globals.set("env_get", env_get_fn)?;
 
-    let set_env_fn = lua.create_function(|_, (key, value): (String, String)| {
-        unsafe {
-            std::env::set_var(&key, &value);
+    let set_env_target = Arc::clone(&plugin_env);
+    let set_env_fn = lua.create_function(move |_, (key, value): (String, String)| {
+        if let Ok(mut env) = set_env_target.lock() {
+            env.insert(key, value);
         }
         Ok(())
     })?;
