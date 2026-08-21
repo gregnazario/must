@@ -69,11 +69,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(recipe_name, recipe_type, &[], &env_btree, "", extra_flags);
@@ -142,7 +144,7 @@ impl Recipe for NimBinRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("nim_version".to_string(), nim_version());
-        Ok(make_cache_key(&self.name, "nim-bin", ctx, &flags))
+        Ok(make_cache_key(&self.name, "nim-bin", ctx, &self.env, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -213,7 +215,7 @@ impl Recipe for NimTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "nim-test", ctx, &flags))
+        Ok(make_cache_key(&self.name, "nim-test", ctx, &self.env, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

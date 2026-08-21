@@ -68,11 +68,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(
@@ -152,6 +154,7 @@ impl Recipe for GoBinRecipe {
             &self.name,
             "go-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
         ))
     }
@@ -255,7 +258,7 @@ impl Recipe for GoTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "go-test", ctx, &flags))
+        Ok(make_cache_key(&self.name, "go-test", ctx, &self.env, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

@@ -39,12 +39,14 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
     compiler: &Path,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(
@@ -204,6 +206,7 @@ impl Recipe for CBinRecipe {
             &self.name,
             "c-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
             &compiler,
         ))
@@ -425,6 +428,7 @@ impl Recipe for CLibRecipe {
             &self.name,
             recipe_type,
             ctx,
+            &self.env,
             &self.extra_flags(),
             &compiler,
         ))

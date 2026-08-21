@@ -70,11 +70,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(recipe_name, recipe_type, &[], &env_btree, "", extra_flags);
@@ -164,7 +166,7 @@ impl Recipe for FlutterBuildRecipe {
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("flutter_version".to_string(), flutter_version());
         flags.insert("target".to_string(), ctx.target.clone());
-        Ok(make_cache_key(&self.name, "flutter-build", ctx, &flags))
+        Ok(make_cache_key(&self.name, "flutter-build", ctx, &self.env, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -237,7 +239,7 @@ impl Recipe for FlutterTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "flutter-test", ctx, &flags))
+        Ok(make_cache_key(&self.name, "flutter-test", ctx, &self.env, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

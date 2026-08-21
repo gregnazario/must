@@ -54,11 +54,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(
@@ -155,6 +157,7 @@ impl Recipe for RustBinRecipe {
             &self.name,
             "rust-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
         ))
     }
@@ -245,7 +248,9 @@ impl Recipe for RustLibRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("features".to_string(), self.features.join(","));
-        Ok(make_cache_key(&self.name, "rust-lib", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name, "rust-lib", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -331,7 +336,13 @@ impl Recipe for RustTestRecipe {
         if let Some(f) = &self.test_filter {
             flags.insert("filter".to_string(), f.clone());
         }
-        Ok(make_cache_key(&self.name, "rust-test", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "rust-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -382,6 +393,20 @@ mod tests {
     fn rust_bin_cache_strategy_is_hash() {
         let r = RustBinRecipe::new("build", "myapp");
         assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+    }
+
+    #[test]
+    fn rust_bin_cache_key_reacts_to_recipe_env() {
+        let mut r1 = RustBinRecipe::new("build", "myapp");
+        r1.env.insert("GOFLAGS".to_string(), "a".to_string());
+        let mut r2 = RustBinRecipe::new("build", "myapp");
+        r2.env.insert("GOFLAGS".to_string(), "b".to_string());
+        let c = ctx();
+        assert_ne!(
+            r1.cache_key(&c).unwrap().hash,
+            r2.cache_key(&c).unwrap().hash,
+            "recipe-scoped env must be part of the cache key"
+        );
     }
 
     #[test]
