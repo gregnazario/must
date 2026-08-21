@@ -3,10 +3,7 @@ rustflags = []
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=mold",
-]
+rustflags = []
 
 [target.aarch64-apple-darwin]
 linker = "clang"
@@ -14,23 +11,14 @@ rustflags = []
 
 [target.aarch64-unknown-linux-gnu]
 linker = "clang"
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=mold",
-]
+rustflags = []
 
 [target.x86_64-unknown-linux-musl]
 linker = "clang"
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=mold",
-]
+rustflags = []
 [target.aarch64-unknown-linux-musl]
 linker = "clang"
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=mold",
-]
+rustflags = []
 
 [env]
 CC_x86_64_unknown_linux_gnu = "clang"
