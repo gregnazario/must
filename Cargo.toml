@@ -43,6 +43,9 @@ thiserror = "2"
 sled = "0.34"
 sha2 = "0.11"
 hex = "0.4"
+tar = "0.4"
+flate2 = "1"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 tempfile = "3"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
