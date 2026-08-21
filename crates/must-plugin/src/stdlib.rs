@@ -1,10 +1,19 @@
 use mlua::Lua;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
-pub fn inject(lua: &Lua) -> mlua::Result<()> {
+pub type SharedWorkdir = Arc<Mutex<PathBuf>>;
+
+pub fn inject(lua: &Lua, workdir: SharedWorkdir) -> mlua::Result<()> {
     let globals = lua.globals();
 
-    let shell_exec_fn = lua.create_function(|lua_inner, cmd: String| {
+    let shell_exec_fn = lua.create_function(move |lua_inner, cmd: String| {
         let mut command = must_core::shell_command(&cmd);
+        if let Ok(dir) = workdir.lock()
+            && dir.is_dir()
+        {
+            command.current_dir(&*dir);
+        }
         let output = command.output();
         match output {
             Ok(out) => {
