@@ -259,9 +259,10 @@ fn main() {
 
     if let Commands::Completions { shell } = &cli.command {
         let buf = generate_completions(*shell);
-        std::io::Write::write_all(&mut std::io::stdout(), &buf)
-            .map_err(Error::Io)
-            .unwrap();
+        if let Err(e) = std::io::Write::write_all(&mut std::io::stdout(), &buf) {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        }
         return;
     }
 
@@ -270,7 +271,10 @@ fn main() {
             .file
             .clone()
             .unwrap_or_else(|| PathBuf::from("Mustfile.toml"));
-        run_init(&out, name.as_deref(), template).unwrap();
+        if let Err(e) = run_init(&out, name.as_deref(), template) {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        }
         return;
     }
 
@@ -280,9 +284,13 @@ fn main() {
         format,
     } = &cli.command
     {
-        let input = std::fs::read_to_string(makefile)
-            .map_err(must_core::Error::Io)
-            .unwrap();
+        let input = match std::fs::read_to_string(makefile) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }
+        };
         let fmt = format
             .as_deref()
             .map(String::from)
@@ -292,13 +300,15 @@ fn main() {
             "task" | "taskfile" => must_import::import_taskfile(&input),
             _ => must_import::import(&input),
         };
-        std::fs::write(out, &result.toml)
-            .map_err(must_core::Error::Io)
-            .unwrap();
+        if let Err(e) = std::fs::write(out, &result.toml) {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        }
         let report_path = out.with_file_name("MUSTFILE_IMPORT_REPORT.md");
-        std::fs::write(&report_path, &result.report)
-            .map_err(must_core::Error::Io)
-            .unwrap();
+        if let Err(e) = std::fs::write(&report_path, &result.report) {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        }
         println!(
             "Imported {} ({}) → {}",
             makefile.display(),
@@ -352,9 +362,13 @@ async fn run(cli: Cli) -> must_core::Result<()> {
     }
 
     // Find and load Mustfile.toml
-    let mustfile_path = cli
-        .file
-        .unwrap_or_else(|| find_mustfile().unwrap_or_else(|| PathBuf::from("Mustfile.toml")));
+    let mustfile_path = cli.file.unwrap_or_else(|| {
+        find_mustfile().unwrap_or_else(|| {
+            std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join("Mustfile.toml")
+        })
+    });
 
     let config = if mustfile_path.exists() {
         load_config(&mustfile_path)?
@@ -1179,7 +1193,7 @@ async fn run_watch(
     println!("watching {} for changes...", project_root.display());
 
     loop {
-        execute_recipes(
+        if let Err(e) = execute_recipes(
             config,
             mustfile_path,
             RunOpts {
@@ -1191,7 +1205,10 @@ async fn run_watch(
                 targets,
             },
         )
-        .await?;
+        .await
+        {
+            eprintln!("error: {e}");
+        }
 
         println!("\nwaiting for changes... (ctrl-c to stop)");
 
@@ -1283,8 +1300,13 @@ async fn execute_recipes(
                 shell.inputs = recipe_cfg.inputs.clone();
                 shell.outputs = recipe_cfg.outputs.clone();
                 shell.env = env;
-                if let Some(CacheMode::Hash) = &recipe_cfg.cache {
-                    shell.cache = CacheStrategy::Hash;
+                shell.cache = match &recipe_cfg.cache {
+                    Some(CacheMode::Hash) => CacheStrategy::Hash,
+                    Some(CacheMode::None) => CacheStrategy::Never,
+                    Some(CacheMode::Mtime) | None => CacheStrategy::Mtime,
+                };
+                if recipe_cfg.phony {
+                    shell.cache = CacheStrategy::Never;
                 }
                 recipe_map.insert(name.clone(), Arc::new(shell));
             }
@@ -1492,12 +1514,7 @@ async fn execute_recipes(
                     expand(&recipe_cfg.image.clone().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
-                r.dockerfile = expand(
-                    &recipe_cfg
-                        .dockerfile
-                        .clone()
-                        .unwrap_or_else(|| ".".to_string()),
-                );
+                r.dockerfile = recipe_cfg.dockerfile.as_deref().map(|d| expand(d));
                 r.context = recipe_cfg
                     .package
                     .clone()
@@ -1755,8 +1772,9 @@ async fn execute_recipes(
                     name.clone(),
                     expand(&recipe_cfg.url.clone().unwrap_or_default()),
                     recipe_cfg
-                        .package
+                        .output_path
                         .clone()
+                        .or_else(|| recipe_cfg.package.clone())
                         .unwrap_or_else(|| format!("bin/{name}")),
                 );
                 r.deps = recipe_cfg.deps.clone();
@@ -1811,6 +1829,7 @@ async fn execute_recipes(
         ctx.target = target.clone();
         ctx.dry_run = dry_run;
         ctx.parallelism = j;
+        ctx.env = compose_env_with_base(config, "", profile, &HashMap::new(), &base_env);
 
         if let Ok(disk_cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
             ctx.cache = Some(std::sync::Arc::new(disk_cache));
@@ -1879,7 +1898,7 @@ async fn execute_recipes(
         pb.finish_and_clear();
         let report = report?;
 
-        save_build_manifest(&project_root, &report);
+        save_build_manifest(&project_root, &report, target, profile);
 
         // Print summary
         println!(
@@ -2054,7 +2073,12 @@ fn history_dir(project_root: &Path) -> PathBuf {
     project_root.join(".must").join("history")
 }
 
-fn save_build_manifest(project_root: &Path, report: &must_engine::ExecutionReport) {
+fn save_build_manifest(
+    project_root: &Path,
+    report: &must_engine::ExecutionReport,
+    target: &str,
+    profile: &str,
+) {
     let dir = history_dir(project_root);
     let _ = std::fs::create_dir_all(&dir);
     let now = std::time::SystemTime::now()
@@ -2063,8 +2087,8 @@ fn save_build_manifest(project_root: &Path, report: &must_engine::ExecutionRepor
         .as_millis();
     let manifest = BuildManifest {
         timestamp: now.to_string(),
-        target: "host".to_string(),
-        profile: "default".to_string(),
+        target: target.to_string(),
+        profile: profile.to_string(),
         entries: report
             .results
             .iter()
@@ -3160,6 +3184,7 @@ mod tests {
             plugin: None,
             url: None,
             sha256: None,
+            output_path: None,
         }
     }
 
@@ -3637,7 +3662,7 @@ mod tests {
                 error: None,
             }],
         };
-        save_build_manifest(tmp.path(), &report);
+        save_build_manifest(tmp.path(), &report, "host", "default");
         let hist = history_dir(tmp.path());
         assert!(hist.exists());
         let files: Vec<_> = std::fs::read_dir(&hist)
@@ -4108,7 +4133,7 @@ mod tests {
                 },
             ],
         };
-        save_build_manifest(tmp.path(), &report);
+        save_build_manifest(tmp.path(), &report, "host", "default");
         let dir = history_dir(tmp.path());
         let files: Vec<_> = std::fs::read_dir(&dir)
             .unwrap()
