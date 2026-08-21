@@ -3,17 +3,24 @@ use std::path::{Path, PathBuf};
 use crate::Error;
 
 pub fn ensure_within_root(root: &Path, path: &Path) -> crate::Result<PathBuf> {
-    let resolved = root.join(path);
-    let has_traversal = path
-        .components()
-        .any(|c| matches!(c, std::path::Component::ParentDir));
-    if has_traversal {
-        return Err(Error::Config {
-            path: path.to_owned(),
-            message: "path must not contain '..' components".to_string(),
-        });
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(_) | std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                return Err(Error::Config {
+                    path: path.to_owned(),
+                    message: "path must not contain '..' components".to_string(),
+                });
+            }
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => {
+                return Err(Error::Config {
+                    path: path.to_owned(),
+                    message: "path must be relative to the project root".to_string(),
+                });
+            }
+        }
     }
-    Ok(resolved)
+    Ok(root.join(path))
 }
 
 pub fn validate_name_no_traversal(name: &str) -> crate::Result<()> {
@@ -51,6 +58,31 @@ mod tests {
         let root = PathBuf::from("/tmp/project");
         let result = ensure_within_root(&root, Path::new("foo/../../etc/passwd"));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn absolute_path_rejected() {
+        let root = PathBuf::from("/tmp/project");
+        let result = ensure_within_root(&root, Path::new("/etc/cron.d/backdoor"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rooted_relative_path_rejected() {
+        let root = PathBuf::from("/tmp/project");
+        let result = ensure_within_root(&root, Path::new("\\windows\\system32\\evil.dll"));
+        if cfg!(windows) {
+            assert!(result.is_err());
+        } else {
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn dot_component_passes() {
+        let root = PathBuf::from("/tmp/project");
+        let result = ensure_within_root(&root, Path::new("./bin/tool"));
+        assert!(result.is_ok());
     }
 
     #[test]
