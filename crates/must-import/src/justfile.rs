@@ -20,7 +20,7 @@ pub(crate) fn parse_justfile(input: &str) -> MustfileOutput {
 
         if line.starts_with("export ") {
             if let Some(rest) = line.strip_prefix("export ")
-                && let Some((key, value)) = rest.split_once('=')
+                && let Some((key, value)) = split_assignment(rest)
             {
                 let key = key.trim().to_string();
                 let value = value.trim().trim_matches('"').to_string();
@@ -92,7 +92,7 @@ pub(crate) fn parse_justfile(input: &str) -> MustfileOutput {
 
         if in_recipe {
             if let Some(ref mut recipe) = current_recipe {
-                let script_line = line.trim_start();
+                let script_line = strip_recipe_prefixes(line.trim_start());
                 if !script_line.is_empty() {
                     if !recipe.script.is_empty() {
                         recipe.script.push('\n');
@@ -113,6 +113,27 @@ pub(crate) fn parse_justfile(input: &str) -> MustfileOutput {
     }
 
     output
+}
+
+fn split_assignment(rest: &str) -> Option<(&str, &str)> {
+    for op in ["::=", ":=", "="] {
+        if let Some((key, value)) = rest.split_once(op) {
+            return Some((key, value));
+        }
+    }
+    None
+}
+
+fn strip_recipe_prefixes(mut line: &str) -> &str {
+    loop {
+        if let Some(rest) = line.strip_prefix('@') {
+            line = rest.trim_start();
+        } else if let Some(rest) = line.strip_prefix('-') {
+            line = rest.trim_start();
+        } else {
+            return line;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +181,65 @@ mod tests {
         let input = "export RUST_LOG = \"warn\"\n\nbuild:\n    cargo build";
         let output = parse_justfile(input);
         assert_eq!(output.env.get("RUST_LOG").unwrap(), "warn");
+    }
+
+    #[test]
+    fn export_env_with_immediate_operator() {
+        let input = "export RUST_LOG := \"warn\"\n\nbuild:\n    cargo build";
+        let output = parse_justfile(input);
+        assert_eq!(
+            output.env.get("RUST_LOG").unwrap(),
+            "warn",
+            "`:=` must split at the operator, not at the first '=' of ':='"
+        );
+    }
+
+    #[test]
+    fn export_env_with_legacy_operator() {
+        let input = "export RUST_LOG ::= \"warn\"\n\nbuild:\n    cargo build";
+        let output = parse_justfile(input);
+        assert_eq!(output.env.get("RUST_LOG").unwrap(), "warn");
+    }
+
+    #[test]
+    fn export_env_unquoted_value() {
+        let input = "export MODE := debug\n\nbuild:\n    cargo build";
+        let output = parse_justfile(input);
+        assert_eq!(output.env.get("MODE").unwrap(), "debug");
+    }
+
+    #[test]
+    fn silence_prefix_stripped_from_recipe_line() {
+        let input = "build:\n    @cargo build";
+        let output = parse_justfile(input);
+        assert_eq!(
+            output.recipes[0].script, "cargo build",
+            "`@` prefix must be stripped so the script is valid sh"
+        );
+    }
+
+    #[test]
+    fn ignore_error_prefix_stripped_from_recipe_line() {
+        let input = "clean:\n    -rm foo";
+        let output = parse_justfile(input);
+        assert_eq!(
+            output.recipes[0].script, "rm foo",
+            "`-` prefix must be stripped so the script is valid sh"
+        );
+    }
+
+    #[test]
+    fn combined_prefixes_stripped_from_recipe_line() {
+        let input = "clean:\n    @-rm foo";
+        let output = parse_justfile(input);
+        assert_eq!(output.recipes[0].script, "rm foo");
+    }
+
+    #[test]
+    fn prefixes_stripped_from_multiline_script() {
+        let input = "build:\n    @echo hi\n    cargo build";
+        let output = parse_justfile(input);
+        assert_eq!(output.recipes[0].script, "echo hi\ncargo build");
     }
 
     #[test]

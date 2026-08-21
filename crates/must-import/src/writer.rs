@@ -6,7 +6,7 @@ pub(crate) fn write_toml(output: &MustfileOutput) -> String {
     out.push_str("[project]\nname = \"imported\"\n");
 
     if !output.env.is_empty() {
-        out.push_str("\n[env.global]\n");
+        out.push_str("\n[env]\n");
         for (k, v) in &output.env {
             let escaped = v.replace('\\', "\\\\").replace('"', "\\\"");
             let key = toml_key(k);
@@ -86,7 +86,25 @@ mod tests {
     #[test]
     fn env_section_only_when_nonempty() {
         let toml = write_toml(&empty_output());
-        assert!(!toml.contains("[env.global]"));
+        assert!(!toml.contains("[env]"));
+    }
+
+    #[test]
+    fn env_is_flat_table_not_profile_block() {
+        let mut o = empty_output();
+        o.env.insert("RUST_LOG".into(), "warn".into());
+        o.env.insert("CC".into(), "gcc".into());
+        let toml = write_toml(&o);
+        assert!(
+            toml.contains("\n[env]\n"),
+            "env must be a flat [env] table, got: {toml}"
+        );
+        assert!(
+            !toml.contains("[env.global]"),
+            "env must not be nested under [env.global] (parsed as a profile block), got: {toml}"
+        );
+        assert!(toml.contains("RUST_LOG = \"warn\""));
+        assert!(toml.contains("CC = \"gcc\""));
     }
 
     #[test]
