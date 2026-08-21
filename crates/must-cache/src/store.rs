@@ -155,6 +155,10 @@ impl Cache for DiskCache {
         self.db
             .insert(sled_key, key.hash.as_bytes())
             .map_err(|e| Error::Cache(e.to_string()))?;
+        self.db
+            .flush()
+            .map(|_| ())
+            .map_err(|e| Error::Cache(e.to_string()))?;
         Ok(())
     }
 
