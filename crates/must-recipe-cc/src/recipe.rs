@@ -1,7 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_config::schema::{CrossBackend, CrossConfig};
 use must_core::{
-    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
     run_command as run_captured,
 };
 use must_toolchain::{
@@ -33,6 +33,24 @@ fn object_path(ctx: &BuildContext, src: &str) -> PathBuf {
     ctx.project_root
         .join("build")
         .join(Path::new(src).with_extension("o"))
+}
+
+fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
+    if let Some(ref cache) = ctx.cache {
+        cache.lookup(key).ok()
+    } else {
+        must_cache::store::DiskCache::open(&ctx.cache_dir)
+            .ok()
+            .and_then(|c| Cache::lookup(&c, key).ok())
+    }
+}
+
+fn store_cache(key: &CacheKey, ctx: &BuildContext) {
+    if let Some(ref cache) = ctx.cache {
+        let _ = cache.store(key, &[]);
+    } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+        let _ = Cache::store(&cache, key, &[]);
+    }
 }
 
 fn make_cache_key(
@@ -228,6 +246,18 @@ impl Recipe for CBinRecipe {
             });
         }
 
+        let key = self.cache_key(ctx)?;
+        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: true,
+                outputs: self.outputs(ctx)?,
+                stdout: String::new(),
+                stderr: String::new(),
+                duration_ms: 0,
+            });
+        }
+
         let triple = if ctx.target == "host" {
             Triple::host()
         } else {
@@ -287,6 +317,7 @@ impl Recipe for CBinRecipe {
             let mut result = run_cc_command(cmd)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
+            store_cache(&key, ctx);
             Ok(result)
         } else {
             // Local execution path
@@ -334,6 +365,7 @@ impl Recipe for CBinRecipe {
             let mut result = run_cc(&compiler_path, &args, ctx, &extra_env)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
+            store_cache(&key, ctx);
             Ok(result)
         }
     }
@@ -456,6 +488,18 @@ impl Recipe for CLibRecipe {
             });
         }
 
+        let key = self.cache_key(ctx)?;
+        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: true,
+                outputs: self.outputs(ctx)?,
+                stdout: String::new(),
+                stderr: String::new(),
+                duration_ms: 0,
+            });
+        }
+
         let triple = if ctx.target == "host" {
             Triple::host()
         } else {
@@ -529,6 +573,7 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
+                store_cache(&key, ctx);
                 Ok(result)
             } else {
                 // Shared library: cc -shared -fPIC sources... -o output
@@ -556,6 +601,7 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
+                store_cache(&key, ctx);
                 Ok(result)
             }
         } else {
@@ -648,6 +694,7 @@ impl Recipe for CLibRecipe {
                         stderr: out.stderr,
                     });
                 }
+                store_cache(&key, ctx);
                 Ok(RecipeOutput {
                     recipe_name: self.name.clone(),
                     from_cache: false,
@@ -678,6 +725,7 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc(&compiler_path, &args, ctx, &extra_env)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
+                store_cache(&key, ctx);
                 Ok(result)
             }
         }
