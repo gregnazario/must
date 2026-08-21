@@ -138,11 +138,21 @@ impl Recipe for ShellRecipe {
                 hash,
             };
 
-            let owned_cache;
+            let owned_cache = if ctx.cache.is_some() {
+                None
+            } else {
+                let opened = must_cache::store::DiskCache::open(&ctx.cache_dir).ok();
+                if opened.is_none() {
+                    eprintln!(
+                        "warning: could not open cache at {} — rebuilding without cache",
+                        ctx.cache_dir.display()
+                    );
+                }
+                opened
+            };
             let effective_cache: Option<&dyn Cache> = if let Some(ref cache) = ctx.cache {
                 Some(cache.as_ref())
             } else {
-                owned_cache = must_cache::store::DiskCache::open(&ctx.cache_dir).ok();
                 owned_cache.as_ref().map(|c| c as &dyn Cache)
             };
             if let Some(cache) = effective_cache
@@ -181,8 +191,10 @@ impl Recipe for ShellRecipe {
 
             let outputs = self.outputs(ctx)?;
 
-            if let Some(cache) = effective_cache {
-                let _ = cache.store(&key, &ctx.project_root, &outputs);
+            if let Some(cache) = effective_cache
+                && let Err(e) = cache.store(&key, &ctx.project_root, &outputs)
+            {
+                eprintln!("warning: cache store failed: {e}");
             }
 
             return Ok(RecipeOutput {

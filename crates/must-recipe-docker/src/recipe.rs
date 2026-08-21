@@ -78,9 +78,16 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
     if let Some(ref cache) = ctx.cache {
         cache.lookup(key).ok()
     } else {
-        must_cache::store::DiskCache::open(&ctx.cache_dir)
-            .ok()
-            .and_then(|c| Cache::lookup(&c, key).ok())
+        match must_cache::store::DiskCache::open(&ctx.cache_dir) {
+            Ok(c) => Cache::lookup(&c, key).ok(),
+            Err(e) => {
+                eprintln!(
+                    "warning: could not open cache at {}: {e}",
+                    ctx.cache_dir.display()
+                );
+                None
+            }
+        }
     }
 }
 
