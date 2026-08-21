@@ -153,7 +153,7 @@ impl Recipe for ShellRecipe {
             let effective_cache: Option<&dyn Cache> = if let Some(ref cache) = ctx.cache {
                 Some(cache.as_ref())
             } else {
-                owned_cache.as_ref().map(|c| c as &dyn Cache)
+                owned_cache.as_deref().map(|c| c as &dyn Cache)
             };
             if let Some(cache) = effective_cache
                 && matches!(cache.lookup(&key), Ok(CacheLookup::Hit))

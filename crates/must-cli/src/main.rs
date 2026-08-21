@@ -1870,7 +1870,7 @@ async fn execute_recipes(
         ctx.env = compose_env_with_base(config, "", profile, &HashMap::new(), &base_env);
 
         if let Ok(disk_cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-            ctx.cache = Some(std::sync::Arc::new(disk_cache));
+            ctx.cache = Some(disk_cache);
         }
 
         let engine = Engine::new(j, fail_fast);

@@ -1,21 +1,43 @@
 use must_core::{Cache, CacheKey, CacheLookup, Error, Result};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 pub struct DiskCache {
     cache_dir: PathBuf,
     db: sled::Db,
 }
 
+fn open_registry() -> &'static Mutex<HashMap<PathBuf, Arc<DiskCache>>> {
+    static REGISTRY: OnceLock<Mutex<HashMap<PathBuf, Arc<DiskCache>>>> = OnceLock::new();
+    REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 impl DiskCache {
-    pub fn open(cache_dir: &Path) -> Result<Self> {
+    /// Opens (or returns the already-open instance of) the cache at `cache_dir`.
+    ///
+    /// A process-wide registry caches open instances by canonical path: sled 0.34
+    /// does not reliably support dropping the last handle and reopening the same
+    /// database moments later (lock contention, writes not yet visible), so within
+    /// one process the same cache is always the same instance.
+    pub fn open(cache_dir: &Path) -> Result<Arc<Self>> {
         std::fs::create_dir_all(cache_dir).map_err(Error::Io)?;
+        let canonical = cache_dir
+            .canonicalize()
+            .unwrap_or_else(|_| cache_dir.to_path_buf());
+        let mut registry = open_registry().lock().expect("cache registry poisoned");
+        if let Some(existing) = registry.get(&canonical) {
+            return Ok(Arc::clone(existing));
+        }
         let db_path = cache_dir.join("index.sled");
         let db = sled::open(&db_path).map_err(|e| Error::Cache(e.to_string()))?;
-        Ok(Self {
+        let cache = Arc::new(Self {
             cache_dir: cache_dir.to_owned(),
             db,
-        })
+        });
+        registry.insert(canonical, Arc::clone(&cache));
+        Ok(cache)
     }
 
     fn relative_under_root(root: &Path, output: &Path) -> PathBuf {

@@ -79,7 +79,7 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
         cache.lookup(key).ok()
     } else {
         match must_cache::store::DiskCache::open(&ctx.cache_dir) {
-            Ok(c) => Cache::lookup(&c, key).ok(),
+            Ok(c) => Cache::lookup(c.as_ref(), key).ok(),
             Err(e) => {
                 eprintln!(
                     "warning: could not open cache at {}: {e}",
@@ -95,7 +95,7 @@ fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
         let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &ctx.project_root, &[]);
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
     }
 }
 

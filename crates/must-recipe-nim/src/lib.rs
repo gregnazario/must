@@ -93,7 +93,7 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
     } else {
         must_cache::store::DiskCache::open(&ctx.cache_dir)
             .ok()
-            .and_then(|c| Cache::lookup(&c, key).ok())
+            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
     }
 }
 
@@ -101,7 +101,7 @@ fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
         let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &ctx.project_root, &[]);
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
     }
 }
 
