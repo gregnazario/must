@@ -410,16 +410,41 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             }
         }
         Commands::Clean { cache } => {
+            let project_root = mustfile_path
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .to_owned();
             if cache {
-                let cache_dir = mustfile_path
-                    .parent()
-                    .unwrap_or_else(|| Path::new("."))
-                    .join(".must")
-                    .join("cache");
+                let cache_dir = project_root.join(".must").join("cache");
                 if cache_dir.exists() {
                     std::fs::remove_dir_all(&cache_dir).map_err(must_core::Error::Io)?;
                     println!("cleaned cache at {}", cache_dir.display());
                 }
+                return Ok(());
+            }
+            let mut removed = 0usize;
+            for recipe in config.recipe.values() {
+                for pattern in &recipe.outputs {
+                    let full = project_root.join(pattern).to_string_lossy().into_owned();
+                    let matches = match glob::glob(&full) {
+                        Ok(m) => m,
+                        Err(_) => continue,
+                    };
+                    for entry in matches.flatten() {
+                        if entry.is_file()
+                            && entry.starts_with(&project_root)
+                            && std::fs::remove_file(&entry).is_ok()
+                        {
+                            println!("removed {}", entry.display());
+                            removed += 1;
+                        }
+                    }
+                }
+            }
+            if removed == 0 {
+                println!("no declared outputs to clean");
+            } else {
+                println!("cleaned {removed} output file(s)");
             }
         }
         Commands::Build { recipes } | Commands::Run { recipes } => {
@@ -4319,6 +4344,35 @@ phony = true
         let cli = make_cli(Commands::Clean { cache: false }, mustfile);
         let result = run(cli).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_clean_removes_declared_outputs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile_path = tmp.path().join("Mustfile.toml");
+        std::fs::write(
+            &mustfile_path,
+            r#"
+[project]
+name = "clean-me"
+
+[recipe.gen]
+type    = "shell"
+script  = "echo data > out.txt"
+outputs = ["out.txt"]
+"#,
+        )
+        .unwrap();
+        std::fs::write(tmp.path().join("out.txt"), "stale").unwrap();
+        std::fs::write(tmp.path().join("not-an-output.txt"), "keep").unwrap();
+        let cli = make_cli(Commands::Clean { cache: false }, mustfile_path);
+        let result = run(cli).await;
+        assert!(result.is_ok());
+        assert!(!tmp.path().join("out.txt").exists(), "declared output removed");
+        assert!(
+            tmp.path().join("not-an-output.txt").exists(),
+            "undeclared files untouched"
+        );
     }
 
     #[tokio::test]
