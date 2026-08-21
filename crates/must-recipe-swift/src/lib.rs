@@ -153,7 +153,13 @@ impl Recipe for SwiftBinRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("swift_version".to_string(), swift_version());
-        Ok(make_cache_key(&self.name, "swift-bin", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "swift-bin",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -224,7 +230,13 @@ impl Recipe for SwiftTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "swift-test", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "swift-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

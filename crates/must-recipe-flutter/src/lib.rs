@@ -166,7 +166,13 @@ impl Recipe for FlutterBuildRecipe {
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("flutter_version".to_string(), flutter_version());
         flags.insert("target".to_string(), ctx.target.clone());
-        Ok(make_cache_key(&self.name, "flutter-build", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "flutter-build",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -239,7 +245,13 @@ impl Recipe for FlutterTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "flutter-test", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "flutter-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

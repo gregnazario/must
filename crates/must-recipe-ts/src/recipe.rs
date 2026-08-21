@@ -211,7 +211,9 @@ impl Recipe for TsCheckRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ts-check", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name, "ts-check", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -272,7 +274,9 @@ impl Recipe for TsLintRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ts-lint", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name, "ts-lint", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

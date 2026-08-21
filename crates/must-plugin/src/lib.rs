@@ -24,9 +24,11 @@ impl LuaRecipe {
         let workdir = std::sync::Arc::new(std::sync::Mutex::new(
             std::env::current_dir().unwrap_or_default(),
         ));
-        stdlib::inject(&lua, std::sync::Arc::clone(&workdir)).map_err(|e| must_core::Error::Config {
-            path: path.to_path_buf(),
-            message: format!("failed to inject stdlib: {e}"),
+        stdlib::inject(&lua, std::sync::Arc::clone(&workdir)).map_err(|e| {
+            must_core::Error::Config {
+                path: path.to_path_buf(),
+                message: format!("failed to inject stdlib: {e}"),
+            }
         })?;
 
         let script = std::fs::read_to_string(path).map_err(must_core::Error::Io)?;

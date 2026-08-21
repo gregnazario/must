@@ -145,7 +145,9 @@ impl Recipe for JavaBinRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "java-bin", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name, "java-bin", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -165,7 +167,11 @@ impl Recipe for JavaBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!("[dry-run] {} build (in {})", gradlew_command(), self.package),
+                stdout: format!(
+                    "[dry-run] {} build (in {})",
+                    gradlew_command(),
+                    self.package
+                ),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -216,7 +222,13 @@ impl Recipe for JavaTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "java-test", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "java-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

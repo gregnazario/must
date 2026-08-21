@@ -144,7 +144,9 @@ impl Recipe for NimBinRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("nim_version".to_string(), nim_version());
-        Ok(make_cache_key(&self.name, "nim-bin", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name, "nim-bin", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -215,7 +217,9 @@ impl Recipe for NimTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "nim-test", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name, "nim-test", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

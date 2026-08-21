@@ -138,7 +138,9 @@ impl Recipe for RubyBinRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ruby-bin", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name, "ruby-bin", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -209,7 +211,13 @@ impl Recipe for RubyTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ruby-test", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "ruby-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

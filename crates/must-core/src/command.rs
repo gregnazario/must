@@ -155,8 +155,8 @@ mod tests {
     #[cfg(unix)]
     fn captures_stdout_and_exit_status() {
         let mut cmd = shell_command("echo hello");
-        let out = run_command(&mut cmd, "sh", "A shell is required")
-            .expect("sh should be available");
+        let out =
+            run_command(&mut cmd, "sh", "A shell is required").expect("sh should be available");
         assert!(out.status.success());
         assert!(out.stdout.contains("hello"));
     }

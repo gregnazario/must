@@ -153,7 +153,13 @@ impl Recipe for ElixirBuildRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("elixir_version".to_string(), elixir_version());
-        Ok(make_cache_key(&self.name, "elixir-build", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "elixir-build",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -228,7 +234,13 @@ impl Recipe for ElixirTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "elixir-test", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "elixir-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {

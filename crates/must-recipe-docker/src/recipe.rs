@@ -154,7 +154,13 @@ impl Recipe for DockerBuildRecipe {
         for arg in &self.build_args {
             flags.insert(format!("build_arg_{}", arg), arg.clone());
         }
-        Ok(make_cache_key(&self.name, "docker-build", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "docker-build",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -247,7 +253,13 @@ impl Recipe for DockerPushRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("image".to_string(), self.image.clone());
-        Ok(make_cache_key(&self.name, "docker-push", ctx, &self.env, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "docker-push",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
