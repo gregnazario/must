@@ -86,9 +86,9 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &[]);
+        let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &[]);
+        let _ = Cache::store(&cache, key, &ctx.project_root, &[]);
     }
 }
 
@@ -352,7 +352,7 @@ mod tests {
         let r = SwiftBinRecipe::new("build", ".");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
         let out = r.execute(&ctx);
         match out {
@@ -504,7 +504,7 @@ final class TestPkgTests: XCTestCase { func testExample() { XCTAssertEqual(1, 1)
             r.cache_key(&c).unwrap()
         };
         let cache = must_cache::store::DiskCache::open(&c.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
         let r = SwiftBinRecipe::new("build", ".");
         let out = r.execute(&c);

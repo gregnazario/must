@@ -47,9 +47,9 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &[]);
+        let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &[]);
+        let _ = Cache::store(&cache, key, &ctx.project_root, &[]);
     }
 }
 

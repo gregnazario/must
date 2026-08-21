@@ -86,9 +86,9 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &[]);
+        let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &[]);
+        let _ = Cache::store(&cache, key, &ctx.project_root, &[]);
     }
 }
 
@@ -342,7 +342,7 @@ mod tests {
         let r = DockerBuildRecipe::new("build", "myapp:latest");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
         let out = r.execute(&ctx);
         match out {
@@ -400,7 +400,7 @@ mod tests {
         let r = DockerBuildRecipe::new("build", "testimg:v1");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
         let out1 = r.execute(&ctx);
         match out1 {

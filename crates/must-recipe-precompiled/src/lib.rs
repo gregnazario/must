@@ -176,7 +176,7 @@ impl Recipe for PrecompiledBinRecipe {
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-            let _ = cache.store(&self.cache_key(ctx)?, &[]);
+            let _ = cache.store(&self.cache_key(ctx)?, &ctx.project_root, &[]);
         }
 
         Ok(RecipeOutput {

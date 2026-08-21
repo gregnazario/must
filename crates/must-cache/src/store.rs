@@ -18,6 +18,44 @@ impl DiskCache {
         })
     }
 
+    fn relative_under_root(root: &Path, output: &Path) -> PathBuf {
+        output
+            .strip_prefix(root)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|_| {
+                PathBuf::from(
+                    output
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                )
+            })
+    }
+
+    fn restore_dir(dir: &Path, root: &Path, entry_dir: &Path, restored: &mut bool) -> Result<()> {
+        for entry in std::fs::read_dir(dir).map_err(Error::Io)? {
+            let entry = entry.map_err(Error::Io)?;
+            let path = entry.path();
+            if path.is_dir() {
+                Self::restore_dir(&path, root, entry_dir, restored)?;
+            } else {
+                let rel = path
+                    .strip_prefix(entry_dir)
+                    .map_err(|e| Error::Cache(e.to_string()))?;
+                let dest = root.join(rel);
+                if !dest.exists() {
+                    if let Some(parent) = dest.parent() {
+                        std::fs::create_dir_all(parent).map_err(Error::Io)?;
+                    }
+                    std::fs::copy(&path, &dest).map_err(Error::Io)?;
+                    *restored = true;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn entry_dir(&self, key: &CacheKey) -> PathBuf {
         let hash = &key.hash;
         let prefix = &hash[..2.min(hash.len())];
@@ -83,7 +121,7 @@ impl Cache for DiskCache {
         }
     }
 
-    fn store(&self, key: &CacheKey, outputs: &[PathBuf]) -> Result<()> {
+    fn store(&self, key: &CacheKey, root: &Path, outputs: &[PathBuf]) -> Result<()> {
         let sled_key = Self::sled_key(key);
         if let Ok(Some(old_hash)) = self.db.get(&sled_key)
             && old_hash.as_ref() != key.hash.as_bytes()
@@ -103,21 +141,13 @@ impl Cache for DiskCache {
         let entry_dir = self.entry_dir(key);
         std::fs::create_dir_all(&entry_dir).map_err(Error::Io)?;
 
-        let mut used_names = std::collections::HashSet::new();
         for output in outputs {
-            if output.exists() {
-                let file_name = output
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .into_owned();
-                let dest_name = if used_names.insert(file_name.clone()) {
-                    file_name
-                } else {
-                    let digest = hash_string(&output.to_string_lossy());
-                    format!("{}-{}", &digest[..16], file_name)
-                };
-                let dest = entry_dir.join(dest_name);
+            if output.is_file() {
+                let rel = Self::relative_under_root(root, output);
+                let dest = entry_dir.join(&rel);
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(Error::Io)?;
+                }
                 std::fs::copy(output, &dest).map_err(Error::Io)?;
             }
         }
@@ -126,6 +156,16 @@ impl Cache for DiskCache {
             .insert(sled_key, key.hash.as_bytes())
             .map_err(|e| Error::Cache(e.to_string()))?;
         Ok(())
+    }
+
+    fn restore(&self, key: &CacheKey, root: &Path) -> Result<bool> {
+        let entry_dir = self.entry_dir(key);
+        if !entry_dir.is_dir() {
+            return Ok(false);
+        }
+        let mut restored = false;
+        Self::restore_dir(&entry_dir, root, &entry_dir, &mut restored)?;
+        Ok(restored)
     }
 
     fn invalidate(&self, key: &CacheKey) -> Result<()> {
@@ -204,7 +244,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache = DiskCache::open(dir.path()).unwrap();
         let key = make_key("abc123");
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, dir.path(), &[]).unwrap();
         assert!(matches!(cache.lookup(&key).unwrap(), CacheLookup::Hit));
     }
 
@@ -215,7 +255,7 @@ mod tests {
         let key = make_key("abc123");
         let output_file = dir.path().join("output.txt");
         std::fs::write(&output_file, b"hello").unwrap();
-        cache.store(&key, &[output_file]).unwrap();
+        cache.store(&key, dir.path(), &[output_file]).unwrap();
         assert!(matches!(cache.lookup(&key).unwrap(), CacheLookup::Hit));
         // Verify the file was copied into the entry dir
         let entry = cache.entry_dir(&key);
@@ -227,7 +267,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache = DiskCache::open(dir.path()).unwrap();
         let key1 = make_key("hash-one");
-        cache.store(&key1, &[]).unwrap();
+        cache.store(&key1, dir.path(), &[]).unwrap();
         // Same recipe/target/profile but different hash
         let key2 = make_key("hash-two");
         assert!(matches!(cache.lookup(&key2).unwrap(), CacheLookup::Stale));
@@ -238,7 +278,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache = DiskCache::open(dir.path()).unwrap();
         let key = make_key("abc123");
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, dir.path(), &[]).unwrap();
         cache.invalidate(&key).unwrap();
         assert!(matches!(cache.lookup(&key).unwrap(), CacheLookup::Miss));
     }
@@ -256,7 +296,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache = DiskCache::open(dir.path()).unwrap();
         let key = make_key("abc123");
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, dir.path(), &[]).unwrap();
         // Manually remove the entry directory to simulate stale state
         let entry_dir = cache.entry_dir(&key);
         std::fs::remove_dir_all(&entry_dir).unwrap();
@@ -270,7 +310,7 @@ mod tests {
         let cache = DiskCache::open(dir.path()).unwrap();
         let key = make_key("no-output");
         let nonexistent = dir.path().join("does-not-exist.bin");
-        cache.store(&key, &[nonexistent]).unwrap();
+        cache.store(&key, dir.path(), &[nonexistent]).unwrap();
         assert!(matches!(cache.lookup(&key).unwrap(), CacheLookup::Hit));
     }
 
@@ -294,7 +334,7 @@ mod tests {
         let key1 = make_key("hash-one");
         let out1 = dir.path().join("one.txt");
         std::fs::write(&out1, b"one").unwrap();
-        cache.store(&key1, &[out1]).unwrap();
+        cache.store(&key1, dir.path(), &[out1]).unwrap();
         let old_entry = cache.entry_dir(&key1);
         assert!(old_entry.exists());
 
@@ -302,7 +342,7 @@ mod tests {
             hash: "hash-two".to_string(),
             ..make_key("hash-one")
         };
-        cache.store(&key2, &[]).unwrap();
+        cache.store(&key2, dir.path(), &[]).unwrap();
 
         assert!(!old_entry.exists(), "orphaned entry dir must be reclaimed");
     }
@@ -319,18 +359,52 @@ mod tests {
         std::fs::write(&a, b"AAA").unwrap();
         std::fs::write(&b, b"BBB").unwrap();
 
-        cache.store(&key, &[a, b]).unwrap();
+        cache.store(&key, dir.path(), &[a, b]).unwrap();
 
         let entry = cache.entry_dir(&key);
-        let copies: Vec<String> = std::fs::read_dir(&entry)
-            .unwrap()
-            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-            .collect();
-        assert_eq!(
-            copies.len(),
-            2,
-            "same-named outputs must not overwrite each other: {copies:?}"
-        );
+        assert!(entry.join("out/a.bin").exists(), "relative path preserved");
+        assert!(entry.join("dist/a.bin").exists(), "relative path preserved");
+    }
+
+    #[test]
+    fn test_restore_returns_missing_outputs() {
+        let dir = TempDir::new().unwrap();
+        let cache = DiskCache::open(dir.path()).unwrap();
+        let key = make_key("abc123");
+        let nested = dir.path().join("dist/app.bin");
+        std::fs::create_dir_all(nested.parent().unwrap()).unwrap();
+        std::fs::write(&nested, b"payload").unwrap();
+        cache
+            .store(&key, dir.path(), std::slice::from_ref(&nested))
+            .unwrap();
+
+        std::fs::remove_file(&nested).unwrap();
+        let restored = cache.restore(&key, dir.path()).unwrap();
+        assert!(restored);
+        assert_eq!(std::fs::read(&nested).unwrap(), b"payload");
+    }
+
+    #[test]
+    fn test_restore_false_when_nothing_stored() {
+        let dir = TempDir::new().unwrap();
+        let cache = DiskCache::open(dir.path()).unwrap();
+        let key = make_key("abc123");
+        cache.store(&key, dir.path(), &[]).unwrap();
+        assert!(!cache.restore(&key, dir.path()).unwrap());
+    }
+
+    #[test]
+    fn test_restore_skips_existing_outputs() {
+        let dir = TempDir::new().unwrap();
+        let cache = DiskCache::open(dir.path()).unwrap();
+        let key = make_key("abc123");
+        let f = dir.path().join("keep.bin");
+        std::fs::write(&f, b"current").unwrap();
+        cache.store(&key, dir.path(), std::slice::from_ref(&f)).unwrap();
+        std::fs::write(&f, b"newer-than-cache").unwrap();
+
+        let restored = cache.restore(&key, dir.path()).unwrap();
+        assert!(!restored, "existing files must not be overwritten");
     }
 
     #[test]
@@ -359,8 +433,8 @@ mod tests {
             hash: "hash-1".to_string(),
         };
         let k2 = make_key("hash-2");
-        cache.store(&k1, &[]).unwrap();
-        cache.store(&k2, &[]).unwrap();
+        cache.store(&k1, dir.path(), &[]).unwrap();
+        cache.store(&k2, dir.path(), &[]).unwrap();
 
         let entries = cache.list_entries().unwrap();
         assert_eq!(entries.len(), 2, "all keys must be listed: {entries:?}");

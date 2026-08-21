@@ -138,20 +138,26 @@ impl Recipe for ShellRecipe {
                 hash,
             };
 
-            let cache_hit = if let Some(ref cache) = ctx.cache {
-                matches!(cache.lookup(&key), Ok(CacheLookup::Hit))
-            } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-                matches!(Cache::lookup(&cache, &key), Ok(CacheLookup::Hit))
+            let owned_cache;
+            let effective_cache: Option<&dyn Cache> = if let Some(ref cache) = ctx.cache {
+                Some(cache.as_ref())
             } else {
-                false
+                owned_cache = must_cache::store::DiskCache::open(&ctx.cache_dir).ok();
+                owned_cache.as_ref().map(|c| c as &dyn Cache)
             };
-            if cache_hit {
+            if let Some(cache) = effective_cache
+                && matches!(cache.lookup(&key), Ok(CacheLookup::Hit))
+            {
                 let outputs = self.outputs(ctx)?;
-                if self.outputs.is_empty() || !outputs.is_empty() {
+                let usable = self.outputs.is_empty()
+                    || !outputs.is_empty()
+                    || (cache.restore(&key, &ctx.project_root).unwrap_or(false)
+                        && !self.outputs(ctx)?.is_empty());
+                if usable {
                     return Ok(RecipeOutput {
                         recipe_name: self.name.clone(),
                         from_cache: true,
-                        outputs,
+                        outputs: self.outputs(ctx)?,
                         stdout: String::new(),
                         stderr: String::new(),
                         duration_ms: 0,
@@ -175,10 +181,8 @@ impl Recipe for ShellRecipe {
 
             let outputs = self.outputs(ctx)?;
 
-            if let Some(ref cache) = ctx.cache {
-                let _ = cache.store(&key, &outputs);
-            } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-                let _ = Cache::store(&cache, &key, &outputs);
+            if let Some(cache) = effective_cache {
+                let _ = cache.store(&key, &ctx.project_root, &outputs);
             }
 
             return Ok(RecipeOutput {
@@ -433,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn hash_cache_rebuilds_when_outputs_deleted() {
+    fn hash_cache_restores_deleted_outputs() {
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
 
@@ -460,10 +464,40 @@ mod tests {
         std::fs::remove_file(tmp.path().join("out.txt")).unwrap();
         let third = r.execute(&c).unwrap();
         assert!(
-            !third.from_cache,
-            "deleted outputs must not be reported as a cache hit"
+            third.from_cache,
+            "cache should restore the deleted output instead of rebuilding"
         );
-        assert!(tmp.path().join("out.txt").exists());
+        let content = std::fs::read_to_string(tmp.path().join("out.txt")).unwrap();
+        assert_eq!(content.trim(), "data");
+    }
+
+    #[test]
+    fn hash_cache_rebuilds_when_outputs_never_produced() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
+
+        let mut r = ShellRecipe::new("gen3", "echo done");
+        r.cache = CacheStrategy::Hash;
+        r.outputs = vec!["never-created.txt".to_string()];
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        r.execute(&c).unwrap();
+        let second = r.execute(&c).unwrap();
+        assert!(
+            !second.from_cache,
+            "declared outputs that were never produced must trigger a rebuild"
+        );
     }
 
     #[test]
