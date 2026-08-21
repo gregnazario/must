@@ -400,7 +400,9 @@ mod tests {
         let key = make_key("abc123");
         let f = dir.path().join("keep.bin");
         std::fs::write(&f, b"current").unwrap();
-        cache.store(&key, dir.path(), std::slice::from_ref(&f)).unwrap();
+        cache
+            .store(&key, dir.path(), std::slice::from_ref(&f))
+            .unwrap();
         std::fs::write(&f, b"newer-than-cache").unwrap();
 
         let restored = cache.restore(&key, dir.path()).unwrap();
