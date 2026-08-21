@@ -1,12 +1,17 @@
-use must_cache::hash::compute_hash;
+use must_cache::hash::{compute_hash, hash_file};
 use must_core::{
     BuildContext, Cache, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result,
     ensure_within_root,
 };
-use sha2::Digest;
 use std::collections::{BTreeMap, HashMap};
-use std::io::Read;
 use std::path::{Path, PathBuf};
+
+fn dest_matches_pinned_sha256(dest: &Path, expected: Option<&str>) -> bool {
+    match expected {
+        None => true,
+        Some(expected) => hash_file(dest) == expected,
+    }
+}
 
 pub struct PrecompiledBinRecipe {
     pub name: String,
@@ -49,7 +54,12 @@ impl PrecompiledBinRecipe {
             .ok_or_else(|| format!("invalid output path: {}", dest.display()))?;
         std::fs::create_dir_all(parent).map_err(|e| format!("mkdir failed: {e}"))?;
 
-        let mut response = ureq::get(&self.url)
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .https_only(true)
+            .build()
+            .into();
+        let mut response = agent
+            .get(&self.url)
             .call()
             .map_err(|e| format!("download failed for {}: {e}", self.url))?;
 
@@ -58,24 +68,14 @@ impl PrecompiledBinRecipe {
         tmp_path.set_extension("tmp");
         let mut file =
             std::fs::File::create(&tmp_path).map_err(|e| format!("create tmp file failed: {e}"))?;
-        std::io::copy(&mut reader, &mut file).map_err(|e| format!("download write failed: {e}"))?;
+        if let Err(e) = std::io::copy(&mut reader, &mut file) {
+            let _ = std::fs::remove_file(&tmp_path);
+            return Err(format!("download write failed: {e}"));
+        }
         drop(file);
 
         if let Some(ref expected) = self.sha256 {
-            let mut verify_file = std::fs::File::open(&tmp_path)
-                .map_err(|e| format!("open for verify failed: {e}"))?;
-            let mut hasher = sha2::Sha256::new();
-            let mut buf = [0u8; 8192];
-            loop {
-                let n = verify_file
-                    .read(&mut buf)
-                    .map_err(|e| format!("hash read failed: {e}"))?;
-                if n == 0 {
-                    break;
-                }
-                hasher.update(&buf[..n]);
-            }
-            let actual = hex::encode(hasher.finalize());
+            let actual = hash_file(&tmp_path);
             if actual != *expected {
                 let _ = std::fs::remove_file(&tmp_path);
                 return Err(format!(
@@ -84,6 +84,7 @@ impl PrecompiledBinRecipe {
             }
         }
 
+        let _ = std::fs::remove_file(dest);
         std::fs::rename(&tmp_path, dest).map_err(|e| format!("rename failed: {e}"))?;
 
         #[cfg(unix)]
@@ -155,7 +156,7 @@ impl Recipe for PrecompiledBinRecipe {
             });
         }
 
-        if dest.exists() {
+        if dest.exists() && dest_matches_pinned_sha256(&dest, self.sha256.as_deref()) {
             return Ok(RecipeOutput {
                 recipe_name: self.name.clone(),
                 from_cache: true,
@@ -310,6 +311,63 @@ mod tests {
         let out = r.execute(&ctx).unwrap();
         assert!(out.from_cache);
         assert!(out.stdout.contains("already present"));
+    }
+
+    #[test]
+    fn already_present_with_matching_sha256_is_cached() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let bin_path = tmp.path().join("bin").join("tool");
+        std::fs::create_dir_all(bin_path.parent().unwrap()).unwrap();
+        std::fs::write(&bin_path, b"binary").unwrap();
+
+        let mut r = PrecompiledBinRecipe::new("tool", "https://example.com/tool", "bin/tool");
+        r.sha256 = Some(hash_file(&bin_path));
+        let mut ctx = test_ctx();
+        ctx.project_root = tmp.path().to_owned();
+        ctx.cache_dir = tmp.path().join(".cache");
+
+        let out = r.execute(&ctx).unwrap();
+        assert!(out.from_cache);
+        assert!(out.stdout.contains("already present"));
+    }
+
+    #[test]
+    fn already_present_with_wrong_sha256_triggers_redownload() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let bin_path = tmp.path().join("bin").join("tool");
+        std::fs::create_dir_all(bin_path.parent().unwrap()).unwrap();
+        std::fs::write(&bin_path, b"stale-content").unwrap();
+
+        let mut r = PrecompiledBinRecipe::new("tool", "https://example.com/tool", "bin/tool");
+        r.sha256 = Some("deadbeef".to_string());
+        let mut ctx = test_ctx();
+        ctx.project_root = tmp.path().to_owned();
+        ctx.cache_dir = tmp.path().join(".cache");
+
+        match r.execute(&ctx) {
+            Ok(out) => panic!(
+                "expected re-download attempt, got cached output: {}",
+                out.stdout
+            ),
+            Err(Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn dest_matches_pinned_sha256_checks() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let p = tmp.path().join("tool");
+        std::fs::write(&p, b"binary").unwrap();
+        let actual = hash_file(&p);
+
+        assert!(dest_matches_pinned_sha256(&p, None));
+        assert!(dest_matches_pinned_sha256(&p, Some(&actual)));
+        assert!(!dest_matches_pinned_sha256(&p, Some("deadbeef")));
+        assert!(!dest_matches_pinned_sha256(
+            &tmp.path().join("missing"),
+            Some(&actual)
+        ));
     }
 
     #[test]

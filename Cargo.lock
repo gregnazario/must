@@ -1440,10 +1440,8 @@ dependencies = [
 name = "must-recipe-precompiled"
 version = "0.1.0"
 dependencies = [
- "hex",
  "must-cache",
  "must-core",
- "sha2",
  "tempfile",
  "ureq",
 ]

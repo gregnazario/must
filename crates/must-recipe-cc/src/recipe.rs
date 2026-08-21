@@ -29,6 +29,12 @@ fn cc_version(compiler: &Path) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+fn object_path(ctx: &BuildContext, src: &str) -> PathBuf {
+    ctx.project_root
+        .join("build")
+        .join(Path::new(src).with_extension("o"))
+}
+
 fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
@@ -478,14 +484,10 @@ impl Recipe for CLibRecipe {
                 for src in &self.sources {
                     let host_src = ctx.project_root.join(src);
                     let container_src = tc.translate_path(&host_src);
-                    let obj_name = format!(
-                        "{}.o",
-                        Path::new(src)
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| src.clone())
-                    );
-                    let obj_host = ctx.project_root.join("build").join(&obj_name);
+                    let obj_host = object_path(ctx, src);
+                    if let Some(parent) = obj_host.parent() {
+                        std::fs::create_dir_all(parent).map_err(Error::Io)?;
+                    }
                     let obj_container = tc.translate_path(&obj_host);
 
                     let mut cc_args: Vec<String> = vec![
@@ -582,14 +584,10 @@ impl Recipe for CLibRecipe {
                 let mut object_paths: Vec<PathBuf> = Vec::new();
                 for src in &self.sources {
                     let src_path = ctx.project_root.join(src);
-                    let obj_name = format!(
-                        "{}.o",
-                        Path::new(src)
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| src.clone())
-                    );
-                    let obj_path = ctx.project_root.join("build").join(&obj_name);
+                    let obj_path = object_path(ctx, src);
+                    if let Some(parent) = obj_path.parent() {
+                        std::fs::create_dir_all(parent).map_err(Error::Io)?;
+                    }
 
                     let mut cc_args: Vec<String> = vec![
                         "-fPIC".to_string(),
@@ -635,8 +633,8 @@ impl Recipe for CLibRecipe {
                 }
                 let out = run_captured(
                     &mut cmd,
-                    "docker",
-                    "Install Docker: https://docs.docker.com/get-docker/ or Podman: https://podman.io/",
+                    "ar",
+                    "Install binutils (provides ar): https://www.gnu.org/software/binutils/ or Xcode CLI tools",
                 )?;
                 let duration_ms = start.elapsed().as_millis() as u64;
                 if !out.status.success() {
@@ -1292,5 +1290,68 @@ mod tests {
 
         // Accept either success or a platform-specific shared-lib error
         let _ = r.execute(&ctx);
+    }
+
+    #[test]
+    fn test_object_paths_distinct_for_same_stem_in_different_dirs() {
+        let c = ctx();
+        let a = object_path(&c, "src/a/util.c");
+        let b = object_path(&c, "src/b/util.c");
+        assert_ne!(a, b);
+        assert!(a.ends_with("build/src/a/util.o"));
+        assert!(b.ends_with("build/src/b/util.o"));
+    }
+
+    #[test]
+    fn test_clib_static_same_stem_sources_in_different_dirs() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src/a")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("src/b")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/a/util.c"),
+            "int fa(void) { return 1; }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("src/b/util.c"),
+            "int fb(void) { return 2; }\n",
+        )
+        .unwrap();
+
+        let mut r = CLibRecipe::new("samelib", true);
+        r.sources = vec!["src/a/util.c".to_string(), "src/b/util.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        let result = r.execute(&ctx);
+        match result {
+            Ok(out) => {
+                assert!(out.outputs[0].exists(), "libsamelib.a should exist");
+                assert!(
+                    tmp.path().join("build/src/a/util.o").exists(),
+                    "object for src/a/util.c should be at build/src/a/util.o"
+                );
+                assert!(
+                    tmp.path().join("build/src/b/util.o").exists(),
+                    "object for src/b/util.c should be at build/src/b/util.o"
+                );
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 }

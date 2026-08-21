@@ -8,6 +8,14 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
+fn gradlew_command() -> &'static str {
+    if cfg!(windows) {
+        "gradlew.bat"
+    } else {
+        "./gradlew"
+    }
+}
+
 fn run_gradle(
     args: &[&str],
     ctx: &BuildContext,
@@ -15,7 +23,7 @@ fn run_gradle(
     workdir: &std::path::Path,
 ) -> Result<RecipeOutput> {
     let start = Instant::now();
-    let mut cmd = Command::new("./gradlew");
+    let mut cmd = Command::new(gradlew_command());
     for arg in args {
         cmd.arg(arg);
     }
@@ -29,7 +37,7 @@ fn run_gradle(
     }
     let out = run_command(
         &mut cmd,
-        "./gradlew",
+        gradlew_command(),
         "Install Gradle: https://gradle.org/install/ or add a Gradle wrapper to your project",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -155,7 +163,7 @@ impl Recipe for JavaBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!("[dry-run] ./gradlew build (in {})", self.package),
+                stdout: format!("[dry-run] {} build (in {})", gradlew_command(), self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -215,7 +223,7 @@ impl Recipe for JavaTestRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: vec![],
-                stdout: format!("[dry-run] ./gradlew test (in {})", self.package),
+                stdout: format!("[dry-run] {} test (in {})", gradlew_command(), self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -269,6 +277,16 @@ mod tests {
     }
 
     #[test]
+    fn gradlew_command_matches_platform() {
+        let cmd = gradlew_command();
+        if cfg!(windows) {
+            assert_eq!(cmd, "gradlew.bat");
+        } else {
+            assert_eq!(cmd, "./gradlew");
+        }
+    }
+
+    #[test]
     fn java_bin_cache_strategy_is_hash() {
         let r = JavaBinRecipe::new("build", ".");
         assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
@@ -301,7 +319,8 @@ mod tests {
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("gradlew build"));
+        assert!(out.stdout.contains("gradlew"));
+        assert!(out.stdout.contains("build"));
         assert!(out.stdout.contains("."));
         assert_eq!(out.duration_ms, 0);
     }
@@ -366,7 +385,8 @@ mod tests {
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("gradlew test"));
+        assert!(out.stdout.contains("gradlew"));
+        assert!(out.stdout.contains("test"));
     }
 
     #[test]
