@@ -676,29 +676,31 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let cache = must_cache::store::DiskCache::open(&cache_dir)?;
             use must_core::Cache;
 
+            let base_env: HashMap<String, String> = std::env::vars().collect();
+            let all_recipes: std::collections::HashSet<String> =
+                config.recipe.keys().cloned().collect();
+            let recipe_map =
+                wire_recipes(&config, &all_recipes, &cli.profile, &base_env, project_root)?;
+
+            let mut ctx = BuildContext::new(project_root.to_path_buf());
+            ctx.profile = cli.profile.clone();
+            ctx.target = resolve_targets(&cli.target, &config)
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "host".to_string());
+
+            let mut names: Vec<&String> = config.recipe.keys().collect();
+            names.sort();
+
             let mut stale_count = 0;
             let mut fresh_count = 0;
             let mut miss_count = 0;
 
-            for (name, recipe_cfg) in &config.recipe {
-                let rts = recipe_type_tag(&recipe_cfg.recipe_type);
-                let env = must_engine::compose_env(&config, name, &cli.profile, &HashMap::new());
-                let env_btree: std::collections::BTreeMap<String, String> =
-                    env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-                let hash = must_cache::hash::compute_hash(
-                    name,
-                    rts,
-                    &[],
-                    &env_btree,
-                    "",
-                    &std::collections::BTreeMap::new(),
-                );
-                let key = must_core::CacheKey {
-                    recipe: name.clone(),
-                    target: "host".to_string(),
-                    profile: cli.profile.clone(),
-                    hash,
+            for name in names {
+                let Some(recipe) = recipe_map.get(name) else {
+                    continue;
                 };
+                let key = recipe.cache_key(&ctx)?;
 
                 let (status, icon, color) = match cache.lookup(&key) {
                     Ok(must_core::CacheLookup::Hit) => {
@@ -1262,56 +1264,19 @@ struct RunOpts<'a> {
     targets: &'a [String],
 }
 
-async fn execute_recipes(
+fn wire_recipes(
     config: &Config,
-    mustfile_path: &Path,
-    opts: RunOpts<'_>,
-) -> must_core::Result<()> {
-    let RunOpts {
-        profile,
-        parallelism,
-        dry_run,
-        fail_fast,
-        target_recipes,
-        targets,
-    } = opts;
-    let mustfile_abs = mustfile_path
-        .canonicalize()
-        .unwrap_or_else(|_| mustfile_path.to_owned());
-    let project_root = mustfile_abs
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .to_owned();
-
-    // Build the full DAG from all recipes
-    let dep_map: HashMap<String, Vec<String>> = config
-        .recipe
-        .iter()
-        .map(|(name, r)| (name.clone(), r.deps.clone()))
-        .collect();
-    let dag = Dag::new(dep_map);
-
-    // Determine the reachable set from requested target recipes
-    let mut reachable: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for target in &target_recipes {
-        if !config.recipe.contains_key(target.as_str()) {
-            return Err(Error::UnknownRecipe {
-                name: target.clone(),
-            });
-        }
-        for name in dag.reachable_from(target)? {
-            reachable.insert(name);
-        }
-    }
-
-    // Compose env for each recipe and build recipe objects
-    let base_env: HashMap<String, String> = std::env::vars().collect();
+    reachable: &std::collections::HashSet<String>,
+    profile: &str,
+    base_env: &HashMap<String, String>,
+    project_root: &Path,
+) -> must_core::Result<HashMap<String, Arc<dyn must_core::Recipe>>> {
     let mut recipe_map: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
     for (name, recipe_cfg) in &config.recipe {
         if !reachable.contains(name) {
             continue;
         }
-        let env = compose_env_with_base(config, name, profile, &HashMap::new(), &base_env);
+        let env = compose_env_with_base(config, name, profile, &HashMap::new(), base_env);
 
         let expand = |s: &str| -> String { expand_env_vars(s, &env) };
 
@@ -1539,7 +1504,7 @@ async fn execute_recipes(
                     expand(&recipe_cfg.image.clone().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
-                r.dockerfile = recipe_cfg.dockerfile.as_deref().map(|d| expand(d));
+                r.dockerfile = recipe_cfg.dockerfile.as_deref().map(&expand);
                 r.context = recipe_cfg
                     .package
                     .clone()
@@ -1820,6 +1785,54 @@ async fn execute_recipes(
         }
     }
 
+    Ok(recipe_map)
+}
+
+async fn execute_recipes(
+    config: &Config,
+    mustfile_path: &Path,
+    opts: RunOpts<'_>,
+) -> must_core::Result<()> {
+    let RunOpts {
+        profile,
+        parallelism,
+        dry_run,
+        fail_fast,
+        target_recipes,
+        targets,
+    } = opts;
+    let mustfile_abs = mustfile_path
+        .canonicalize()
+        .unwrap_or_else(|_| mustfile_path.to_owned());
+    let project_root = mustfile_abs
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_owned();
+
+    // Build the full DAG from all recipes
+    let dep_map: HashMap<String, Vec<String>> = config
+        .recipe
+        .iter()
+        .map(|(name, r)| (name.clone(), r.deps.clone()))
+        .collect();
+    let dag = Dag::new(dep_map);
+
+    // Determine the reachable set from requested target recipes
+    let mut reachable: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for target in &target_recipes {
+        if !config.recipe.contains_key(target.as_str()) {
+            return Err(Error::UnknownRecipe {
+                name: target.clone(),
+            });
+        }
+        for name in dag.reachable_from(target)? {
+            reachable.insert(name);
+        }
+    }
+
+    // Compose env for each recipe and build recipe objects
+    let base_env: HashMap<String, String> = std::env::vars().collect();
+    let recipe_map = wire_recipes(config, &reachable, profile, &base_env, &project_root)?;
     // Restrict DAG to the reachable subset
     let sub_dep_map: HashMap<String, Vec<String>> = config
         .recipe
@@ -2297,7 +2310,7 @@ fn explain_recipe(
     profile: &str,
     recipe_name: &str,
 ) -> must_core::Result<()> {
-    use must_cache::hash::{compute_hash, hash_file};
+    use must_cache::hash::hash_file;
     use must_config::schema::RecipeType;
     use std::collections::BTreeMap;
 
@@ -2577,40 +2590,32 @@ fn explain_recipe(
         }
     }
 
-    // Compute cache key
-    let recipe_type_str = recipe_type_tag(&recipe.recipe_type);
-    let env_btree: BTreeMap<String, String> = relevant_env
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
-    let hash = compute_hash(
-        recipe_name,
-        recipe_type_str,
-        &[],
-        &env_btree,
-        "",
-        &BTreeMap::new(),
-    );
+    // Compute cache key from the wired recipe (same formula the build uses)
+    let base_env: std::collections::HashMap<String, String> = std::env::vars().collect();
+    let only_this: std::collections::HashSet<String> =
+        std::iter::once(recipe_name.to_string()).collect();
+    let recipe_map = wire_recipes(config, &only_this, profile, &base_env, project_root)?;
 
-    println!("\nCache key: {hash}");
+    if let Some(wired) = recipe_map.get(recipe_name) {
+        let mut ctx = BuildContext::new(project_root.to_path_buf());
+        ctx.profile = profile.to_string();
+        ctx.target = "host".to_string();
+        let key = wired.cache_key(&ctx)?;
+        println!("\nCache key: {}", key.hash);
 
-    // Check if it's a cache hit
-    let cache_dir = project_root.join(".must").join("cache");
-    let key = must_core::CacheKey {
-        recipe: recipe_name.to_string(),
-        target: "host".to_string(),
-        profile: profile.to_string(),
-        hash: hash.clone(),
-    };
-    if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
-        use must_core::Cache;
-        match cache.lookup(&key) {
-            Ok(must_core::CacheLookup::Hit) => println!("Status:    HIT — would skip"),
-            Ok(must_core::CacheLookup::Stale) => println!("Status:    STALE — would rebuild"),
-            _ => println!("Status:    MISS — would build"),
+        let cache_dir = project_root.join(".must").join("cache");
+        if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
+            use must_core::Cache;
+            match cache.lookup(&key) {
+                Ok(must_core::CacheLookup::Hit) => println!("Status:    HIT — would skip"),
+                Ok(must_core::CacheLookup::Stale) => println!("Status:    STALE — would rebuild"),
+                _ => println!("Status:    MISS — would build"),
+            }
+        } else {
+            println!("Status:    MISS — no cache yet");
         }
     } else {
-        println!("Status:    MISS — no cache yet");
+        println!("\nCache key: (unavailable)");
     }
 
     Ok(())
@@ -2663,52 +2668,6 @@ fn dir_size(path: &std::path::Path) -> std::io::Result<u64> {
         }
     }
     Ok(total)
-}
-
-fn recipe_type_tag(rt: &RecipeType) -> &'static str {
-    match rt {
-        RecipeType::Shell => "shell",
-        RecipeType::RustBin => "rust-bin",
-        RecipeType::RustLib => "rust-lib",
-        RecipeType::RustTest => "rust-test",
-        RecipeType::GoBin => "go-bin",
-        RecipeType::GoTest => "go-test",
-        RecipeType::CBin => "c-bin",
-        RecipeType::CLib => "c-lib",
-        RecipeType::TsBin => "ts-bin",
-        RecipeType::TsCheck => "ts-check",
-        RecipeType::TsLint => "ts-lint",
-        RecipeType::Npm => "npm",
-        RecipeType::PyBin => "py-bin",
-        RecipeType::PyTest => "py-test",
-        RecipeType::PyLint => "py-lint",
-        RecipeType::ZigBin => "zig-bin",
-        RecipeType::ZigTest => "zig-test",
-        RecipeType::DockerBuild => "docker-build",
-        RecipeType::DockerPush => "docker-push",
-        RecipeType::Plugin => "plugin",
-        RecipeType::JavaBin => "java-bin",
-        RecipeType::JavaTest => "java-test",
-        RecipeType::KotlinBin => "kotlin-bin",
-        RecipeType::KotlinTest => "kotlin-test",
-        RecipeType::SwiftBin => "swift-bin",
-        RecipeType::SwiftTest => "swift-test",
-        RecipeType::DotnetBuild => "dotnet-build",
-        RecipeType::DotnetTest => "dotnet-test",
-        RecipeType::DotnetPublish => "dotnet-publish",
-        RecipeType::RubyBin => "ruby-bin",
-        RecipeType::RubyTest => "ruby-test",
-        RecipeType::DartBin => "dart-bin",
-        RecipeType::DartTest => "dart-test",
-        RecipeType::ElixirBuild => "elixir-build",
-        RecipeType::ElixirTest => "elixir-test",
-        RecipeType::FlutterBuild => "flutter-build",
-        RecipeType::FlutterTest => "flutter-test",
-        RecipeType::NimBin => "nim-bin",
-        RecipeType::NimTest => "nim-test",
-        RecipeType::PrecompiledBin => "precompiled-bin",
-        RecipeType::Bridge => "bridge",
-    }
 }
 
 fn run_doctor() {
@@ -3932,55 +3891,6 @@ mod tests {
     }
 
     #[test]
-    fn test_recipe_type_tag_all_types() {
-        let types = vec![
-            RecipeType::Shell,
-            RecipeType::RustBin,
-            RecipeType::RustLib,
-            RecipeType::RustTest,
-            RecipeType::GoBin,
-            RecipeType::GoTest,
-            RecipeType::CBin,
-            RecipeType::CLib,
-            RecipeType::TsBin,
-            RecipeType::TsCheck,
-            RecipeType::TsLint,
-            RecipeType::Npm,
-            RecipeType::PyBin,
-            RecipeType::PyTest,
-            RecipeType::PyLint,
-            RecipeType::ZigBin,
-            RecipeType::ZigTest,
-            RecipeType::DockerBuild,
-            RecipeType::DockerPush,
-            RecipeType::Plugin,
-            RecipeType::JavaBin,
-            RecipeType::JavaTest,
-            RecipeType::KotlinBin,
-            RecipeType::KotlinTest,
-            RecipeType::SwiftBin,
-            RecipeType::SwiftTest,
-            RecipeType::DotnetBuild,
-            RecipeType::DotnetTest,
-            RecipeType::DotnetPublish,
-            RecipeType::RubyBin,
-            RecipeType::RubyTest,
-            RecipeType::DartBin,
-            RecipeType::DartTest,
-            RecipeType::ElixirBuild,
-            RecipeType::ElixirTest,
-            RecipeType::FlutterBuild,
-            RecipeType::FlutterTest,
-            RecipeType::NimBin,
-            RecipeType::NimTest,
-        ];
-        for rt in &types {
-            let tag = recipe_type_tag(rt);
-            assert!(!tag.is_empty(), "tag should not be empty for {rt:?}");
-        }
-    }
-
-    #[test]
     fn test_run_doctor_executes() {
         run_doctor();
     }
@@ -4368,7 +4278,10 @@ outputs = ["out.txt"]
         let cli = make_cli(Commands::Clean { cache: false }, mustfile_path);
         let result = run(cli).await;
         assert!(result.is_ok());
-        assert!(!tmp.path().join("out.txt").exists(), "declared output removed");
+        assert!(
+            !tmp.path().join("out.txt").exists(),
+            "declared output removed"
+        );
         assert!(
             tmp.path().join("not-an-output.txt").exists(),
             "undeclared files untouched"
