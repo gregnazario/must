@@ -337,6 +337,7 @@ fn make_bridge_recipe(tool: &BridgeTool, target: &str) -> Recipe {
         plugin: None,
         url: None,
         sha256: None,
+        output_path: None,
     }
 }
 

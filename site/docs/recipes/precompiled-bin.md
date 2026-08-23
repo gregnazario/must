@@ -64,9 +64,26 @@ output = "bin/protoc"
 ## How it works
 
 1. Downloads to a `.tmp` file using streaming I/O (low memory usage)
-2. Verifies SHA-256 digest against `sha256` field (chunked, O(1) heap)
-3. Atomically renames `.tmp` to the final output path
+2. Verifies the SHA-256 digest of the download against `sha256` (chunked, O(1) heap)
+3. For raw binary URLs, atomically renames `.tmp` to the output path.
+   For archive URLs (`.tar.gz`, `.tgz`, `.zip`), extracts the archive and
+   installs one binary from it
 4. On cache hit, skips download entirely
+
+### Archive handling
+
+URLs ending in `.tar.gz`, `.tgz`, or `.zip` are extracted after the SHA-256
+check (the digest pins the **archive**, not the binary inside). The binary to
+install is chosen automatically:
+
+1. a file whose name exactly matches the recipe name (e.g. `[recipe.protoc]` → `bin/protoc`)
+2. otherwise, the archive's single executable file (falling back to its single
+   non-document file when the archive carries no executable bits)
+
+Ambiguous archives produce an error listing the candidates — name the recipe
+after the binary or point `url` at the raw binary instead. For archive URLs
+the installed binary is recorded alongside the output as `<output>.mustsha256`
+so a bumped pin still triggers re-download.
 
 ## Example: multiple tools
 

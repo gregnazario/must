@@ -8,6 +8,14 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
+fn gradlew_command() -> &'static str {
+    if cfg!(windows) {
+        "gradlew.bat"
+    } else {
+        "./gradlew"
+    }
+}
+
 fn run_gradle(
     args: &[&str],
     ctx: &BuildContext,
@@ -15,7 +23,7 @@ fn run_gradle(
     workdir: &std::path::Path,
 ) -> Result<RecipeOutput> {
     let start = Instant::now();
-    let mut cmd = Command::new("./gradlew");
+    let mut cmd = Command::new(gradlew_command());
     for arg in args {
         cmd.arg(arg);
     }
@@ -29,7 +37,7 @@ fn run_gradle(
     }
     let out = run_command(
         &mut cmd,
-        "./gradlew",
+        gradlew_command(),
         "Install Gradle: https://gradle.org/install/ or add a Gradle wrapper to your project",
     )?;
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -55,11 +63,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(recipe_name, recipe_type, &[], &env_btree, "", extra_flags);
@@ -77,15 +87,15 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
     } else {
         must_cache::store::DiskCache::open(&ctx.cache_dir)
             .ok()
-            .and_then(|c| Cache::lookup(&c, key).ok())
+            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
     }
 }
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &[]);
+        let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &[]);
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
     }
 }
 
@@ -135,7 +145,13 @@ impl Recipe for KotlinBinRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "kotlin-bin", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "kotlin-bin",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -155,7 +171,11 @@ impl Recipe for KotlinBinRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: Vec::new(),
-                stdout: format!("[dry-run] ./gradlew build (in {})", self.package),
+                stdout: format!(
+                    "[dry-run] {} build (in {})",
+                    gradlew_command(),
+                    self.package
+                ),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -206,7 +226,13 @@ impl Recipe for KotlinTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "kotlin-test", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "kotlin-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -215,7 +241,7 @@ impl Recipe for KotlinTestRecipe {
                 recipe_name: self.name.clone(),
                 from_cache: false,
                 outputs: vec![],
-                stdout: format!("[dry-run] ./gradlew test (in {})", self.package),
+                stdout: format!("[dry-run] {} test (in {})", gradlew_command(), self.package),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -244,6 +270,16 @@ mod tests {
             dry_run: false,
             parallelism: 1,
             cache: None,
+        }
+    }
+
+    #[test]
+    fn gradlew_command_matches_platform() {
+        let cmd = gradlew_command();
+        if cfg!(windows) {
+            assert_eq!(cmd, "gradlew.bat");
+        } else {
+            assert_eq!(cmd, "./gradlew");
         }
     }
 
@@ -280,7 +316,8 @@ mod tests {
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("gradlew build"));
+        assert!(out.stdout.contains("gradlew"));
+        assert!(out.stdout.contains("build"));
         assert_eq!(out.duration_ms, 0);
     }
 
@@ -301,7 +338,7 @@ mod tests {
         let r = KotlinBinRecipe::new("build", ".");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
         let out = r.execute(&ctx);
         match out {
@@ -344,7 +381,8 @@ mod tests {
         c.dry_run = true;
         let out = r.execute(&c).unwrap();
         assert!(out.stdout.contains("dry-run"));
-        assert!(out.stdout.contains("gradlew test"));
+        assert!(out.stdout.contains("gradlew"));
+        assert!(out.stdout.contains("test"));
     }
 
     #[test]

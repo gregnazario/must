@@ -1556,3 +1556,54 @@ type = "precompiled-bin"
     let err = validate(&cfg, Path::new("Mustfile.toml")).unwrap_err();
     assert!(err.to_string().contains("missing required field 'url'"));
 }
+
+#[test]
+fn test_precompiled_bin_output_alias() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.rg]
+type = "precompiled-bin"
+url = "https://example.com/rg.tar.gz"
+output = ".tools/rg"
+"#,
+    );
+    assert_eq!(cfg.recipe["rg"].output_path.as_deref(), Some(".tools/rg"));
+}
+
+#[test]
+fn test_shell_recipe_scripts_only_validates() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.clean]
+type = "shell"
+phony = true
+
+[recipe.clean.scripts]
+macos = "rm -rf build"
+linux = "rm -rf build"
+win = "rmdir /s /q build"
+"#,
+    );
+    assert!(validate(&cfg, Path::new("Mustfile.toml")).is_ok());
+}
+
+#[test]
+fn test_shell_recipe_without_any_script_fails() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.noop]
+type = "shell"
+"#,
+    );
+    let err = validate(&cfg, Path::new("Mustfile.toml")).unwrap_err();
+    assert!(err.to_string().contains("missing required field 'script'"));
+}

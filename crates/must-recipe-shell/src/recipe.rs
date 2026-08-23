@@ -128,7 +128,7 @@ impl Recipe for ShellRecipe {
                 "shell",
                 &input_refs,
                 &env_btree,
-                "",
+                &self.script,
                 &BTreeMap::new(),
             );
             let key = CacheKey {
@@ -138,8 +138,32 @@ impl Recipe for ShellRecipe {
                 hash,
             };
 
-            if let Some(ref cache) = ctx.cache {
-                if let Ok(CacheLookup::Hit) = cache.lookup(&key) {
+            let owned_cache = if ctx.cache.is_some() {
+                None
+            } else {
+                let opened = must_cache::store::DiskCache::open(&ctx.cache_dir).ok();
+                if opened.is_none() {
+                    eprintln!(
+                        "warning: could not open cache at {} — rebuilding without cache",
+                        ctx.cache_dir.display()
+                    );
+                }
+                opened
+            };
+            let effective_cache: Option<&dyn Cache> = if let Some(ref cache) = ctx.cache {
+                Some(cache.as_ref())
+            } else {
+                owned_cache.as_deref().map(|c| c as &dyn Cache)
+            };
+            if let Some(cache) = effective_cache
+                && matches!(cache.lookup(&key), Ok(CacheLookup::Hit))
+            {
+                let outputs = self.outputs(ctx)?;
+                let usable = self.outputs.is_empty()
+                    || !outputs.is_empty()
+                    || (cache.restore(&key, &ctx.project_root).unwrap_or(false)
+                        && !self.outputs(ctx)?.is_empty());
+                if usable {
                     return Ok(RecipeOutput {
                         recipe_name: self.name.clone(),
                         from_cache: true,
@@ -149,17 +173,6 @@ impl Recipe for ShellRecipe {
                         duration_ms: 0,
                     });
                 }
-            } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir)
-                && let Ok(CacheLookup::Hit) = Cache::lookup(&cache, &key)
-            {
-                return Ok(RecipeOutput {
-                    recipe_name: self.name.clone(),
-                    from_cache: true,
-                    outputs: self.outputs(ctx)?,
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    duration_ms: 0,
-                });
             }
 
             let start = Instant::now();
@@ -178,10 +191,10 @@ impl Recipe for ShellRecipe {
 
             let outputs = self.outputs(ctx)?;
 
-            if let Some(ref cache) = ctx.cache {
-                let _ = cache.store(&key, &outputs);
-            } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-                let _ = Cache::store(&cache, &key, &outputs);
+            if let Some(cache) = effective_cache
+                && let Err(e) = cache.store(&key, &ctx.project_root, &outputs)
+            {
+                eprintln!("warning: cache store failed: {e}");
             }
 
             return Ok(RecipeOutput {
@@ -395,6 +408,107 @@ mod tests {
         assert!(
             second.from_cache,
             "second run with same inputs should be a cache hit"
+        );
+    }
+
+    #[test]
+    fn hash_cache_invalidated_when_script_changes() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
+        std::fs::write(tmp.path().join("in.txt"), "input").unwrap();
+
+        let mut r = ShellRecipe::new("gen", "echo one > out.txt");
+        r.cache = CacheStrategy::Hash;
+        r.inputs = vec!["in.txt".to_string()];
+        r.outputs = vec!["out.txt".to_string()];
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        r.execute(&c).unwrap();
+        let second = r.execute(&c).unwrap();
+        assert!(second.from_cache, "same script should hit");
+
+        r.script = "echo two > out.txt".to_string();
+        let third = r.execute(&c).unwrap();
+        assert!(
+            !third.from_cache,
+            "edited script must invalidate the hash cache"
+        );
+        let content = std::fs::read_to_string(tmp.path().join("out.txt")).unwrap();
+        assert_eq!(content.trim(), "two");
+    }
+
+    #[test]
+    fn hash_cache_restores_deleted_outputs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
+
+        let mut r = ShellRecipe::new("gen2", "echo data > out.txt");
+        r.cache = CacheStrategy::Hash;
+        r.outputs = vec!["out.txt".to_string()];
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        r.execute(&c).unwrap();
+        let second = r.execute(&c).unwrap();
+        assert!(second.from_cache);
+
+        std::fs::remove_file(tmp.path().join("out.txt")).unwrap();
+        let third = r.execute(&c).unwrap();
+        assert!(
+            third.from_cache,
+            "cache should restore the deleted output instead of rebuilding"
+        );
+        let content = std::fs::read_to_string(tmp.path().join("out.txt")).unwrap();
+        assert_eq!(content.trim(), "data");
+    }
+
+    #[test]
+    fn hash_cache_rebuilds_when_outputs_never_produced() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
+
+        let mut r = ShellRecipe::new("gen3", "echo done");
+        r.cache = CacheStrategy::Hash;
+        r.outputs = vec!["never-created.txt".to_string()];
+
+        let c = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        r.execute(&c).unwrap();
+        let second = r.execute(&c).unwrap();
+        assert!(
+            !second.from_cache,
+            "declared outputs that were never produced must trigger a rebuild"
         );
     }
 

@@ -93,7 +93,7 @@ end
 | `mkdir` | `mkdir(path)` | Create directory (recursive) |
 | `glob` | `glob(pattern) → table` | Match file paths (returns 1-indexed table) |
 | `env_get` | `env_get(key) → string?` | Get environment variable |
-| `set_env` | `set_env(key, value)` | Set environment variable |
+| `set_env` | `set_env(key, value)` | Set env var for this plugin's own `shell_exec`/`env_get` calls (does not mutate the global process environment) |
 | `log_info` | `log_info(msg)` | Log info message |
 | `log_warn` | `log_warn(msg)` | Log warning |
 

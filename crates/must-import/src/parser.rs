@@ -77,14 +77,21 @@ pub fn parse(tokens: Vec<crate::lexer::Token>) -> MakefileAst {
                 let deps = deps.clone();
                 i += 1;
 
-                // Consume all immediately-following RecipeLine tokens.
+                // Consume following RecipeLine tokens.  Blank lines and
+                // comments inside a recipe do not terminate it (GNU make
+                // allows both); the recipe ends at a new rule, EOF, or any
+                // other non-blank non-comment non-tab line.
                 let mut recipe_lines = Vec::new();
                 while i < tokens.len() {
-                    if let Token::RecipeLine(line) = &tokens[i] {
-                        recipe_lines.push(line.clone());
-                        i += 1;
-                    } else {
-                        break;
+                    match &tokens[i] {
+                        Token::RecipeLine(line) => {
+                            recipe_lines.push(line.clone());
+                            i += 1;
+                        }
+                        Token::Blank | Token::Comment(_) => {
+                            i += 1;
+                        }
+                        _ => break,
                     }
                 }
 
@@ -196,6 +203,108 @@ mod tests {
         assert_eq!(ast.nodes.len(), 1);
         if let AstNode::Rule { recipe_lines, .. } = &ast.nodes[0] {
             assert!(recipe_lines.is_empty());
+        } else {
+            panic!("expected Rule node");
+        }
+    }
+
+    #[test]
+    fn blank_line_inside_recipe_does_not_terminate_it() {
+        let tokens = vec![
+            Token::RuleHeader {
+                target: "build".to_string(),
+                deps: vec![],
+            },
+            Token::RecipeLine("echo first".to_string()),
+            Token::Blank,
+            Token::RecipeLine("echo second".to_string()),
+        ];
+        let ast = parse(tokens);
+        assert_eq!(ast.nodes.len(), 1);
+        if let AstNode::Rule { recipe_lines, .. } = &ast.nodes[0] {
+            assert_eq!(
+                recipe_lines,
+                &["echo first".to_string(), "echo second".to_string()]
+            );
+        } else {
+            panic!("expected Rule node");
+        }
+    }
+
+    #[test]
+    fn comment_inside_recipe_does_not_terminate_it() {
+        let tokens = vec![
+            Token::RuleHeader {
+                target: "build".to_string(),
+                deps: vec![],
+            },
+            Token::RecipeLine("echo first".to_string()),
+            Token::Comment("mid-recipe comment".to_string()),
+            Token::RecipeLine("echo second".to_string()),
+        ];
+        let ast = parse(tokens);
+        assert_eq!(ast.nodes.len(), 1);
+        if let AstNode::Rule { recipe_lines, .. } = &ast.nodes[0] {
+            assert_eq!(
+                recipe_lines,
+                &["echo first".to_string(), "echo second".to_string()]
+            );
+        } else {
+            panic!("expected Rule node");
+        }
+    }
+
+    #[test]
+    fn non_tab_line_after_blank_terminates_recipe() {
+        let tokens = vec![
+            Token::RuleHeader {
+                target: "build".to_string(),
+                deps: vec![],
+            },
+            Token::RecipeLine("echo first".to_string()),
+            Token::Blank,
+            Token::VarAssign {
+                name: "X".to_string(),
+                op: AssignOp::Simple,
+                value: "1".to_string(),
+            },
+            Token::RecipeLine("echo orphan".to_string()),
+        ];
+        let ast = parse(tokens);
+        assert_eq!(ast.nodes.len(), 2);
+        if let AstNode::Rule { recipe_lines, .. } = &ast.nodes[0] {
+            assert_eq!(recipe_lines, &["echo first".to_string()]);
+        } else {
+            panic!("expected Rule node");
+        }
+        assert!(matches!(ast.nodes[1], AstNode::Variable { .. }));
+    }
+
+    #[test]
+    fn blank_line_between_rules_keeps_recipes_separate() {
+        let tokens = vec![
+            Token::RuleHeader {
+                target: "a".to_string(),
+                deps: vec![],
+            },
+            Token::RecipeLine("echo a".to_string()),
+            Token::Blank,
+            Token::RuleHeader {
+                target: "b".to_string(),
+                deps: vec![],
+            },
+            Token::RecipeLine("echo b".to_string()),
+        ];
+        let ast = parse(tokens);
+        assert_eq!(ast.nodes.len(), 2);
+        if let AstNode::Rule {
+            target,
+            recipe_lines,
+            ..
+        } = &ast.nodes[1]
+        {
+            assert_eq!(target, "b");
+            assert_eq!(recipe_lines, &["echo b".to_string()]);
         } else {
             panic!("expected Rule node");
         }

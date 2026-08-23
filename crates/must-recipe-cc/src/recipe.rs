@@ -1,7 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_config::schema::{CrossBackend, CrossConfig};
 use must_core::{
-    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
     run_command as run_captured,
 };
 use must_toolchain::{
@@ -29,16 +29,42 @@ fn cc_version(compiler: &Path) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+fn object_path(ctx: &BuildContext, src: &str) -> PathBuf {
+    ctx.project_root
+        .join("build")
+        .join(Path::new(src).with_extension("o"))
+}
+
+fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
+    if let Some(ref cache) = ctx.cache {
+        cache.lookup(key).ok()
+    } else {
+        must_cache::store::DiskCache::open(&ctx.cache_dir)
+            .ok()
+            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
+    }
+}
+
+fn store_cache(key: &CacheKey, ctx: &BuildContext) {
+    if let Some(ref cache) = ctx.cache {
+        let _ = cache.store(key, &ctx.project_root, &[]);
+    } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
+    }
+}
+
 fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
     compiler: &Path,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(
@@ -198,6 +224,7 @@ impl Recipe for CBinRecipe {
             &self.name,
             "c-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
             &compiler,
         ))
@@ -214,6 +241,18 @@ impl Recipe for CBinRecipe {
                     self.sources.join(" "),
                     self.name
                 ),
+                stderr: String::new(),
+                duration_ms: 0,
+            });
+        }
+
+        let key = self.cache_key(ctx)?;
+        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: true,
+                outputs: self.outputs(ctx)?,
+                stdout: String::new(),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -278,6 +317,7 @@ impl Recipe for CBinRecipe {
             let mut result = run_cc_command(cmd)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
+            store_cache(&key, ctx);
             Ok(result)
         } else {
             // Local execution path
@@ -325,6 +365,7 @@ impl Recipe for CBinRecipe {
             let mut result = run_cc(&compiler_path, &args, ctx, &extra_env)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
+            store_cache(&key, ctx);
             Ok(result)
         }
     }
@@ -419,6 +460,7 @@ impl Recipe for CLibRecipe {
             &self.name,
             recipe_type,
             ctx,
+            &self.env,
             &self.extra_flags(),
             &compiler,
         ))
@@ -441,6 +483,18 @@ impl Recipe for CLibRecipe {
                     self.lib_filename(),
                     self.sources.join(" ")
                 ),
+                stderr: String::new(),
+                duration_ms: 0,
+            });
+        }
+
+        let key = self.cache_key(ctx)?;
+        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: true,
+                outputs: self.outputs(ctx)?,
+                stdout: String::new(),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -478,14 +532,10 @@ impl Recipe for CLibRecipe {
                 for src in &self.sources {
                     let host_src = ctx.project_root.join(src);
                     let container_src = tc.translate_path(&host_src);
-                    let obj_name = format!(
-                        "{}.o",
-                        Path::new(src)
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| src.clone())
-                    );
-                    let obj_host = ctx.project_root.join("build").join(&obj_name);
+                    let obj_host = object_path(ctx, src);
+                    if let Some(parent) = obj_host.parent() {
+                        std::fs::create_dir_all(parent).map_err(Error::Io)?;
+                    }
                     let obj_container = tc.translate_path(&obj_host);
 
                     let mut cc_args: Vec<String> = vec![
@@ -523,6 +573,7 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
+                store_cache(&key, ctx);
                 Ok(result)
             } else {
                 // Shared library: cc -shared -fPIC sources... -o output
@@ -550,6 +601,7 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
+                store_cache(&key, ctx);
                 Ok(result)
             }
         } else {
@@ -582,14 +634,10 @@ impl Recipe for CLibRecipe {
                 let mut object_paths: Vec<PathBuf> = Vec::new();
                 for src in &self.sources {
                     let src_path = ctx.project_root.join(src);
-                    let obj_name = format!(
-                        "{}.o",
-                        Path::new(src)
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| src.clone())
-                    );
-                    let obj_path = ctx.project_root.join("build").join(&obj_name);
+                    let obj_path = object_path(ctx, src);
+                    if let Some(parent) = obj_path.parent() {
+                        std::fs::create_dir_all(parent).map_err(Error::Io)?;
+                    }
 
                     let mut cc_args: Vec<String> = vec![
                         "-fPIC".to_string(),
@@ -635,8 +683,8 @@ impl Recipe for CLibRecipe {
                 }
                 let out = run_captured(
                     &mut cmd,
-                    "docker",
-                    "Install Docker: https://docs.docker.com/get-docker/ or Podman: https://podman.io/",
+                    "ar",
+                    "Install binutils (provides ar): https://www.gnu.org/software/binutils/ or Xcode CLI tools",
                 )?;
                 let duration_ms = start.elapsed().as_millis() as u64;
                 if !out.status.success() {
@@ -646,6 +694,7 @@ impl Recipe for CLibRecipe {
                         stderr: out.stderr,
                     });
                 }
+                store_cache(&key, ctx);
                 Ok(RecipeOutput {
                     recipe_name: self.name.clone(),
                     from_cache: false,
@@ -676,6 +725,7 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc(&compiler_path, &args, ctx, &extra_env)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
+                store_cache(&key, ctx);
                 Ok(result)
             }
         }
@@ -696,7 +746,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -868,7 +921,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -906,7 +962,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -937,7 +996,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -971,7 +1033,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1018,7 +1083,10 @@ mod tests {
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: triple_str.to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1050,7 +1118,10 @@ mod tests {
             log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
             target: triple_str.to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1083,7 +1154,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1123,7 +1197,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1188,7 +1265,13 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::from([("MY_FLAG".to_string(), "1".to_string())]),
+            env: HashMap::from([
+                (
+                    "PATH".to_string(),
+                    std::env::var("PATH").unwrap_or_default(),
+                ),
+                ("MY_FLAG".to_string(), "1".to_string()),
+            ]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1217,7 +1300,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1252,7 +1338,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1284,7 +1373,10 @@ mod tests {
             log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
             target: "host".to_string(),
             profile: "default".to_string(),
-            env: HashMap::new(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
             dry_run: false,
             parallelism: 1,
             cache: None,
@@ -1292,5 +1384,71 @@ mod tests {
 
         // Accept either success or a platform-specific shared-lib error
         let _ = r.execute(&ctx);
+    }
+
+    #[test]
+    fn test_object_paths_distinct_for_same_stem_in_different_dirs() {
+        let c = ctx();
+        let a = object_path(&c, "src/a/util.c");
+        let b = object_path(&c, "src/b/util.c");
+        assert_ne!(a, b);
+        assert!(a.ends_with("build/src/a/util.o"));
+        assert!(b.ends_with("build/src/b/util.o"));
+    }
+
+    #[test]
+    fn test_clib_static_same_stem_sources_in_different_dirs() {
+        if !must_toolchain::c_compiler_available(&must_toolchain::Triple::host()) {
+            return;
+        }
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src/a")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("src/b")).unwrap();
+        std::fs::write(
+            tmp.path().join("src/a/util.c"),
+            "int fa(void) { return 1; }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("src/b/util.c"),
+            "int fb(void) { return 2; }\n",
+        )
+        .unwrap();
+
+        let mut r = CLibRecipe::new("samelib", true);
+        r.sources = vec!["src/a/util.c".to_string(), "src/b/util.c".to_string()];
+
+        let ctx = BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            target: "host".to_string(),
+            profile: "default".to_string(),
+            env: HashMap::from([(
+                "PATH".to_string(),
+                std::env::var("PATH").unwrap_or_default(),
+            )]),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        };
+
+        let result = r.execute(&ctx);
+        match result {
+            Ok(out) => {
+                assert!(out.outputs[0].exists(), "libsamelib.a should exist");
+                assert!(
+                    tmp.path().join("build/src/a/util.o").exists(),
+                    "object for src/a/util.c should be at build/src/a/util.o"
+                );
+                assert!(
+                    tmp.path().join("build/src/b/util.o").exists(),
+                    "object for src/b/util.c should be at build/src/b/util.o"
+                );
+            }
+            Err(must_core::Error::ToolNotFound { .. }) => {}
+            Err(must_core::Error::RecipeFailed { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 }

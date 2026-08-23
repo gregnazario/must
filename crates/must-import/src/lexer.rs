@@ -29,7 +29,7 @@ pub enum Token {
     /// A normal rule header (`target: deps…`).
     RuleHeader { target: String, deps: Vec<String> },
     /// A recipe line (starts with a tab character).  The stored string has the
-    /// leading tab stripped.
+    /// leading tab and any make prefixes (`@`, `-`, `+`) stripped.
     RecipeLine(String),
     /// An `include` directive.  The stored string is the path, trimmed.
     IncludeDirective(String),
@@ -51,6 +51,13 @@ pub fn tokenize(input: &str) -> Vec<Token> {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+fn strip_recipe_prefixes(mut line: &str) -> &str {
+    while let Some(rest) = line.strip_prefix(['@', '-', '+']) {
+        line = rest.trim_start();
+    }
+    line
+}
+
 fn classify_line(raw: &str) -> Token {
     // Trim only *trailing* whitespace; preserve leading tab for recipe detection.
     let line = raw.trim_end();
@@ -68,7 +75,7 @@ fn classify_line(raw: &str) -> Token {
 
     // 3. Recipe (leading tab)
     if let Some(rest) = line.strip_prefix('\t') {
-        return Token::RecipeLine(rest.to_string());
+        return Token::RecipeLine(strip_recipe_prefixes(rest).to_string());
     }
 
     // 4. .PHONY directive
@@ -348,6 +355,45 @@ mod tests {
         assert_eq!(
             tok("\techo hello"),
             Token::RecipeLine("echo hello".to_string())
+        );
+    }
+
+    // 12b. Recipe line with make's `@` (silence) prefix
+    #[test]
+    fn recipe_line_silence_prefix_stripped() {
+        assert_eq!(
+            tok("\t@echo done"),
+            Token::RecipeLine("echo done".to_string())
+        );
+    }
+
+    // 12c. Recipe line with make's `-` (ignore errors) prefix
+    #[test]
+    fn recipe_line_ignore_error_prefix_stripped() {
+        assert_eq!(tok("\t-rm foo"), Token::RecipeLine("rm foo".to_string()));
+    }
+
+    // 12d. Recipe line with combined `@-` prefixes
+    #[test]
+    fn recipe_line_combined_prefixes_stripped() {
+        assert_eq!(tok("\t@-rm foo"), Token::RecipeLine("rm foo".to_string()));
+    }
+
+    // 12e. Recipe line with make's `+` (always run) prefix
+    #[test]
+    fn recipe_line_always_run_prefix_stripped() {
+        assert_eq!(
+            tok("\t+make all"),
+            Token::RecipeLine("make all".to_string())
+        );
+    }
+
+    // 12f. Prefixes separated by whitespace are still stripped
+    #[test]
+    fn recipe_line_prefixes_with_whitespace_stripped() {
+        assert_eq!(
+            tok("\t-@ echo hi"),
+            Token::RecipeLine("echo hi".to_string())
         );
     }
 

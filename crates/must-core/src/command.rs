@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 use crate::output::{print_error, print_output};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, ExitStatus, Stdio};
+use std::time::Duration;
 
 /// Check a Command spawn result, converting NotFound to ToolNotFound.
 pub fn run_status(
@@ -28,6 +29,18 @@ pub struct CommandOutput {
 
 /// Spawn a command with piped stdout/stderr. Streams output live and captures it.
 pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandOutput> {
+    run_command_with_grace(cmd, tool, hint, Duration::from_secs(10))
+}
+
+/// Like [`run_command`], but gives up waiting for output `grace` after the
+/// child exits. A grandchild that inherits the pipes (e.g. `my-server &`)
+/// would otherwise block the reader threads forever.
+pub fn run_command_with_grace(
+    cmd: &mut Command,
+    tool: &str,
+    hint: &str,
+    grace: Duration,
+) -> Result<CommandOutput> {
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let mut child = match cmd.spawn() {
@@ -44,41 +57,62 @@ pub fn run_command(cmd: &mut Command, tool: &str, hint: &str) -> Result<CommandO
     let stdout_pipe = child.stdout.take().unwrap();
     let stderr_pipe = child.stderr.take().unwrap();
 
-    let stdout_thread = std::thread::spawn(move || {
-        let mut buf = String::new();
+    enum Pipe {
+        Out(Option<String>),
+        Err(Option<String>),
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel::<Pipe>();
+    let stdout_tx = tx.clone();
+
+    std::thread::spawn(move || {
         let reader = BufReader::new(stdout_pipe);
         for line in reader.lines() {
             match line {
                 Ok(l) => {
                     print_output(&l);
-                    buf.push_str(&l);
-                    buf.push('\n');
+                    let _ = stdout_tx.send(Pipe::Out(Some(l)));
                 }
                 Err(_) => break,
             }
         }
-        buf
+        let _ = stdout_tx.send(Pipe::Out(None));
     });
 
-    let stderr_thread = std::thread::spawn(move || {
-        let mut buf = String::new();
+    std::thread::spawn(move || {
         let reader = BufReader::new(stderr_pipe);
         for line in reader.lines() {
             match line {
                 Ok(l) => {
                     print_error(&l);
-                    buf.push_str(&l);
-                    buf.push('\n');
+                    let _ = tx.send(Pipe::Err(Some(l)));
                 }
                 Err(_) => break,
             }
         }
-        buf
+        let _ = tx.send(Pipe::Err(None));
     });
 
     let status = child.wait().map_err(Error::Io)?;
-    let stdout = stdout_thread.join().unwrap_or_default();
-    let stderr = stderr_thread.join().unwrap_or_default();
+    let deadline = std::time::Instant::now() + grace;
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    let mut open_pipes = 2;
+    while open_pipes > 0 {
+        let timeout = deadline.saturating_duration_since(std::time::Instant::now());
+        match rx.recv_timeout(timeout) {
+            Ok(Pipe::Out(Some(l))) => {
+                stdout.push_str(&l);
+                stdout.push('\n');
+            }
+            Ok(Pipe::Err(Some(l))) => {
+                stderr.push_str(&l);
+                stderr.push('\n');
+            }
+            Ok(Pipe::Out(None)) | Ok(Pipe::Err(None)) => open_pipes -= 1,
+            Err(_) => break,
+        }
+    }
 
     Ok(CommandOutput {
         status,
@@ -110,5 +144,47 @@ pub fn shell_display(script: &str) -> String {
         format!("cmd /C \"{script}\"")
     } else {
         format!("sh -c '{script}'")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(unix)]
+    fn captures_stdout_and_exit_status() {
+        let mut cmd = shell_command("echo hello");
+        let out =
+            run_command(&mut cmd, "sh", "A shell is required").expect("sh should be available");
+        assert!(out.status.success());
+        assert!(out.stdout.contains("hello"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn returns_despite_lingering_grandchild() {
+        let mut cmd = shell_command("echo started; sleep 30 &");
+        let start = std::time::Instant::now();
+        let out = run_command_with_grace(
+            &mut cmd,
+            "sh",
+            "A shell is required",
+            Duration::from_millis(300),
+        )
+        .expect("sh should be available");
+        assert!(out.status.success());
+        assert!(out.stdout.contains("started"));
+        assert!(start.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn missing_tool_maps_to_tool_not_found() {
+        let mut cmd = Command::new("must-definitely-not-a-real-tool-42");
+        match run_command(&mut cmd, "must-definitely-not-a-real-tool-42", "nope") {
+            Err(Error::ToolNotFound { .. }) => {}
+            Err(e) => panic!("expected ToolNotFound, got {e:?}"),
+            Ok(_) => panic!("expected ToolNotFound, got Ok"),
+        }
     }
 }

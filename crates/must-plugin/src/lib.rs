@@ -6,6 +6,7 @@ use mlua::Lua;
 use must_core::error::Result;
 use must_core::traits::Recipe;
 use must_core::types::{BuildContext, CacheKey, CacheStrategy, RecipeOutput};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tracing::warn;
@@ -15,12 +16,22 @@ pub struct LuaRecipe {
     deps: Vec<String>,
     lua: Mutex<Lua>,
     script: String,
+    workdir: stdlib::SharedWorkdir,
 }
 
 impl LuaRecipe {
     pub fn load(name: &str, path: &Path) -> Result<Self> {
         let lua = Lua::new();
-        stdlib::inject(&lua).map_err(|e| must_core::Error::Config {
+        let workdir = std::sync::Arc::new(std::sync::Mutex::new(
+            std::env::current_dir().unwrap_or_default(),
+        ));
+        let plugin_env = std::sync::Arc::new(std::sync::Mutex::new(HashMap::new()));
+        stdlib::inject(
+            &lua,
+            std::sync::Arc::clone(&workdir),
+            std::sync::Arc::clone(&plugin_env),
+        )
+        .map_err(|e| must_core::Error::Config {
             path: path.to_path_buf(),
             message: format!("failed to inject stdlib: {e}"),
         })?;
@@ -66,7 +77,14 @@ impl LuaRecipe {
             deps,
             lua: Mutex::new(lua),
             script,
+            workdir,
         })
+    }
+
+    fn set_workdir(&self, ctx: &BuildContext) {
+        if let Ok(mut dir) = self.workdir.lock() {
+            *dir = ctx.project_root.clone();
+        }
     }
 
     fn with_lua<F, T>(&self, f: F) -> T
@@ -78,6 +96,7 @@ impl LuaRecipe {
     }
 
     fn call_string_fn(&self, fn_name: &str, ctx: &BuildContext) -> Option<String> {
+        self.set_workdir(ctx);
         self.with_lua(|lua| {
             let globals = lua.globals();
             let func: mlua::Function = globals.get(fn_name).ok()?;
@@ -88,6 +107,7 @@ impl LuaRecipe {
     }
 
     fn call_strings_fn(&self, fn_name: &str, ctx: &BuildContext) -> Option<Vec<String>> {
+        self.set_workdir(ctx);
         self.with_lua(|lua| {
             let globals = lua.globals();
             let func: mlua::Function = globals.get(fn_name).ok()?;
@@ -174,6 +194,7 @@ impl Recipe for LuaRecipe {
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
+        self.set_workdir(ctx);
         self.with_lua(|lua| {
             let globals = lua.globals();
             let func: mlua::Function =
@@ -500,6 +521,41 @@ end
     }
 
     #[test]
+    fn test_stdlib_shell_exec_runs_in_project_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let subdir = tmp.path().join("subdir");
+        std::fs::create_dir_all(&subdir).unwrap();
+        std::fs::write(tmp.path().join("marker.txt"), "from-root").unwrap();
+        let plugin_path = tmp.path().join("cwd.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    local result = shell_exec("cat marker.txt")
+    return { stdout = result.stdout, stderr = "", success = result.success }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("cwd", &plugin_path).unwrap();
+        let mut ctx = test_ctx();
+        ctx.project_root = tmp.path().to_path_buf();
+
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&subdir).unwrap();
+        let result = recipe.execute(&ctx);
+        std::env::set_current_dir(&orig).unwrap();
+
+        let output = result.unwrap();
+        assert!(
+            output.stdout.contains("from-root"),
+            "shell_exec must run in project_root, got: {}",
+            output.stdout
+        );
+    }
+
+    #[test]
     fn test_stdlib_file_io() {
         let dir = tempfile::TempDir::new().unwrap();
         let test_file = dir.path().join("test.txt");
@@ -717,6 +773,54 @@ end
         let recipe = LuaRecipe::load("setenv", &plugin_path).unwrap();
         let output = recipe.execute(&test_ctx()).unwrap();
         assert_eq!(output.stdout.trim(), "hello");
+    }
+
+    #[test]
+    fn test_stdlib_set_env_applies_to_shell_exec() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("setenvshell.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    set_env("MUST_PLUGIN_SHELL_VAR", "visible")
+    local result = shell_exec("echo $MUST_PLUGIN_SHELL_VAR")
+    return { stdout = result.stdout, stderr = "", success = result.success }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("setenvshell", &plugin_path).unwrap();
+        let output = recipe.execute(&test_ctx()).unwrap();
+        assert!(
+            output.stdout.contains("visible"),
+            "shell_exec must see plugin env, got: {}",
+            output.stdout
+        );
+    }
+
+    #[test]
+    fn test_stdlib_set_env_does_not_leak_process_env() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let plugin_path = dir.path().join("setenvnoleak.lua");
+        std::fs::write(
+            &plugin_path,
+            r#"
+function execute(ctx)
+    set_env("MUST_PLUGIN_NO_LEAK", "plugin-only")
+    return { stdout = "ok", stderr = "", success = true }
+end
+"#,
+        )
+        .unwrap();
+
+        let recipe = LuaRecipe::load("setenvnoleak", &plugin_path).unwrap();
+        recipe.execute(&test_ctx()).unwrap();
+        assert!(
+            std::env::var("MUST_PLUGIN_NO_LEAK").is_err(),
+            "set_env must not mutate the process environment"
+        );
     }
 
     #[test]

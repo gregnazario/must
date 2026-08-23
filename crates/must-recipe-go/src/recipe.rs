@@ -1,6 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_core::{
-    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_command,
+    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    run_command,
 };
 use must_toolchain::{Triple, go_cross_env, go_install_hint, go_installed};
 use std::collections::{BTreeMap, HashMap};
@@ -68,11 +69,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(
@@ -88,6 +91,24 @@ fn make_cache_key(
         target: ctx.target.clone(),
         profile: ctx.profile.clone(),
         hash,
+    }
+}
+
+fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
+    if let Some(ref cache) = ctx.cache {
+        cache.lookup(key).ok()
+    } else {
+        must_cache::store::DiskCache::open(&ctx.cache_dir)
+            .ok()
+            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
+    }
+}
+
+fn store_cache(key: &CacheKey, ctx: &BuildContext) {
+    if let Some(ref cache) = ctx.cache {
+        let _ = cache.store(key, &ctx.project_root, &[]);
+    } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
     }
 }
 
@@ -152,6 +173,7 @@ impl Recipe for GoBinRecipe {
             &self.name,
             "go-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
         ))
     }
@@ -169,6 +191,18 @@ impl Recipe for GoBinRecipe {
             return Err(Error::ToolchainNotFound {
                 target: ctx.target.clone(),
                 hint: go_install_hint(),
+            });
+        }
+
+        let key = self.cache_key(ctx)?;
+        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: true,
+                outputs: self.outputs(ctx)?,
+                stdout: String::new(),
+                stderr: String::new(),
+                duration_ms: 0,
             });
         }
 
@@ -207,6 +241,7 @@ impl Recipe for GoBinRecipe {
         let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let mut result = run_go(&args_refs, ctx, &extra_env)?;
         result.recipe_name = self.name.clone();
+        store_cache(&key, ctx);
         Ok(result)
     }
 }
@@ -255,7 +290,9 @@ impl Recipe for GoTestRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "go-test", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name, "go-test", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -308,6 +345,26 @@ mod tests {
     fn test_go_bin_recipe_cache_strategy_is_hash() {
         let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
         assert!(matches!(recipe.cache_strategy(), CacheStrategy::Hash));
+    }
+
+    #[test]
+    fn test_go_bin_execute_hits_prepopulated_cache() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut ctx = make_build_context();
+        ctx.project_root = tmp.path().to_path_buf();
+        ctx.cache_dir = tmp.path().join(".must/cache");
+
+        let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
+        let key = recipe.cache_key(&ctx).unwrap();
+        let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
+        drop(cache);
+
+        match recipe.execute(&ctx) {
+            Ok(out) => assert!(out.from_cache, "expected cache hit"),
+            Err(Error::ToolchainNotFound { .. }) => {}
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
     }
 
     #[test]

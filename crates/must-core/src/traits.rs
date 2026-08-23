@@ -29,6 +29,7 @@ pub trait Toolchain: Send + Sync {
 /// Persistent cache for recipe outputs.
 pub trait Cache: Send + Sync {
     fn lookup(&self, key: &CacheKey) -> Result<CacheLookup>;
-    fn store(&self, key: &CacheKey, outputs: &[PathBuf]) -> Result<()>;
+    fn store(&self, key: &CacheKey, root: &Path, outputs: &[PathBuf]) -> Result<()>;
+    fn restore(&self, key: &CacheKey, root: &Path) -> Result<bool>;
     fn invalidate(&self, key: &CacheKey) -> Result<()>;
 }

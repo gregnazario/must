@@ -54,11 +54,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(
@@ -83,15 +85,15 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
     } else {
         must_cache::store::DiskCache::open(&ctx.cache_dir)
             .ok()
-            .and_then(|c| Cache::lookup(&c, key).ok())
+            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
     }
 }
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &[]);
+        let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &[]);
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
     }
 }
 
@@ -155,6 +157,7 @@ impl Recipe for RustBinRecipe {
             &self.name,
             "rust-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
         ))
     }
@@ -245,7 +248,9 @@ impl Recipe for RustLibRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
         flags.insert("features".to_string(), self.features.join(","));
-        Ok(make_cache_key(&self.name, "rust-lib", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name, "rust-lib", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -331,7 +336,13 @@ impl Recipe for RustTestRecipe {
         if let Some(f) = &self.test_filter {
             flags.insert("filter".to_string(), f.clone());
         }
-        Ok(make_cache_key(&self.name, "rust-test", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name,
+            "rust-test",
+            ctx,
+            &self.env,
+            &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -382,6 +393,20 @@ mod tests {
     fn rust_bin_cache_strategy_is_hash() {
         let r = RustBinRecipe::new("build", "myapp");
         assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+    }
+
+    #[test]
+    fn rust_bin_cache_key_reacts_to_recipe_env() {
+        let mut r1 = RustBinRecipe::new("build", "myapp");
+        r1.env.insert("GOFLAGS".to_string(), "a".to_string());
+        let mut r2 = RustBinRecipe::new("build", "myapp");
+        r2.env.insert("GOFLAGS".to_string(), "b".to_string());
+        let c = ctx();
+        assert_ne!(
+            r1.cache_key(&c).unwrap().hash,
+            r2.cache_key(&c).unwrap().hash,
+            "recipe-scoped env must be part of the cache key"
+        );
     }
 
     #[test]
@@ -476,7 +501,7 @@ mod tests {
         // Pre-populate cache with the exact key the recipe would compute
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
 
         let out = r.execute(&ctx).unwrap();
@@ -561,7 +586,7 @@ mod tests {
         let r = RustLibRecipe::new("lib", "mylib");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
 
         let out = r.execute(&ctx).unwrap();

@@ -51,11 +51,13 @@ fn make_cache_key(
     recipe_name: &str,
     recipe_type: &str,
     ctx: &BuildContext,
+    extra_env: &HashMap<String, String>,
     extra_flags: &BTreeMap<String, String>,
 ) -> CacheKey {
     let env_btree: BTreeMap<String, String> = ctx
         .env
         .iter()
+        .chain(extra_env.iter())
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     let hash = compute_hash(recipe_name, recipe_type, &[], &env_btree, "", extra_flags);
@@ -73,15 +75,15 @@ fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
     } else {
         must_cache::store::DiskCache::open(&ctx.cache_dir)
             .ok()
-            .and_then(|c| Cache::lookup(&c, key).ok())
+            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
     }
 }
 
 fn store_cache(key: &CacheKey, ctx: &BuildContext) {
     if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &[]);
+        let _ = cache.store(key, &ctx.project_root, &[]);
     } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(&cache, key, &[]);
+        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
     }
 }
 
@@ -133,6 +135,7 @@ impl Recipe for TsBinRecipe {
             &self.name,
             "ts-bin",
             ctx,
+            &self.env,
             &self.extra_flags(),
         ))
     }
@@ -208,7 +211,9 @@ impl Recipe for TsCheckRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ts-check", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name, "ts-check", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -269,7 +274,9 @@ impl Recipe for TsLintRecipe {
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
         let mut flags = BTreeMap::new();
         flags.insert("package".to_string(), self.package.clone());
-        Ok(make_cache_key(&self.name, "ts-lint", ctx, &flags))
+        Ok(make_cache_key(
+            &self.name, "ts-lint", ctx, &self.env, &flags,
+        ))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -333,7 +340,7 @@ impl Recipe for NpmRecipe {
         let mut flags = BTreeMap::new();
         flags.insert("npm_script".to_string(), self.npm_script.clone());
         flags.insert("workdir".to_string(), self.workdir.clone());
-        Ok(make_cache_key(&self.name, "npm", ctx, &flags))
+        Ok(make_cache_key(&self.name, "npm", ctx, &self.env, &flags))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -505,7 +512,7 @@ mod tests {
         let r = TsBinRecipe::new("build", ".");
         let key = r.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
-        cache.store(&key, &[]).unwrap();
+        cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
 
         let out = r.execute(&ctx);

@@ -24,7 +24,8 @@ pub fn import_taskfile(input: &str) -> ImportResult {
     finish_import(output)
 }
 
-fn finish_import(output: translate::MustfileOutput) -> ImportResult {
+fn finish_import(mut output: translate::MustfileOutput) -> ImportResult {
+    translate::finalize_recipes(&mut output);
     let translated_count = output.env.len() + output.recipes.len();
     let todo_count = output.todos.len();
     let skipped_count = output.skipped.len();
