@@ -1,14 +1,16 @@
 # GitHub Actions
 
-must provides a GitHub Actions composite action for CI.
+must ships no composite GitHub Action; CI installs the CLI, then calls `must`
+commands directly.
 
-## Basic usage
+## Installing in a workflow
 
 ```yaml
-- uses: anomalyco/must@main
-  with:
-    command: build
-    profile: release
+- name: Install must
+  run: |
+    curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh \
+      -o install.sh
+    sh install.sh && rm install.sh
 ```
 
 ## Full workflow example
@@ -29,32 +31,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Install must
+        run: |
+          curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh \
+            -o install.sh
+          sh install.sh && rm install.sh
+
       - name: Build
-        uses: anomalyco/mustfile@main
-        with:
-          command: build
+        run: must build
 
       - name: Test
-        uses: anomalyco/mustfile@main
-        with:
-          command: test
+        run: must test
 
       - name: Lint
-        uses: anomalyco/mustfile@main
-        with:
-          command: lint
+        run: must lint
 ```
-
-## Action inputs
-
-| Input | Description | Default |
-|-------|-------------|---------|
-| `command` | must command to run (e.g., `build`, `test`) | `build` |
-| `file` | Path to Mustfile.toml | Auto-detect |
-| `profile` | Environment profile | `default` |
-| `target` | Cross-compilation target | — |
-| `fail-fast` | Cancel on first failure | `true` |
-| `dry-run` | Plan without executing | `false` |
 
 ## Release workflow
 
@@ -70,11 +61,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: anomalyco/must@main
-        with:
-          command: build
-          profile: release
-          target: release
+
+      - name: Install must
+        run: |
+          curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh \
+            -o install.sh
+          sh install.sh && rm install.sh
+
+      - name: Build
+        run: must --profile release build
 ```
 
 ## Caching in CI

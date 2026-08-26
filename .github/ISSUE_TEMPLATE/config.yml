@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://must.ai/docs
+    url: https://github.com/gregnazario/must/tree/main/docs
     about: Check the documentation before opening an issue
