@@ -5,8 +5,6 @@
 
 > A polyglot build orchestrator with first-class support for Rust, Go, C/C++, TypeScript, Python, Zig, and Docker. One binary, one config, consistent verbs across languages.
 
-**[Documentation, guides, and recipe reference →](https://must.ai)**
-
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
@@ -325,7 +323,6 @@ Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml)
 
 ## Documentation
 
-- [Doc Site](https://must.ai) — full guides, recipe reference, and migration docs
 - [Architecture](docs/DESIGN.md) — execution model and internals
 - [Migration](docs/MIGRATION_GUIDE.md) — migrating from Make, Just, and Taskfile
 
