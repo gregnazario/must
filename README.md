@@ -1,7 +1,7 @@
 # Mustfile
 
 [![CI](https://github.com/gregnazario/must/actions/workflows/ci.yml/badge.svg)](https://github.com/gregnazario/must/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 > A polyglot build orchestrator with first-class support for Rust, Go, C/C++, TypeScript, Python, Zig, and Docker. One binary, one config, consistent verbs across languages.
 
