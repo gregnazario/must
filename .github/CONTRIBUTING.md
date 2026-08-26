@@ -5,7 +5,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 ## Quick Start
 
 ```bash
-git clone https://github.com/anomalyco/must.git
+git clone https://github.com/gregnazario/must.git
 cd must
 cargo build
 cargo test

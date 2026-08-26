@@ -1,11 +1,1 @@
-* @anomalyco/mustfile-maintainers
-.github/ @anomalyco/mustfile-maintainers
-crates/must-core/ @anomalyco/mustfile-maintainers
-crates/must-cli/ @anomalyco/mustfile-maintainers
-crates/must-config/ @anomalyco/mustfile-maintainers
-crates/must-engine/ @anomalyco/mustfile-maintainers
-crates/must-graph/ @anomalyco/mustfile-maintainers
-crates/must-cache/ @anomalyco/mustfile-maintainers
-crates/must-plugin/ @anomalyco/mustfile-maintainers
-crates/must-import/ @anomalyco/mustfile-maintainers
-crates/must-toolchain/ @anomalyco/mustfile-maintainers
+* @gregnazario

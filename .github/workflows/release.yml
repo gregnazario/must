@@ -114,17 +114,12 @@ jobs:
 
             **macOS / Linux:**
             ```sh
-            curl -fsSL https://github.com/anomalyco/mustfile/releases/latest/download/install.sh | sh
+            curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh -o install.sh && sh install.sh && rm install.sh
             ```
 
             **Windows:**
             Download `must-x86_64-pc-windows-msvc.zip` from the assets below.
 
-            **With Homebrew:**
-            ```sh
-            brew tap anomalyco/tap
-            brew install must
-            ```
 
             ## Checksums
 

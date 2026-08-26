@@ -9,7 +9,7 @@ Mustfile is a polyglot build orchestrator written in Rust. One binary, one confi
 - **41 recipe types** across 17 languages (Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, Lua plugins) plus **20 bridge adapters**
 - **28 crates** in a Cargo workspace (edition 2024)
 - **870+ tests** passing
-- **Doc site**: MkDocs Material at `site/` (deployed to must.ai)
+- **Doc site**: MkDocs Material at `site/` (deployed to GitHub Pages)
 
 ## Build & Test Commands
 

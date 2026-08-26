@@ -1,10 +1,8 @@
 # CI/CD example.
 # Demonstrates: A complete CI/CD pipeline using must with GitHub Actions.
 #
-# This Mustfile.toml works with the must GitHub Action:
-#   - uses: anomalyco/mustfile@main
-#     with:
-#       command: ci
+# Install `must` on PATH first (see the repo's install instructions),
+# then recipes below work as-is from any CI job.
 #
 # Project layout:
 #   .github/workflows/ci.yml   GitHub Actions workflow

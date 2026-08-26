@@ -6,10 +6,9 @@
 
 Instead, please report them via:
 
-- **Email:** security@must.ai
-- **GitHub Security Advisory:** [Report a vulnerability](https://github.com/anomalyco/must/security/advisories/new)
+- **GitHub Security Advisory:** [Report a vulnerability](https://github.com/gregnazario/must/security/advisories/new)
 
-You should receive a response within 48 hours. If you don't, please follow up via email.
+Updates will be provided through the advisory thread as triage proceeds.
 
 ## What to Include
 

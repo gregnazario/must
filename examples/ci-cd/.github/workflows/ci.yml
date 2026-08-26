@@ -13,11 +13,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install must
+        run: |
+          curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh \
+            -o /tmp/must-install.sh
+          sh /tmp/must-install.sh
+
       - name: Run CI pipeline
-        uses: anomalyco/mustfile@main
-        with:
-          command: ci
-          profile: ci
+        run: must ci
 
   deploy:
     needs: check
@@ -26,10 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install must
+        run: |
+          curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh \
+            -o /tmp/must-install.sh
+          sh /tmp/must-install.sh
+
       - name: Deploy
-        uses: anomalyco/mustfile@main
-        with:
-          command: deploy
+        run: must deploy
         env:
           REGISTRY: ghcr.io/${{ github.repository }}
           VERSION: ${{ github.sha }}

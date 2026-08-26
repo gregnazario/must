@@ -1,8 +1,8 @@
 site_name: Mustfile
 site_description: Polyglot build orchestrator — one config, every language
-site_url: https://must.ai
-repo_name: anomalyco/mustfile
-repo_url: https://github.com/anomalyco/mustfile
+site_url: https://gregnazario.github.io/must/
+repo_name: gregnazario/must
+repo_url: https://github.com/gregnazario/must
 edit_uri: edit/main/site/docs/
 copyright: MIT License
 
