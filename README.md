@@ -23,8 +23,10 @@ Mustfile sits between pure task runners (Make, Just) and full build systems (Baz
 **macOS / Linux quick install** — fetches the latest release binary, verifies its SHA256 checksum, and installs `must` to `~/.local/bin`:
 
 ```bash
-curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh -o /tmp/must-install.sh && sh /tmp/must-install.sh && rm /tmp/must-install.sh
 ```
+
+> Requires a published release — if none exists yet, build from source below. The installer checks the binary's SHA256 against the release's `SHA256SUMS`; since both travel over the same channel, this guards against download corruption rather than a tampered release.
 
 Or build from source with Cargo:
 
