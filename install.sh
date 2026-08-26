@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REPO="anomalyco/mustfile"
+REPO="gregnazario/must"
 BINARY="must"
 
 println() {
@@ -54,6 +54,15 @@ get_latest_version() {
     fi
 }
 
+sha256_file() {
+    # Prefer sha256sum; fall back to shasum (present on stock macOS).
+    if command -v sha256sum > /dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
 verify_checksum() {
     FILE="$1"
     BASENAME="$(basename "$FILE")"
@@ -65,7 +74,7 @@ verify_checksum() {
     fi
 
     EXPECTED=$(echo "$CHECKSUM_LINE" | awk '{print $1}')
-    ACTUAL=$(sha256sum "$FILE" | awk '{print $1}')
+    ACTUAL=$(sha256_file "$FILE")
 
     if [ "$EXPECTED" != "$ACTUAL" ]; then
         echoerr "Error: SHA256 mismatch for ${BASENAME}"
