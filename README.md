@@ -1,6 +1,11 @@
 # Mustfile
 
+[![CI](https://github.com/gregnazario/must/actions/workflows/ci.yml/badge.svg)](https://github.com/gregnazario/must/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > A polyglot build orchestrator with first-class support for Rust, Go, C/C++, TypeScript, Python, Zig, and Docker. One binary, one config, consistent verbs across languages.
+
+**[Documentation, guides, and recipe reference →](https://must.ai)**
 
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
@@ -15,11 +20,19 @@ Mustfile sits between pure task runners (Make, Just) and full build systems (Baz
 
 ## Install
 
+**macOS / Linux quick install** — fetches the latest release binary, verifies its SHA256 checksum, and installs `must` to `~/.local/bin`:
+
+```bash
+curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh | sh
+```
+
+Or build from source with Cargo:
+
 ```bash
 cargo install --path crates/must-cli
 ```
 
-Or download a prebuilt binary from [Releases](https://github.com/gregnazario/must/releases).
+Prebuilt binaries are attached to each [GitHub Release](https://github.com/gregnazario/must/releases) (`must-<target>.tar.gz` for `x86_64` / `aarch64` Linux and macOS, `.zip` for Windows x86_64), along with a `SHA256SUMS` file.
 
 ## Quick Start
 
