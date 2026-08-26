@@ -20,7 +20,7 @@ jobs:
           sh /tmp/must-install.sh
 
       - name: Run CI pipeline
-        run: must ci
+        run: must --profile ci ci
 
   deploy:
     needs: check
