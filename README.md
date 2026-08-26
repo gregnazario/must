@@ -1,5 +1,8 @@
 # Mustfile
 
+[![CI](https://github.com/gregnazario/must/actions/workflows/ci.yml/badge.svg)](https://github.com/gregnazario/must/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 > A polyglot build orchestrator with first-class support for Rust, Go, C/C++, TypeScript, Python, Zig, and Docker. One binary, one config, consistent verbs across languages.
 
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
@@ -15,11 +18,21 @@ Mustfile sits between pure task runners (Make, Just) and full build systems (Baz
 
 ## Install
 
+**macOS / Linux quick install** — fetches the latest release binary, verifies its SHA256 checksum, and installs `must` to `~/.local/bin`:
+
+```bash
+curl -fsSL https://github.com/gregnazario/must/releases/latest/download/install.sh -o /tmp/must-install.sh && sh /tmp/must-install.sh && rm /tmp/must-install.sh
+```
+
+> Requires a published release — if none exists yet, build from source below. The installer checks the binary's SHA256 against the release's `SHA256SUMS`; since both travel over the same channel, this guards against download corruption rather than a tampered release.
+
+Or build from source with Cargo:
+
 ```bash
 cargo install --path crates/must-cli
 ```
 
-Or download a prebuilt binary from [Releases](https://github.com/gregnazario/must/releases).
+Prebuilt binaries are attached to each [GitHub Release](https://github.com/gregnazario/must/releases) (`must-<target>.tar.gz` for `x86_64` / `aarch64` Linux and macOS, `.zip` for Windows x86_64), along with a `SHA256SUMS` file.
 
 ## Quick Start
 
@@ -310,7 +323,6 @@ Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml)
 
 ## Documentation
 
-- [Doc Site](https://must.ai) — full guides, recipe reference, and migration docs
 - [Architecture](docs/DESIGN.md) — execution model and internals
 - [Migration](docs/MIGRATION_GUIDE.md) — migrating from Make, Just, and Taskfile
 
