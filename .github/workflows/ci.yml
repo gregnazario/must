@@ -109,9 +109,9 @@ jobs:
           # Ruby
           ruby --version
           # Elixir
-          curl -fsSL https://github.com/elixir-lang/elixir/releases/download/v1.17.3/Downloads-precompiled.zip -o elixir.zip && unzip -q elixir.zip -d elixir && echo "$PWD/elixir/bin" >> $GITHUB_PATH
+          curl -fsSL --retry 5 --retry-all-errors https://github.com/elixir-lang/elixir/releases/download/v1.17.3/Downloads-precompiled.zip -o elixir.zip && unzip -q elixir.zip -d elixir && echo "$PWD/elixir/bin" >> $GITHUB_PATH
           # Dart
-          curl -fsSL https://storage.googleapis.com/dart-archive/channels/stable/release/3.7.0/sdk/dartsdk-linux-x64-release.zip -o dart.zip && unzip -q dart.zip -d dart && echo "$PWD/dart/dart-sdk/bin" >> $GITHUB_PATH
+          curl -fsSL --retry 5 --retry-all-errors https://storage.googleapis.com/dart-archive/channels/stable/release/3.7.0/sdk/dartsdk-linux-x64-release.zip -o dart.zip && unzip -q dart.zip -d dart && echo "$PWD/dart/dart-sdk/bin" >> $GITHUB_PATH
       - name: Install Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -129,7 +129,7 @@ jobs:
       - name: Install Swift (Linux)
         if: runner.os == 'Linux'
         run: |
-          curl -fsSL https://download.swift.org/swift-6.0.3-release/ubuntu2404/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-ubuntu24.04.tar.gz | tar xz
+          curl -fsSL --retry 5 --retry-all-errors https://download.swift.org/swift-6.0.3-release/ubuntu2404/swift-6.0.3-RELEASE/swift-6.0.3-RELEASE-ubuntu24.04.tar.gz | tar xz
           echo "$PWD/swift-6.0.3-RELEASE-ubuntu24.04/usr/bin" >> $GITHUB_PATH
       - name: Test examples (dry-run)
         run: |
