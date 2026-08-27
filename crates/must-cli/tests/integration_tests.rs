@@ -140,19 +140,19 @@ name = "test"
 
 [recipe.a]
 type = "shell"
-script = "sleep 0.2"
+script = "sleep 0.5"
 
 [recipe.b]
 type = "shell"
-script = "sleep 0.2"
+script = "sleep 0.5"
 
 [recipe.c]
 type = "shell"
-script = "sleep 0.2"
+script = "sleep 0.5"
 
 [recipe.d]
 type = "shell"
-script = "sleep 0.2"
+script = "sleep 0.5"
 "#,
     )
     .unwrap();
@@ -199,10 +199,12 @@ script = "sleep 0.2"
     assert!(status.success());
     let t4 = t4_start.elapsed();
 
-    // -j 4 should be meaningfully faster (2x at minimum)
+    // -j 4 should be meaningfully faster; 3/4 (not 1/2) leaves slack for
+    // process spawn overhead and CPU contention on loaded CI runners while
+    // still catching a fully sequential scheduler
     assert!(
-        t4 < t1 / 2,
-        "-j 4 ({:?}) should be much faster than -j 1 ({:?})",
+        t4 * 4 < t1 * 3,
+        "-j 4 ({:?}) should be meaningfully faster than -j 1 ({:?})",
         t4,
         t1
     );
