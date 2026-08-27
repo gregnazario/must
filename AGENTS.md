@@ -142,6 +142,7 @@ win     = "nmake"
 - `compute_hash()` does NOT include `ctx.target` in hash — only struct fields
 - `CacheMode::None` serializes as `"none"` (kebab-case), NOT "never"
 - All GitHub Actions pinned to commit SHAs
+- `must.ai` is not and will never be this project's domain — do not reference it or add a CNAME; the doc site lives at GitHub Pages (`gregnazario.github.io/must`)
 
 ## File Reference
 
