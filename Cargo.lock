@@ -1244,7 +1244,7 @@ dependencies = [
 
 [[package]]
 name = "must-bridge"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-config",
@@ -1254,7 +1254,7 @@ dependencies = [
 
 [[package]]
 name = "must-cache"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "hex",
@@ -1266,7 +1266,7 @@ dependencies = [
 
 [[package]]
 name = "must-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -1312,7 +1312,7 @@ dependencies = [
 
 [[package]]
 name = "must-config"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "must-core",
@@ -1323,14 +1323,14 @@ dependencies = [
 
 [[package]]
 name = "must-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "must-engine"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-config",
@@ -1344,7 +1344,7 @@ dependencies = [
 
 [[package]]
 name = "must-graph"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "criterion",
  "must-core",
@@ -1352,7 +1352,7 @@ dependencies = [
 
 [[package]]
 name = "must-import"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "tempfile",
@@ -1362,7 +1362,7 @@ dependencies = [
 
 [[package]]
 name = "must-plugin"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "glob",
  "mlua",
@@ -1374,7 +1374,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-cc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "glob",
  "must-cache",
@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-dart"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1395,7 +1395,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-docker"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-dotnet"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1413,7 +1413,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-elixir"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-flutter"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1431,7 +1431,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-go"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1441,7 +1441,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-java"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1450,7 +1450,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-kotlin"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1459,7 +1459,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-nim"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1468,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-precompiled"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "flate2",
  "must-cache",
@@ -1481,7 +1481,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-py"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1490,7 +1490,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-ruby"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1499,7 +1499,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-rust"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1508,7 +1508,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-shell"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "glob",
  "must-cache",
@@ -1518,7 +1518,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-swift"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1527,7 +1527,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-ts"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1536,7 +1536,7 @@ dependencies = [
 
 [[package]]
 name = "must-recipe-zig"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-cache",
  "must-core",
@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "must-toolchain"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "must-core",
 ]
