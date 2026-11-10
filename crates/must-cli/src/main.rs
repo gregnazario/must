@@ -1339,7 +1339,7 @@ fn wire_recipes(
                         .clone()
                         .unwrap_or_else(|| ".".to_string()),
                     deps: recipe_cfg.deps.clone(),
-                    ldflags: recipe_cfg.ldflags.as_deref().map(&expand),
+                    ldflags: recipe_cfg.ldflags.as_deref().map(expand),
                     build_tags: Vec::new(),
                     env,
                 };
@@ -1504,7 +1504,7 @@ fn wire_recipes(
                     expand(&recipe_cfg.image.clone().unwrap_or_else(|| name.clone())),
                 );
                 r.deps = recipe_cfg.deps.clone();
-                r.dockerfile = recipe_cfg.dockerfile.as_deref().map(&expand);
+                r.dockerfile = recipe_cfg.dockerfile.as_deref().map(expand);
                 r.context = recipe_cfg
                     .package
                     .clone()
