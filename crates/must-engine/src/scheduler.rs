@@ -182,7 +182,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(parallelism: usize, fail_fast: bool) -> Self {
         Self {
-            parallelism,
+            parallelism: parallelism.max(1),
             fail_fast,
         }
     }

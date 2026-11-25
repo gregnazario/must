@@ -45,14 +45,18 @@ struct Cli {
     profile: String,
 
     /// Parallelism (default = num_cpus)
-    #[arg(short = 'j', global = true)]
+    #[arg(
+        short = 'j',
+        global = true,
+        value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..)
+    )]
     parallelism: Option<usize>,
 
     /// Plan without executing
     #[arg(long, global = true)]
     dry_run: bool,
 
-    /// Cancel in-flight recipes on first failure
+    /// Stop scheduling recipes once one fails
     #[arg(long, global = true)]
     fail_fast: bool,
 
@@ -185,7 +189,12 @@ enum Commands {
         #[arg(long)]
         filter: Option<String>,
         /// Maximum parallel sub-projects
-        #[arg(short = 'j', long, default_value = "1")]
+        #[arg(
+            short = 'j',
+            long,
+            default_value = "1",
+            value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..)
+        )]
         parallelism: usize,
         /// Continue on failure
         #[arg(long)]

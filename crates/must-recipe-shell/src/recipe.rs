@@ -95,6 +95,12 @@ impl Recipe for ShellRecipe {
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
+        if self.script.trim().is_empty() {
+            return Err(Error::Config {
+                path: ctx.project_root.clone(),
+                message: format!("recipe '{}' has no script for this platform", self.name),
+            });
+        }
         if ctx.dry_run {
             return Ok(RecipeOutput {
                 recipe_name: self.name.clone(),

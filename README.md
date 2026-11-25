@@ -172,13 +172,15 @@ script = "echo CI passed"
 
 ## Environment Variables
 
-Env vars are layered (highest priority wins):
+Env vars are layered; each layer overrides the ones before it:
 
 1. Process environment
 2. Global `[env]` in config
 3. Profile `[env.release]`
 4. Per-recipe `[recipe.build.env]`
 5. Toolchain env (cross-compilation)
+
+A `${NAME}` reference in a config value resolves against the layers beneath it.
 
 Use `${VAR}` in recipe fields for interpolation:
 

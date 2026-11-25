@@ -84,14 +84,21 @@ fn require_any_script(recipe: &crate::schema::Recipe, recipe_name: &str) -> Opti
     let has_script = recipe.script.as_ref().is_some_and(|s| !s.is_empty())
         || recipe.script_win.as_ref().is_some_and(|s| !s.is_empty())
         || !recipe.scripts.is_empty();
-    if has_script {
-        None
-    } else {
-        Some(Error::Config {
+    if !has_script {
+        return Some(Error::Config {
             path: PathBuf::new(),
             message: format!("recipe '{recipe_name}' is missing required field 'script'"),
-        })
+        });
     }
+    if recipe.resolved_script().is_none_or(|s| s.trim().is_empty()) {
+        return Some(Error::Config {
+            path: PathBuf::new(),
+            message: format!(
+                "recipe '{recipe_name}' has no script for this platform; add `script` or a matching `scripts` entry"
+            ),
+        });
+    }
+    None
 }
 
 fn require_field(field: &str, value: Option<&String>, recipe_name: &str) -> Option<Error> {
