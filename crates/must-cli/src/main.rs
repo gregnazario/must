@@ -3,7 +3,7 @@ use must_bridge::BridgeRecipe;
 use must_config::load_config;
 use must_config::schema::{CacheMode, Config, RecipeType};
 use must_core::{BuildContext, CacheStrategy, Error};
-use must_engine::{Engine, compose_env_with_base};
+use must_engine::{Engine, compose_env_with_base, expand_env_vars};
 use must_graph::Dag;
 use must_recipe_cc::{CBinRecipe, CLibRecipe};
 use must_recipe_dart::{DartBinRecipe, DartTestRecipe};
@@ -367,7 +367,30 @@ async fn run(cli: Cli) -> must_core::Result<()> {
         keep_going,
     } = &cli.command
     {
-        return run_foreach(command, filter.as_deref(), *parallelism, *keep_going).await;
+        let mut global_args = Vec::new();
+        if cli.dry_run {
+            global_args.push("--dry-run".to_string());
+        }
+        if cli.fail_fast {
+            global_args.push("--fail-fast".to_string());
+        }
+        if cli.profile != "default" {
+            global_args.extend(["--profile".to_string(), cli.profile.clone()]);
+        }
+        for target in &cli.target {
+            global_args.extend(["--target".to_string(), target.clone()]);
+        }
+        for _ in 0..cli.verbose {
+            global_args.push("-v".to_string());
+        }
+        return run_foreach(
+            &global_args,
+            command,
+            filter.as_deref(),
+            *parallelism,
+            *keep_going,
+        )
+        .await;
     }
 
     // Find and load Mustfile.toml
@@ -1944,7 +1967,7 @@ async fn execute_recipes(
         );
         pb.set_message("starting...");
 
-        if std::io::stdout().is_terminal() {
+        if std::io::stdout().is_terminal() && !pb.is_hidden() {
             let pb_print = pb.clone();
             must_core::set_output_fn(Box::new(move |line: &str| {
                 pb_print.println(line);
@@ -1994,11 +2017,14 @@ async fn execute_recipes(
         pb.finish_and_clear();
         let report = report?;
 
-        save_build_manifest(&project_root, &report, target, profile);
+        if !dry_run {
+            save_build_manifest(&project_root, &report, target, profile);
+        }
 
         // Print summary
+        let built_label = if dry_run { "would run" } else { "built" };
         println!(
-            "\n{} built, {} cached, {} failed — {}ms",
+            "\n{} {built_label}, {} cached, {} failed — {}ms",
             report.built(),
             report.cached(),
             report.failed(),
@@ -2027,6 +2053,7 @@ async fn execute_recipes(
 }
 
 async fn run_foreach(
+    global_args: &[String],
     command: &[String],
     filter: Option<&str>,
     parallelism: usize,
@@ -2071,6 +2098,7 @@ async fn run_foreach(
         let sem = sem.clone();
         let binary = binary.clone();
         let command: Vec<String> = command.to_vec();
+        let global_args: Vec<String> = global_args.to_vec();
         let dir_name = dir
             .file_name()
             .unwrap_or_default()
@@ -2080,7 +2108,7 @@ async fn run_foreach(
         handles.push(tokio::spawn(async move {
             let _permit = sem.acquire().await.expect("semaphore closed");
             let mut cmd = tokio::process::Command::new(&binary);
-            cmd.args(&command).current_dir(&dir);
+            cmd.args(&global_args).args(&command).current_dir(&dir);
 
             let output = cmd.output().await;
             match output {
@@ -2583,8 +2611,8 @@ fn explain_recipe(
     };
 
     if !command_preview.is_empty() {
-        let preview = if command_preview.len() > 120 {
-            format!("{}...", &command_preview[..120])
+        let preview = if command_preview.chars().count() > 120 {
+            format!("{}...", truncate(&command_preview, 120))
         } else {
             command_preview
         };
@@ -2600,8 +2628,12 @@ fn explain_recipe(
             match glob::glob(&full) {
                 Ok(paths) => {
                     for entry in paths.flatten() {
+                        if entry.is_dir() {
+                            println!("  {} — (directory)", entry.display());
+                            continue;
+                        }
                         let h = hash_file(&entry);
-                        println!("  {} — {}", entry.display(), &h[..12]);
+                        println!("  {} — {}", entry.display(), truncate(&h, 12));
                     }
                 }
                 Err(_) => println!("  {pattern} (invalid glob)"),
@@ -2654,10 +2686,9 @@ fn explain_recipe(
                 .any(|s| k.to_uppercase().ends_with(s))
                 || k.to_uppercase().contains("SECRET");
             let display = if is_secret {
-                let visible = v.len().min(4);
-                format!("{}***", &v[..visible])
-            } else if v.len() > 60 {
-                format!("{}...", &v[..60])
+                format!("{}***", truncate(v, 4))
+            } else if v.chars().count() > 60 {
+                format!("{}...", truncate(v, 60))
             } else {
                 v.to_string()
             };
@@ -2713,13 +2744,11 @@ fn resolve_targets(raw_targets: &[String], config: &Config) -> Vec<String> {
     resolved
 }
 
-fn expand_env_vars(s: &str, env: &HashMap<String, String>) -> String {
-    let mut result = s.to_string();
-    for (key, value) in env {
-        let pattern = format!("${{{key}}}");
-        result = result.replace(&pattern, value);
+fn truncate(text: &str, max_chars: usize) -> &str {
+    match text.char_indices().nth(max_chars) {
+        Some((idx, _)) => &text[..idx],
+        None => text,
     }
-    result
 }
 
 fn print_check(label: &str, ok: bool, hint: &str) {
@@ -3298,7 +3327,33 @@ mod tests {
         assert_eq!(result, vec!["x86_64-unknown-linux-gnu", "host"]);
     }
 
+    #[test]
+    fn test_truncate_never_splits_a_character() {
+        assert_eq!(truncate("café au lait", 4), "café");
+        assert_eq!(truncate("é", 1), "é");
+        assert_eq!(truncate("short", 10), "short");
+        assert_eq!(truncate("", 3), "");
+    }
+
     // ── explain_recipe ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_explain_handles_directory_inputs_and_long_non_ascii_scripts() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::create_dir_all(tmp.path().join("src/sub")).unwrap();
+        std::fs::write(tmp.path().join("src/main.rs"), "fn main() {}").unwrap();
+        let script = format!("echo {}", "é".repeat(150));
+        std::fs::write(
+            &mustfile,
+            format!(
+                "[project]\nname = \"explain-dir\"\n\n[recipe.gen]\ntype = \"shell\"\ninputs = [\"src/**\"]\nscript = '{script}'\n"
+            ),
+        )
+        .unwrap();
+        let config = must_config::load_config(&mustfile).unwrap();
+        explain_recipe(&config, &mustfile, "default", "gen").unwrap();
+    }
 
     #[test]
     fn test_explain_unknown_recipe_returns_error() {

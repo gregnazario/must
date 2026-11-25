@@ -331,6 +331,80 @@ package = "hello"
 }
 
 #[test]
+fn test_dry_run_foreach_runs_nothing() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    for name in ["a", "b"] {
+        let sub = root.join(name);
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(
+            sub.join("Mustfile.toml"),
+            format!(
+                "[project]\nname = \"sub-{name}\"\n\n[recipe.build]\ntype = \"shell\"\nphony = true\nscript = \"touch built.txt\"\n"
+            ),
+        )
+        .unwrap();
+    }
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--dry-run", "foreach", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    for name in ["a", "b"] {
+        assert!(
+            !root.join(name).join("built.txt").exists(),
+            "--dry-run must reach the sub-projects"
+        );
+    }
+}
+
+#[test]
+fn test_dry_run_records_no_build_history() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        "[project]\nname = \"history\"\n\n[recipe.build]\ntype = \"shell\"\nphony = true\nscript = \"true\"\n",
+    )
+    .unwrap();
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args(["--dry-run", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("would run"),
+        "a plan is not a build: {stdout}"
+    );
+    let history = root.join(".must/history");
+    let recorded = std::fs::read_dir(&history)
+        .map(|entries| entries.filter_map(Result::ok).count())
+        .unwrap_or(0);
+    assert_eq!(recorded, 0, "a dry run must not be recorded as a build");
+
+    let output = std::process::Command::new(binary)
+        .args(["build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let recorded = std::fs::read_dir(&history)
+        .unwrap()
+        .filter_map(Result::ok)
+        .count();
+    assert_eq!(recorded, 1, "a real build is recorded");
+}
+
+#[test]
 fn test_imported_recipe_stops_at_first_failing_line() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();

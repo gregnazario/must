@@ -24,7 +24,7 @@ fn is_env_name(name: &str) -> bool {
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-fn expand(value: &str, env: &HashMap<String, String>) -> String {
+pub fn expand_env_vars(value: &str, env: &HashMap<String, String>) -> String {
     if !value.contains("${") {
         return value.to_string();
     }
@@ -65,7 +65,7 @@ pub fn compose_env_with_base(
     let base = env.clone();
     for (key, val) in &config.env.global {
         if let EnvValue::Scalar(s) = val {
-            env.insert(key.clone(), expand(s, &base));
+            env.insert(key.clone(), expand_env_vars(s, &base));
         }
     }
 
@@ -76,7 +76,7 @@ pub fn compose_env_with_base(
             && key == profile
         {
             for (k, v) in profile_map {
-                env.insert(k.clone(), expand(v, &lower));
+                env.insert(k.clone(), expand_env_vars(v, &lower));
             }
         }
     }
@@ -85,7 +85,7 @@ pub fn compose_env_with_base(
     let lower = env.clone();
     if let Some(recipe) = config.recipe.get(recipe_name) {
         for (k, v) in &recipe.env {
-            env.insert(k.clone(), expand(v, &lower));
+            env.insert(k.clone(), expand_env_vars(v, &lower));
         }
     }
 
