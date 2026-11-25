@@ -8,7 +8,7 @@
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
-- **40 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
+- **41 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
 - **Pragmatic caching:** Content-hash caching for compiled recipes; mtime for shell; `must cache` for management
 - **Cross-compilation:** Automatic GOOS/GOARCH, cross-rs containers, and C cross-compilers
 - **Env interpolation:** `${VAR}` expansion in scripts, images, and flags from layered env config
@@ -323,6 +323,7 @@ Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml)
 
 ## Documentation
 
+- [Documentation site](https://gregnazario.github.io/must/) — getting started, guides, and the recipe reference
 - [Architecture](docs/DESIGN.md) — execution model and internals
 - [Migration](docs/MIGRATION_GUIDE.md) — migrating from Make, Just, and Taskfile
 
