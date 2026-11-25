@@ -331,6 +331,28 @@ package = "hello"
 }
 
 #[test]
+fn test_parallelism_zero_is_rejected_instead_of_hanging() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        "[project]\nname = \"j0\"\n\n[recipe.build]\ntype = \"shell\"\nphony = true\nscript = \"touch ran.txt\"\n",
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["-j", "0", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "-j 0 used to hang forever; it must be rejected"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid value '0'"));
+    assert!(!root.join("ran.txt").exists());
+}
+
+#[test]
 fn test_dry_run_foreach_runs_nothing() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
