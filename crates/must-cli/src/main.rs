@@ -158,7 +158,7 @@ enum Commands {
         #[command(subcommand)]
         action: CacheAction,
     },
-    /// Show which recipes have stale or missing caches
+    /// Show which recipes would be skipped, rebuilt, or always run
     Outdated,
     /// Compare two build states (inputs, cache keys, results)
     Diff {
@@ -709,16 +709,6 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let project_root = mustfile_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
-            let cache_dir = project_root.join(".must").join("cache");
-
-            if !cache_dir.exists() {
-                println!("No cache directory found. Run a build first.");
-                return Ok(());
-            }
-
-            let cache = must_cache::store::DiskCache::open(&cache_dir)?;
-            use must_core::Cache;
-
             let base_env: HashMap<String, String> = std::env::vars().collect();
             let all_recipes: std::collections::HashSet<String> =
                 config.recipe.keys().cloned().collect();
@@ -741,7 +731,6 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let mut names: Vec<&String> = config.recipe.keys().collect();
             names.sort();
 
-            let mut stale_count = 0;
             let mut fresh_count = 0;
             let mut miss_count = 0;
 
@@ -749,22 +738,20 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 let Some(recipe) = recipe_map.get(name) else {
                     continue;
                 };
-                if recipe.cache_strategy() == CacheStrategy::Never {
-                    println!("{name:<20} \x1b[2m[always runs]\x1b[0m");
-                    continue;
-                }
-                let key = recipe.cache_key(&ctx)?;
-
-                let (status, icon, color) = match cache.lookup(&key) {
-                    Ok(must_core::CacheLookup::Hit) => {
+                let (status, icon, color) = match recipe.is_cached(&ctx) {
+                    Err(e) => {
+                        println!("{name:<20} \x1b[2m[error] {e}\x1b[0m");
+                        continue;
+                    }
+                    Ok(None) => {
+                        println!("{name:<20} \x1b[2m[always runs]\x1b[0m");
+                        continue;
+                    }
+                    Ok(Some(true)) => {
                         fresh_count += 1;
                         ("fresh", "✓", "\x1b[32m")
                     }
-                    Ok(must_core::CacheLookup::Stale) => {
-                        stale_count += 1;
-                        ("stale", "⚠", "\x1b[33m")
-                    }
-                    _ => {
+                    Ok(Some(false)) => {
                         miss_count += 1;
                         ("miss", "✗", "\x1b[31m")
                     }
@@ -773,7 +760,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 println!("{color}{icon}{reset} {name:<20} \x1b[2m[{status}]\x1b[0m");
             }
 
-            println!("\n{fresh_count} fresh, {stale_count} stale, {miss_count} missing");
+            println!("\n{fresh_count} fresh, {miss_count} missing");
         }
         Commands::Diff { revision } => {
             let project_root = mustfile_path
@@ -2706,18 +2693,11 @@ fn explain_recipe(
         let key = wired.cache_key(&ctx)?;
         println!("\nCache key: {}", key.hash);
 
-        let cache_dir = project_root.join(".must").join("cache");
-        if wired.cache_strategy() == CacheStrategy::Never {
-            println!("Status:    ALWAYS RUNS (not cached)");
-        } else if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
-            use must_core::Cache;
-            match cache.lookup(&key) {
-                Ok(must_core::CacheLookup::Hit) => println!("Status:    HIT — would skip"),
-                Ok(must_core::CacheLookup::Stale) => println!("Status:    STALE — would rebuild"),
-                _ => println!("Status:    MISS — would build"),
-            }
-        } else {
-            println!("Status:    MISS — no cache yet");
+        match wired.is_cached(&ctx) {
+            Ok(Some(true)) => println!("Status:    HIT — would skip"),
+            Ok(Some(false)) => println!("Status:    MISS — would build"),
+            Ok(None) => println!("Status:    ALWAYS RUNS (not cached)"),
+            Err(e) => println!("Status:    UNKNOWN — {e}"),
         }
     } else {
         println!("\nCache key: (unavailable)");

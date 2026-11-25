@@ -42,6 +42,112 @@ impl ShellRecipe {
         }
         run_command(&mut cmd, shell_program(), "A shell is required")
     }
+
+    fn content_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
+        use must_cache::hash::compute_hash;
+        use std::collections::BTreeMap;
+        let inputs = self.inputs(ctx)?;
+        let input_refs: Vec<&std::path::Path> = inputs.iter().map(|p| p.as_path()).collect();
+        let env: BTreeMap<String, String> = ctx
+            .env
+            .iter()
+            .chain(self.env.iter())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let hash = compute_hash(
+            &self.name,
+            "shell",
+            &input_refs,
+            &env,
+            &self.script,
+            &BTreeMap::new(),
+        );
+        Ok(CacheKey {
+            recipe: self.name.clone(),
+            target: ctx.target.clone(),
+            profile: ctx.profile.clone(),
+            hash,
+        })
+    }
+
+    fn cached_output(&self, outputs: Vec<PathBuf>) -> RecipeOutput {
+        RecipeOutput {
+            recipe_name: self.name.clone(),
+            from_cache: true,
+            outputs,
+            stdout: String::new(),
+            stderr: String::new(),
+            duration_ms: 0,
+        }
+    }
+
+    fn check_cache(&self, ctx: &BuildContext) -> Result<CacheCheck> {
+        match self.cache {
+            CacheStrategy::Never => Ok(CacheCheck::Miss {
+                key: None,
+                owned_cache: None,
+            }),
+            CacheStrategy::Mtime => {
+                let inputs = self.inputs(ctx)?;
+                let outputs = self.outputs(ctx)?;
+                let input_refs: Vec<&std::path::Path> =
+                    inputs.iter().map(|p| p.as_path()).collect();
+                let output_refs: Vec<&std::path::Path> =
+                    outputs.iter().map(|p| p.as_path()).collect();
+                if let CacheLookup::Hit = check_mtime(&input_refs, &output_refs)? {
+                    Ok(CacheCheck::Hit(self.cached_output(outputs)))
+                } else {
+                    Ok(CacheCheck::Miss {
+                        key: None,
+                        owned_cache: None,
+                    })
+                }
+            }
+            CacheStrategy::Hash => {
+                let key = self.content_key(ctx)?;
+                let owned_cache = if ctx.cache.is_some() {
+                    None
+                } else {
+                    let opened = must_cache::store::DiskCache::open(&ctx.cache_dir).ok();
+                    if opened.is_none() {
+                        eprintln!(
+                            "warning: could not open cache at {} — rebuilding without cache",
+                            ctx.cache_dir.display()
+                        );
+                    }
+                    opened
+                };
+                let effective_cache: Option<&dyn Cache> = ctx
+                    .cache
+                    .as_deref()
+                    .or_else(|| owned_cache.as_deref().map(|c| c as &dyn Cache));
+                if let Some(cache) = effective_cache
+                    && matches!(cache.lookup(&key), Ok(CacheLookup::Hit))
+                {
+                    let outputs = self.outputs(ctx)?;
+                    let usable = self.outputs.is_empty()
+                        || !outputs.is_empty()
+                        || (cache.restore(&key, &ctx.project_root).unwrap_or(false)
+                            && !self.outputs(ctx)?.is_empty());
+                    if usable {
+                        return Ok(CacheCheck::Hit(self.cached_output(self.outputs(ctx)?)));
+                    }
+                }
+                Ok(CacheCheck::Miss {
+                    key: Some(key),
+                    owned_cache,
+                })
+            }
+        }
+    }
+}
+
+enum CacheCheck {
+    Hit(RecipeOutput),
+    Miss {
+        key: Option<CacheKey>,
+        owned_cache: Option<std::sync::Arc<must_cache::store::DiskCache>>,
+    },
 }
 
 fn expand_globs(patterns: &[String], root: &std::path::Path) -> Result<Vec<PathBuf>> {
@@ -82,8 +188,9 @@ impl Recipe for ShellRecipe {
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
-        // For mtime strategy, we just use a stable hash of the recipe identity.
-        // For hash strategy, we'd hash the input contents too (M2 feature).
+        if self.cache == CacheStrategy::Hash {
+            return self.content_key(ctx);
+        }
         let key_str = format!("{}:{}:{}", self.name, ctx.target, ctx.profile);
         let hash = must_cache::store::hash_string(&key_str);
         Ok(CacheKey {
@@ -92,6 +199,10 @@ impl Recipe for ShellRecipe {
             profile: ctx.profile.clone(),
             hash,
         })
+    }
+
+    fn is_cached(&self, ctx: &BuildContext) -> Result<Option<bool>> {
+        Ok(Some(matches!(self.check_cache(ctx)?, CacheCheck::Hit(_))))
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
@@ -112,116 +223,14 @@ impl Recipe for ShellRecipe {
             });
         }
 
-        if self.cache == CacheStrategy::Mtime {
-            let inputs = self.inputs(ctx)?;
-            let outputs = self.outputs(ctx)?;
-            let input_refs: Vec<&std::path::Path> = inputs.iter().map(|p| p.as_path()).collect();
-            let output_refs: Vec<&std::path::Path> = outputs.iter().map(|p| p.as_path()).collect();
-            if let CacheLookup::Hit = check_mtime(&input_refs, &output_refs)? {
-                return Ok(RecipeOutput {
-                    recipe_name: self.name.clone(),
-                    from_cache: true,
-                    outputs,
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    duration_ms: 0,
-                });
-            }
-        }
-
-        if self.cache == CacheStrategy::Hash {
-            use must_cache::hash::compute_hash;
-            use std::collections::BTreeMap;
-
-            let inputs = self.inputs(ctx)?;
-            let input_refs: Vec<&std::path::Path> = inputs.iter().map(|p| p.as_path()).collect();
-            let env_btree: BTreeMap<String, String> = ctx
-                .env
-                .iter()
-                .chain(self.env.iter())
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            let hash = compute_hash(
-                &self.name,
-                "shell",
-                &input_refs,
-                &env_btree,
-                &self.script,
-                &BTreeMap::new(),
-            );
-            let key = CacheKey {
-                recipe: self.name.clone(),
-                target: ctx.target.clone(),
-                profile: ctx.profile.clone(),
-                hash,
-            };
-
-            let owned_cache = if ctx.cache.is_some() {
-                None
-            } else {
-                let opened = must_cache::store::DiskCache::open(&ctx.cache_dir).ok();
-                if opened.is_none() {
-                    eprintln!(
-                        "warning: could not open cache at {} — rebuilding without cache",
-                        ctx.cache_dir.display()
-                    );
-                }
-                opened
-            };
-            let effective_cache: Option<&dyn Cache> = if let Some(ref cache) = ctx.cache {
-                Some(cache.as_ref())
-            } else {
-                owned_cache.as_deref().map(|c| c as &dyn Cache)
-            };
-            if let Some(cache) = effective_cache
-                && matches!(cache.lookup(&key), Ok(CacheLookup::Hit))
-            {
-                let outputs = self.outputs(ctx)?;
-                let usable = self.outputs.is_empty()
-                    || !outputs.is_empty()
-                    || (cache.restore(&key, &ctx.project_root).unwrap_or(false)
-                        && !self.outputs(ctx)?.is_empty());
-                if usable {
-                    return Ok(RecipeOutput {
-                        recipe_name: self.name.clone(),
-                        from_cache: true,
-                        outputs: self.outputs(ctx)?,
-                        stdout: String::new(),
-                        stderr: String::new(),
-                        duration_ms: 0,
-                    });
-                }
-            }
-
-            let start = Instant::now();
-            let out = self.run(ctx)?;
-            let duration_ms = start.elapsed().as_millis() as u64;
-
-            if !out.status.success() {
-                return Err(Error::RecipeFailed {
-                    name: self.name.clone(),
-                    code: out.status.code().unwrap_or(-1),
-                    stderr: out.stderr,
-                });
-            }
-
-            let outputs = self.outputs(ctx)?;
-
-            if let Some(cache) = effective_cache
-                && let Err(e) = cache.store(&key, &ctx.project_root, &outputs)
-            {
-                eprintln!("warning: cache store failed: {e}");
-            }
-
-            return Ok(RecipeOutput {
-                recipe_name: self.name.clone(),
-                from_cache: false,
-                outputs,
-                stdout: out.stdout,
-                stderr: out.stderr,
-                duration_ms,
-            });
-        }
+        let (key, owned_cache) = match self.check_cache(ctx)? {
+            CacheCheck::Hit(output) => return Ok(output),
+            CacheCheck::Miss { key, owned_cache } => (key, owned_cache),
+        };
+        let effective_cache: Option<&dyn Cache> = ctx
+            .cache
+            .as_deref()
+            .or_else(|| owned_cache.as_deref().map(|c| c as &dyn Cache));
 
         let start = Instant::now();
         let out = self.run(ctx)?;
@@ -236,6 +245,12 @@ impl Recipe for ShellRecipe {
         }
 
         let outputs = self.outputs(ctx)?;
+
+        if let (Some(cache), Some(key)) = (effective_cache, key)
+            && let Err(e) = cache.store(&key, &ctx.project_root, &outputs)
+        {
+            eprintln!("warning: cache store failed: {e}");
+        }
 
         Ok(RecipeOutput {
             recipe_name: self.name.clone(),
@@ -396,6 +411,65 @@ mod tests {
 
         let out = r.execute(&c).unwrap();
         assert_eq!(out.stdout.trim(), "ctx|recipe|recipe|default");
+    }
+
+    fn ctx_in(tmp: &tempfile::TempDir) -> BuildContext {
+        BuildContext {
+            project_root: tmp.path().to_owned(),
+            cache_dir: tmp.path().join(".must/cache"),
+            log_dir: tmp.path().join(".must/logs"),
+            target: "host".into(),
+            profile: "default".into(),
+            env: HashMap::new(),
+            dry_run: false,
+            parallelism: 1,
+            cache: None,
+        }
+    }
+
+    #[test]
+    fn is_cached_agrees_with_execute() {
+        for strategy in [
+            CacheStrategy::Mtime,
+            CacheStrategy::Hash,
+            CacheStrategy::Never,
+        ] {
+            let tmp = tempfile::TempDir::new().unwrap();
+            std::fs::write(tmp.path().join("in.txt"), "v1").unwrap();
+            let mut r = ShellRecipe::new("gen", "cat in.txt > out.txt");
+            r.cache = strategy;
+            r.inputs = vec!["in.txt".to_string()];
+            r.outputs = vec!["out.txt".to_string()];
+            let ctx = ctx_in(&tmp);
+
+            assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+            assert!(!r.execute(&ctx).unwrap().from_cache);
+
+            let cached_now = r.cache != CacheStrategy::Never;
+            assert_eq!(r.is_cached(&ctx).unwrap(), Some(cached_now));
+            assert_eq!(r.execute(&ctx).unwrap().from_cache, cached_now);
+
+            std::fs::write(tmp.path().join("in.txt"), "v2").unwrap();
+            assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+            assert!(!r.execute(&ctx).unwrap().from_cache);
+        }
+    }
+
+    #[test]
+    fn cache_key_is_the_key_execute_stores() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("in.txt"), "v1").unwrap();
+        let mut r = ShellRecipe::new("gen", "cp in.txt out.txt");
+        r.cache = CacheStrategy::Hash;
+        r.inputs = vec!["in.txt".to_string()];
+        r.outputs = vec!["out.txt".to_string()];
+        let ctx = ctx_in(&tmp);
+        r.execute(&ctx).unwrap();
+        let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
+        assert!(matches!(
+            cache.lookup(&r.cache_key(&ctx).unwrap()).unwrap(),
+            CacheLookup::Hit
+        ));
     }
 
     #[test]

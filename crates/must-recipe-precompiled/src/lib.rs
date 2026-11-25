@@ -333,6 +333,16 @@ impl Recipe for PrecompiledBinRecipe {
         })
     }
 
+    fn is_cached(&self, ctx: &BuildContext) -> Result<Option<bool>> {
+        if ctx.dry_run {
+            return Ok(Some(false));
+        }
+        let dest = self.dest_path(ctx)?;
+        Ok(Some(
+            dest.exists() && installed_matches_pin(&self.url, self.sha256.as_deref(), &dest),
+        ))
+    }
+
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
         let start = std::time::Instant::now();
         let dest = self.dest_path(ctx)?;

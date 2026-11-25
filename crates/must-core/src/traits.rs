@@ -14,6 +14,13 @@ pub trait Recipe: Send + Sync {
     fn outputs(&self, ctx: &BuildContext) -> Result<Vec<PathBuf>>;
     fn cache_strategy(&self) -> CacheStrategy;
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey>;
+    /// Whether [`execute`](Recipe::execute) would return a cached result
+    /// without running.
+    ///
+    /// Returns `None` for recipes that cannot tell without running.
+    fn is_cached(&self, _ctx: &BuildContext) -> Result<Option<bool>> {
+        Ok(None)
+    }
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput>;
 }
 
