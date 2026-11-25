@@ -66,29 +66,21 @@ pub fn run_command_with_grace(
     let stdout_tx = tx.clone();
 
     std::thread::spawn(move || {
-        let reader = BufReader::new(stdout_pipe);
-        for line in reader.lines() {
-            match line {
-                Ok(l) => {
-                    print_output(&l);
-                    let _ = stdout_tx.send(Pipe::Out(Some(l)));
-                }
-                Err(_) => break,
-            }
+        let mut reader = BufReader::new(stdout_pipe);
+        let mut buf = Vec::new();
+        while let Ok(Some(line)) = read_line_lossy(&mut reader, &mut buf) {
+            print_output(&line);
+            let _ = stdout_tx.send(Pipe::Out(Some(line)));
         }
         let _ = stdout_tx.send(Pipe::Out(None));
     });
 
     std::thread::spawn(move || {
-        let reader = BufReader::new(stderr_pipe);
-        for line in reader.lines() {
-            match line {
-                Ok(l) => {
-                    print_error(&l);
-                    let _ = tx.send(Pipe::Err(Some(l)));
-                }
-                Err(_) => break,
-            }
+        let mut reader = BufReader::new(stderr_pipe);
+        let mut buf = Vec::new();
+        while let Ok(Some(line)) = read_line_lossy(&mut reader, &mut buf) {
+            print_error(&line);
+            let _ = tx.send(Pipe::Err(Some(line)));
         }
         let _ = tx.send(Pipe::Err(None));
     });
@@ -119,6 +111,20 @@ pub fn run_command_with_grace(
         stdout,
         stderr,
     })
+}
+
+fn read_line_lossy(
+    reader: &mut impl BufRead,
+    buf: &mut Vec<u8>,
+) -> std::io::Result<Option<String>> {
+    buf.clear();
+    if reader.read_until(b'\n', buf)? == 0 {
+        return Ok(None);
+    }
+    let line = String::from_utf8_lossy(buf);
+    let line = line.strip_suffix('\n').unwrap_or(&line);
+    let line = line.strip_suffix('\r').unwrap_or(line);
+    Ok(Some(line.to_owned()))
 }
 
 /// Create a shell Command: `sh -c <script>` on Unix, `cmd /C <script>` on Windows.
@@ -176,6 +182,33 @@ mod tests {
         assert!(out.status.success());
         assert!(out.stdout.contains("started"));
         assert!(start.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn keeps_reading_after_invalid_utf8() {
+        let mut cmd =
+            shell_command("printf 'ok\\377\\n'; head -c 200000 /dev/zero; printf '\\nafter\\n'");
+        let out =
+            run_command(&mut cmd, "sh", "A shell is required").expect("sh should be available");
+        assert!(out.status.success());
+        assert!(out.stdout.starts_with("ok\u{FFFD}\n"));
+        assert!(out.stdout.ends_with("\nafter\n"));
+        assert_eq!(
+            out.stdout.len(),
+            "ok\u{FFFD}\n".len() + 200000 + "\nafter\n".len()
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn invalid_utf8_on_stderr_does_not_fail_the_command() {
+        let mut cmd = shell_command("printf 'bad\\377byte\\n' >&2; echo done");
+        let out =
+            run_command(&mut cmd, "sh", "A shell is required").expect("sh should be available");
+        assert!(out.status.success());
+        assert_eq!(out.stdout, "done\n");
+        assert_eq!(out.stderr, "bad\u{FFFD}byte\n");
     }
 
     #[test]
