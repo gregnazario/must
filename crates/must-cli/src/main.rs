@@ -2690,14 +2690,20 @@ fn explain_recipe(
         let mut ctx = BuildContext::new(project_root.to_path_buf());
         ctx.profile = profile.to_string();
         ctx.target = "host".to_string();
-        let key = wired.cache_key(&ctx)?;
-        println!("\nCache key: {}", key.hash);
+        let cached = wired.is_cached(&ctx);
 
-        match wired.is_cached(&ctx) {
-            Ok(Some(true)) => println!("Status:    HIT — would skip"),
-            Ok(Some(false)) => println!("Status:    MISS — would build"),
-            Ok(None) => println!("Status:    ALWAYS RUNS (not cached)"),
-            Err(e) => println!("Status:    UNKNOWN — {e}"),
+        if matches!(cached, Ok(None)) {
+            println!("\nCache key: (none; this recipe type always runs)");
+            println!("Status:    ALWAYS RUNS (not cached)");
+        } else {
+            let key = wired.cache_key(&ctx)?;
+            println!("\nCache key: {}", key.hash);
+            match cached {
+                Ok(Some(true)) => println!("Status:    HIT — would skip"),
+                Ok(Some(false)) => println!("Status:    MISS — would build"),
+                Ok(None) => unreachable!("handled above"),
+                Err(e) => println!("Status:    UNKNOWN — {e}"),
+            }
         }
     } else {
         println!("\nCache key: (unavailable)");
