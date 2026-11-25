@@ -1,8 +1,8 @@
 use glob::glob;
 use must_cache::mtime::check_mtime;
 use must_core::{
-    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_command, shell_command, shell_display, shell_program,
+    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, CommandOutput, Error, Recipe,
+    RecipeOutput, Result, run_command, shell_command, shell_display, shell_program,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -29,6 +29,18 @@ impl ShellRecipe {
             cache: CacheStrategy::Mtime,
             env: HashMap::new(),
         }
+    }
+
+    fn run(&self, ctx: &BuildContext) -> Result<CommandOutput> {
+        let mut cmd = shell_command(&self.script);
+        cmd.current_dir(&ctx.project_root);
+        for (k, v) in &ctx.env {
+            cmd.env(k, v);
+        }
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
+        run_command(&mut cmd, shell_program(), "A shell is required")
     }
 }
 
@@ -176,9 +188,7 @@ impl Recipe for ShellRecipe {
             }
 
             let start = Instant::now();
-            let mut cmd = shell_command(&self.script);
-            cmd.current_dir(&ctx.project_root);
-            let out = run_command(&mut cmd, shell_program(), "A shell is required")?;
+            let out = self.run(ctx)?;
             let duration_ms = start.elapsed().as_millis() as u64;
 
             if !out.status.success() {
@@ -208,9 +218,7 @@ impl Recipe for ShellRecipe {
         }
 
         let start = Instant::now();
-        let mut cmd = shell_command(&self.script);
-        cmd.current_dir(&ctx.project_root);
-        let out = run_command(&mut cmd, shell_program(), "A shell is required")?;
+        let out = self.run(ctx)?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if !out.status.success() {
@@ -361,24 +369,27 @@ mod tests {
 
     #[test]
     fn execute_with_ctx_and_recipe_env() {
-        // Cover the env loop bodies (ctx.env and self.env) in execute()
-        let mut r = ShellRecipe::new("greet-env", "echo hello");
-        r.env = HashMap::from([("RECIPE_VAR".to_string(), "world".to_string())]);
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut r = ShellRecipe::new(
+            "greet-env",
+            "echo \"$CTX_VAR|$RECIPE_VAR|$SHARED|${UNSET_VAR:-default}\"",
+        );
+        r.cache = CacheStrategy::Never;
+        r.env = HashMap::from([
+            ("RECIPE_VAR".to_string(), "recipe".to_string()),
+            ("SHARED".to_string(), "recipe".to_string()),
+        ]);
 
-        let c = BuildContext {
-            project_root: std::path::PathBuf::from("/tmp"),
-            cache_dir: std::path::PathBuf::from("/tmp/.must/cache"),
-            log_dir: std::path::PathBuf::from("/tmp/mustfile-test/logs"),
-            target: "host".to_string(),
-            profile: "default".to_string(),
-            env: HashMap::from([("CTX_VAR".to_string(), "ctx-value".to_string())]),
-            dry_run: false,
-            parallelism: 1,
-            cache: None,
-        };
+        let mut c = ctx();
+        c.project_root = tmp.path().to_owned();
+        c.cache_dir = tmp.path().join(".must/cache");
+        c.env = HashMap::from([
+            ("CTX_VAR".to_string(), "ctx".to_string()),
+            ("SHARED".to_string(), "ctx".to_string()),
+        ]);
 
         let out = r.execute(&c).unwrap();
-        assert!(out.stdout.contains("hello"));
+        assert_eq!(out.stdout.trim(), "ctx|recipe|recipe|default");
     }
 
     #[test]

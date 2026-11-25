@@ -74,6 +74,9 @@ impl Recipe for BridgeRecipe {
         let start = Instant::now();
         let mut cmd = shell_command(&self.script);
         cmd.current_dir(&ctx.project_root);
+        for (k, v) in &ctx.env {
+            cmd.env(k, v);
+        }
         let out = run_command(
             &mut cmd,
             shell_program(),
