@@ -591,6 +591,12 @@ sources = ["hello.c"]
 
 #[test]
 fn test_c_bin_recipe_container() {
+    if std::env::var("MUST_TEST_DOCKER").as_deref() != Ok("1") {
+        eprintln!(
+            "skipping test_c_bin_recipe_container: set MUST_TEST_DOCKER=1 to run (pulls a toolchain image)"
+        );
+        return;
+    }
     // Skip if docker/podman not available
     let docker_available = std::process::Command::new("docker")
         .arg("info")
@@ -1206,6 +1212,12 @@ script = "echo building"
 
 #[test]
 fn test_py_bin_recipe() {
+    if std::env::var("MUST_TEST_NETWORK").as_deref() != Ok("1") {
+        eprintln!(
+            "skipping test_py_bin_recipe: set MUST_TEST_NETWORK=1 to run (installs from the package index)"
+        );
+        return;
+    }
     let python3_available = std::process::Command::new("python3")
         .arg("--version")
         .status()
@@ -1409,6 +1421,12 @@ package = "install"
 
 #[test]
 fn test_docker_build_recipe() {
+    if std::env::var("MUST_TEST_DOCKER").as_deref() != Ok("1") {
+        eprintln!(
+            "skipping test_docker_build_recipe: set MUST_TEST_DOCKER=1 to run (pulls a base image)"
+        );
+        return;
+    }
     let docker_available = std::process::Command::new("docker")
         .arg("version")
         .output()

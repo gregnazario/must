@@ -420,11 +420,19 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                     std::fs::remove_dir_all(&cache_dir).map_err(must_core::Error::Io)?;
                     println!("cleaned cache at {}", cache_dir.display());
                 }
-                return Ok(());
             }
             let mut removed = 0usize;
-            for recipe in config.recipe.values() {
+            for (name, recipe) in &config.recipe {
                 for pattern in &recipe.outputs {
+                    if Path::new(pattern)
+                        .components()
+                        .any(|c| matches!(c, std::path::Component::ParentDir))
+                    {
+                        eprintln!(
+                            "skipping output pattern '{pattern}' of recipe '{name}': it points outside the project directory"
+                        );
+                        continue;
+                    }
                     let full = project_root.join(pattern).to_string_lossy().into_owned();
                     let matches = match glob::glob(&full) {
                         Ok(m) => m,
@@ -4309,14 +4317,60 @@ outputs = ["out.txt"]
     }
 
     #[tokio::test]
+    async fn test_run_clean_ignores_patterns_outside_the_project() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("proj");
+        std::fs::create_dir_all(&root).unwrap();
+        let mustfile_path = root.join("Mustfile.toml");
+        std::fs::write(
+            &mustfile_path,
+            r#"
+[project]
+name = "clean-me"
+
+[recipe.gen]
+type    = "shell"
+script  = "true"
+outputs = ["../outside.txt"]
+"#,
+        )
+        .unwrap();
+        std::fs::write(tmp.path().join("outside.txt"), "keep").unwrap();
+        let cli = make_cli(Commands::Clean { cache: false }, mustfile_path);
+        run(cli).await.unwrap();
+        assert!(
+            tmp.path().join("outside.txt").exists(),
+            "a file outside the project directory must survive must clean"
+        );
+    }
+
+    #[tokio::test]
     async fn test_run_clean_cache() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let mustfile = write_shell_mustfile(tmp.path());
+        let mustfile_path = tmp.path().join("Mustfile.toml");
+        std::fs::write(
+            &mustfile_path,
+            r#"
+[project]
+name = "clean-me"
+
+[recipe.gen]
+type    = "shell"
+script  = "echo data > out.txt"
+outputs = ["out.txt"]
+"#,
+        )
+        .unwrap();
+        std::fs::write(tmp.path().join("out.txt"), "stale").unwrap();
         std::fs::create_dir_all(tmp.path().join(".must/cache")).unwrap();
-        let cli = make_cli(Commands::Clean { cache: true }, mustfile);
+        let cli = make_cli(Commands::Clean { cache: true }, mustfile_path);
         let result = run(cli).await;
         assert!(result.is_ok());
         assert!(!tmp.path().join(".must/cache").exists());
+        assert!(
+            !tmp.path().join("out.txt").exists(),
+            "declared outputs are removed as well"
+        );
     }
 
     #[tokio::test]

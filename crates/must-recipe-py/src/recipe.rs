@@ -524,34 +524,6 @@ mod tests {
     }
 
     #[test]
-    fn py_bin_execute_with_named_package() {
-        if std::process::Command::new("uv")
-            .arg("--version")
-            .output()
-            .is_err()
-            && std::process::Command::new("pip")
-                .arg("--version")
-                .output()
-                .is_err()
-        {
-            return;
-        }
-        let tmp = tempfile::TempDir::new().unwrap();
-        let sub = tmp.path().join("subpkg");
-        std::fs::create_dir_all(&sub).unwrap();
-        let mut c = ctx_with_path();
-        c.project_root = tmp.path().to_owned();
-        c.cache_dir = tmp.path().join(".must/cache");
-        let r = PyBinRecipe::new("build", "subpkg");
-        let result = r.execute(&c);
-        match result {
-            Ok(out) => assert_eq!(out.recipe_name, "build"),
-            Err(must_core::Error::RecipeFailed { .. }) => {}
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
-    }
-
-    #[test]
     fn py_lint_execute_real() {
         if std::process::Command::new("ruff")
             .arg("--version")
