@@ -580,6 +580,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 &mustfile_path,
                 &profile,
                 cli.parallelism,
+                cli.dry_run,
                 cli.fail_fast,
                 target_recipes,
                 &targets_owned,
@@ -1199,6 +1200,7 @@ async fn run_watch(
     mustfile_path: &Path,
     profile: &str,
     parallelism: Option<usize>,
+    dry_run: bool,
     fail_fast: bool,
     target_recipes: Vec<String>,
     targets: &[String],
@@ -1238,7 +1240,7 @@ async fn run_watch(
             RunOpts {
                 profile,
                 parallelism,
-                dry_run: false,
+                dry_run,
                 fail_fast,
                 target_recipes: target_recipes.clone(),
                 targets,
@@ -1249,11 +1251,21 @@ async fn run_watch(
             eprintln!("error: {e}");
         }
 
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        while rx.try_recv().is_ok() {}
+
         println!("\nwaiting for changes... (ctrl-c to stop)");
 
         loop {
             match rx.recv_timeout(std::time::Duration::from_secs(30)) {
-                Ok(_event) => {
+                Ok(event) => {
+                    if event
+                        .paths
+                        .iter()
+                        .all(|path| is_must_own_path(&project_root, path))
+                    {
+                        continue;
+                    }
                     std::thread::sleep(std::time::Duration::from_millis(200));
                     while rx.try_recv().is_ok() {}
                     break;
@@ -1265,6 +1277,12 @@ async fn run_watch(
 
         println!("\n--- change detected, rebuilding ---\n");
     }
+}
+
+fn is_must_own_path(project_root: &Path, path: &Path) -> bool {
+    [".must", ".git"]
+        .iter()
+        .any(|dir| path.starts_with(project_root.join(dir)))
 }
 
 struct RunOpts<'a> {
@@ -4944,10 +4962,36 @@ outputs = ["out.txt"]
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
-    async fn test_run_watch_executes_once_then_times_out() {
+    #[test]
+    fn test_is_must_own_path() {
+        let root = Path::new("/proj");
+        assert!(is_must_own_path(
+            root,
+            Path::new("/proj/.must/logs/build.log")
+        ));
+        assert!(is_must_own_path(root, Path::new("/proj/.git/HEAD")));
+        assert!(!is_must_own_path(root, Path::new("/proj/src/main.rs")));
+        assert!(!is_must_own_path(root, Path::new("/proj/.mustache/config")));
+        assert!(!is_must_own_path(root, Path::new("/proj-must/.must/x")));
+    }
+
+    #[test]
+    fn test_watch_does_not_rebuild_on_its_own_output() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let mustfile = write_shell_mustfile(tmp.path());
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(
+            &mustfile,
+            r#"
+[project]
+name = "watch-test"
+
+[recipe.build]
+type   = "shell"
+phony  = true
+script = "echo run >> runs.txt"
+"#,
+        )
+        .unwrap();
         let cli = Cli {
             file: Some(mustfile),
             target: vec![],
@@ -4960,10 +5004,22 @@ outputs = ["out.txt"]
                 recipes: vec!["build".into()],
             },
         };
-        let result = tokio::time::timeout(std::time::Duration::from_secs(3), run(cli)).await;
-        match result {
-            Ok(Ok(())) | Ok(Err(_)) | Err(_) => {}
-        }
+        let watcher = std::thread::spawn(move || {
+            let _ = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(run(cli));
+            let _ = must_core::clear_output_fn();
+        });
+        std::thread::sleep(std::time::Duration::from_millis(2500));
+        let runs = std::fs::read_to_string(tmp.path().join("runs.txt")).unwrap_or_default();
+        assert_eq!(
+            runs.lines().count(),
+            1,
+            "watch rebuilt without any file change: {runs:?}"
+        );
+        drop(watcher);
     }
 
     #[tokio::test]
