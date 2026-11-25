@@ -331,6 +331,40 @@ package = "hello"
 }
 
 #[test]
+fn test_imported_recipe_stops_at_first_failing_line() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Makefile"),
+        "deploy:\n\tgrep '\\.rs$' Makefile > /dev/null\n\texit 1\n\ttouch should-not-exist\n",
+    )
+    .unwrap();
+    let binary = env!("CARGO_BIN_EXE_must");
+    let out = std::process::Command::new(binary)
+        .args(["import", "--makefile", "Makefile", "--out", "Mustfile.toml"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "import should succeed");
+
+    let out = std::process::Command::new(binary)
+        .args(["--file", "Mustfile.toml", "run", "deploy"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "a failing line must fail the recipe\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !root.join("should-not-exist").exists(),
+        "lines after the failing one must not run"
+    );
+}
+
+#[test]
 fn test_shell_hash_cache_content_sensitive() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();

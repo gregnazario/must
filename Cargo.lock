@@ -1336,6 +1336,7 @@ name = "must-import"
 version = "1.0.0"
 dependencies = [
  "tempfile",
+ "toml",
 ]
 
 [[package]]

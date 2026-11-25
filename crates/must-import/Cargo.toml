@@ -6,4 +6,5 @@ license.workspace = true
 repository.workspace = true
 
 [dev-dependencies]
+toml.workspace = true
 tempfile.workspace = true
