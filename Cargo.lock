@@ -1314,7 +1314,6 @@ dependencies = [
 name = "must-engine"
 version = "1.0.0"
 dependencies = [
- "must-cache",
  "must-config",
  "must-core",
  "must-graph",
@@ -1336,10 +1335,7 @@ dependencies = [
 name = "must-import"
 version = "1.0.0"
 dependencies = [
- "serde",
  "tempfile",
- "thiserror",
- "toml",
 ]
 
 [[package]]
@@ -1358,7 +1354,6 @@ dependencies = [
 name = "must-recipe-cc"
 version = "1.0.0"
 dependencies = [
- "glob",
  "must-cache",
  "must-config",
  "must-core",
