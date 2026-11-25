@@ -9,7 +9,7 @@ Mustfile sits between pure task runners (Make, Just) and full build systems (Baz
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
 - **41 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
-- **Pragmatic caching:** Content-hash caching for compiled recipes; mtime for shell; `must cache` for management
+- **Pragmatic caching:** Build tools track their own changes; shell recipes get mtime or content-hash caching; `must cache` for management
 - **Cross-compilation:** Automatic GOOS/GOARCH, cross-rs containers, and C cross-compilers
 - **Env interpolation:** `${VAR}` expansion in scripts, images, and flags from layered env config
 - **Lua plugins:** Extend must with `.lua` files — shell exec, file I/O, glob, env access
@@ -211,8 +211,11 @@ must build --target release
 
 ## Caching
 
+Language recipes (`rust-bin`, `go-bin`, and the rest) always invoke their tool and let it decide what to rebuild.
+Shell recipes choose a strategy:
+
+- **Mtime strategy (default):** Compare input/output timestamps — fast
 - **Hash strategy:** SHA-256 of inputs + env — branch-switch safe
-- **Mtime strategy:** Compare input/output timestamps — fast
 - **None:** Always re-run (tests, lints)
 
 ```toml

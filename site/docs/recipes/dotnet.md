@@ -70,7 +70,7 @@ Run tests:
 
 ```
 $ must test
-● build dotnet-build MyApp.csproj (cached)
+● build dotnet-build MyApp.csproj  done (0.4s)
 ● test dotnet-test MyApp.csproj
   Passed!  - Failed: 0, Passed: 1, Skipped: 0, Total: 1
 ✓ test (0.8s)
@@ -86,7 +86,7 @@ package = "MyApp.csproj"
 
 Runs: `dotnet build MyApp.csproj`
 
-Cache key includes: package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: package, env vars.
 
 ## `dotnet-test` — Run tests
 
@@ -112,7 +112,7 @@ deps    = ["build"]
 
 Runs: `dotnet publish src/MyApp -c Release`
 
-Cache key includes: package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: package, env vars.
 
 ## Fields
 
@@ -122,7 +122,7 @@ Cache key includes: package, env vars.
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

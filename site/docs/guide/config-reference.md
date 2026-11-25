@@ -73,17 +73,17 @@ Every recipe has these fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | string | **Required.** One of the 40 recipe type identifiers |
+| `type` | string | **Required.** One of the 41 recipe type identifiers |
 | `package` | string | Package/target/module path (most types) |
 | `script` | string | Shell command (`shell` / `npm` types) |
 | `script_win` | string | Windows override for `script` (shorthand) |
 | `scripts` | map | Per-OS script overrides. Keys: `macos`, `linux`, `freebsd`, `netbsd`, `openbsd`, `win`, `unix`, `bsd`. Distro-level keys like `linux.ubuntu`, `linux.alpine`, `linux.arch`, `linux.fedora` are also supported (read from `/etc/os-release`). See [Cross-Platform Scripts](cross-platform.md) for details. Takes priority over `script_win` and `script`. |
 | `deps` | string[] | Dependencies — must complete before this recipe |
 | `env` | map | Recipe-specific environment variables |
-| `inputs` | string[] | Input file globs (for cache hashing) |
+| `inputs` | string[] | Input file globs (`shell` recipes only; used for caching) |
 | `outputs` | string[] | Output file paths |
-| `phony` | bool | Always re-run, skip caching (default: false) |
-| `cache` | string | `"hash"`, `"mtime"`, or `"none"` |
+| `phony` | bool | Always re-run, skip caching (`shell` recipes only; default: false) |
+| `cache` | string | `"hash"`, `"mtime"`, or `"none"` (`shell` recipes only) |
 | `features` | string[] | Feature flags (Rust recipes) |
 | `image` | string | Docker image name (Docker recipes) |
 | `dockerfile` | string | Path to Dockerfile |

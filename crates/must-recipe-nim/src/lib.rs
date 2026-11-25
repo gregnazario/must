@@ -1,7 +1,6 @@
 use must_cache::hash::compute_hash;
 use must_core::{
-    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
-    run_command,
+    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result, run_command,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -87,24 +86,6 @@ fn make_cache_key(
     }
 }
 
-fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
-    if let Some(ref cache) = ctx.cache {
-        cache.lookup(key).ok()
-    } else {
-        must_cache::store::DiskCache::open(&ctx.cache_dir)
-            .ok()
-            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
-    }
-}
-
-fn store_cache(key: &CacheKey, ctx: &BuildContext) {
-    if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &ctx.project_root, &[]);
-    } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
-    }
-}
-
 pub struct NimBinRecipe {
     pub name: String,
     pub deps: Vec<String>,
@@ -137,7 +118,7 @@ impl Recipe for NimBinRecipe {
         Ok(vec![])
     }
     fn cache_strategy(&self) -> CacheStrategy {
-        CacheStrategy::Hash
+        CacheStrategy::Never
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
@@ -150,17 +131,6 @@ impl Recipe for NimBinRecipe {
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
-        let key = self.cache_key(ctx)?;
-        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
-            return Ok(RecipeOutput {
-                recipe_name: self.name.clone(),
-                from_cache: true,
-                outputs: Vec::new(),
-                stdout: String::new(),
-                stderr: String::new(),
-                duration_ms: 0,
-            });
-        }
         if ctx.dry_run {
             return Ok(RecipeOutput {
                 recipe_name: self.name.clone(),
@@ -174,7 +144,6 @@ impl Recipe for NimBinRecipe {
         let args = vec!["c", "-d:release", &self.package];
         let mut result = run_nim(&args, ctx, &self.env)?;
         result.recipe_name = self.name.clone();
-        store_cache(&key, ctx);
         Ok(result)
     }
 }
@@ -243,6 +212,7 @@ impl Recipe for NimTestRecipe {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use must_core::Cache;
     use must_core::Recipe;
     use std::path::PathBuf;
 
@@ -261,9 +231,9 @@ mod tests {
     }
 
     #[test]
-    fn nim_bin_cache_strategy_is_hash() {
+    fn nim_bin_cache_strategy_is_never() {
         let r = NimBinRecipe::new("build", ".");
-        assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+        assert_eq!(r.cache_strategy(), CacheStrategy::Never);
     }
 
     #[test]
@@ -299,33 +269,28 @@ mod tests {
     }
 
     #[test]
-    fn nim_bin_cache_hit() {
+    fn nim_bin_is_not_skipped_by_a_cache_entry() {
         let tmp = tempfile::TempDir::new().unwrap();
         let ctx = BuildContext {
             project_root: tmp.path().to_owned(),
             cache_dir: tmp.path().join(".must/cache"),
-            log_dir: PathBuf::from("/tmp/mustfile-test/logs"),
+            log_dir: tmp.path().join(".must/logs"),
             target: "host".into(),
             profile: "default".into(),
             env: HashMap::new(),
-            dry_run: false,
+            dry_run: true,
             parallelism: 1,
             cache: None,
         };
-        let r = NimBinRecipe::new("build", ".");
-        let key = r.cache_key(&ctx).unwrap();
+        let recipe = NimBinRecipe::new("build", ".");
+        let key = recipe.cache_key(&ctx).unwrap();
         let cache = must_cache::store::DiskCache::open(&ctx.cache_dir).unwrap();
         cache.store(&key, tmp.path(), &[]).unwrap();
         drop(cache);
-        let out = r.execute(&ctx);
-        match out {
-            Ok(o) => {
-                assert!(o.from_cache);
-                assert_eq!(o.recipe_name, "build");
-            }
-            Err(must_core::Error::ToolNotFound { .. }) => {}
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
+
+        let out = recipe.execute(&ctx).unwrap();
+        assert!(!out.from_cache);
+        assert_eq!(out.recipe_name, "build");
     }
 
     #[test]

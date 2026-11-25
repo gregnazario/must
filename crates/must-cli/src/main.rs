@@ -700,6 +700,10 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                 let Some(recipe) = recipe_map.get(name) else {
                     continue;
                 };
+                if recipe.cache_strategy() == CacheStrategy::Never {
+                    println!("{name:<20} \x1b[2m[always runs]\x1b[0m");
+                    continue;
+                }
                 let key = recipe.cache_key(&ctx)?;
 
                 let (status, icon, color) = match cache.lookup(&key) {
@@ -2325,20 +2329,37 @@ fn explain_recipe(
         .parent()
         .unwrap_or_else(|| std::path::Path::new("."));
 
+    let base_env: std::collections::HashMap<String, String> = std::env::vars().collect();
+    let only_this: std::collections::HashSet<String> =
+        std::iter::once(recipe_name.to_string()).collect();
+    let wired = wire_recipes(config, &only_this, profile, &base_env, project_root);
+
     println!("Recipe:   {recipe_name}");
     println!("Type:     {:?}", recipe.recipe_type);
-    println!(
-        "Strategy: {}",
-        match &recipe.cache {
-            Some(must_config::schema::CacheMode::Hash) => "hash",
-            Some(must_config::schema::CacheMode::Mtime) => "mtime",
-            Some(must_config::schema::CacheMode::None) => "none",
-            None => match recipe.recipe_type {
-                RecipeType::Shell => "mtime (default)",
-                _ => "hash (default)",
-            },
+    let strategy = wired
+        .as_ref()
+        .ok()
+        .and_then(|m| m.get(recipe_name))
+        .map(|r| r.cache_strategy());
+    let strategy_label = match strategy {
+        Some(CacheStrategy::Hash) => "hash",
+        Some(CacheStrategy::Mtime) => "mtime",
+        Some(CacheStrategy::Never) if recipe.recipe_type != RecipeType::Shell => {
+            if recipe.cache.is_some() {
+                "none (`cache` is ignored by this recipe type)"
+            } else {
+                "none"
+            }
         }
-    );
+        Some(CacheStrategy::Never) if recipe.phony => "none (phony)",
+        Some(CacheStrategy::Never) => "none",
+        None => "unknown",
+    };
+    if recipe.cache.is_none() && !recipe.phony {
+        println!("Strategy: {strategy_label} (default)");
+    } else {
+        println!("Strategy: {strategy_label}");
+    }
 
     if !recipe.deps.is_empty() {
         println!("Deps:     {}", recipe.deps.join(", "));
@@ -2591,10 +2612,7 @@ fn explain_recipe(
     }
 
     // Compute cache key from the wired recipe (same formula the build uses)
-    let base_env: std::collections::HashMap<String, String> = std::env::vars().collect();
-    let only_this: std::collections::HashSet<String> =
-        std::iter::once(recipe_name.to_string()).collect();
-    let recipe_map = wire_recipes(config, &only_this, profile, &base_env, project_root)?;
+    let recipe_map = wired?;
 
     if let Some(wired) = recipe_map.get(recipe_name) {
         let mut ctx = BuildContext::new(project_root.to_path_buf());
@@ -2604,7 +2622,9 @@ fn explain_recipe(
         println!("\nCache key: {}", key.hash);
 
         let cache_dir = project_root.join(".must").join("cache");
-        if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
+        if wired.cache_strategy() == CacheStrategy::Never {
+            println!("Status:    ALWAYS RUNS (not cached)");
+        } else if let Ok(cache) = must_cache::store::DiskCache::open(&cache_dir) {
             use must_core::Cache;
             match cache.lookup(&key) {
                 Ok(must_core::CacheLookup::Hit) => println!("Status:    HIT — would skip"),

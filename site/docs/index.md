@@ -54,7 +54,7 @@ must explain build  # cache key, inputs, command preview
 
 | Problem | What must does |
 |---------|---------------|
-| mtime rebuilds break on branch switches | Content-hashed caching for compiled recipes |
+| mtime rebuilds break on branch switches | Content-hash caching (`cache = "hash"`) for shell recipes that declare inputs |
 | No language awareness — every build file reinvents toolchains | First-class recipe types that know each toolchain |
 | Cross-compilation is manual and per-project | Automatic target resolution + container opt-in |
 | Different commands per language (`npm run`, `cargo build`, `go build`) | Consistent verbs: `must build`, `must test`, `must lint` |
@@ -86,8 +86,8 @@ must explain build  # cache key, inputs, command preview
 
 ## Features
 
-- :material-language-rust: **40 recipe types** with first-class caching
-- :material-speedometer: **Smart caching** — content-hash for compiled, mtime for shell
+- :material-language-rust: **41 recipe types** with one consistent set of verbs
+- :material-speedometer: **Smart caching** — tools track their own builds; shell recipes get mtime or content-hash caching
 - :material-earth: **Cross-compilation** — automatic toolchain resolution
 - :material-graph: **Dependency graph** — `must graph` visualizes your build
 - :material-eye: **Watch mode** — `must watch` rebuilds on file changes

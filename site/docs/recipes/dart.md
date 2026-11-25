@@ -78,7 +78,7 @@ $ must build
 Generated: myapp.exe
 
 $ must test
-[1/2] build (dart-bin)  cached
+[1/2] build (dart-bin)  dart compile exe bin/myapp.dart
 [2/2] test (dart-test)  dart test
 00:00 +1: All tests passed!
 ```
@@ -93,7 +93,7 @@ package = "bin/main.dart"
 
 Runs: `dart compile exe bin/main.dart`
 
-Cache key includes: package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: package, env vars.
 
 ## `dart-test` — Run tests
 
@@ -117,7 +117,7 @@ Cache strategy: `never` (test results should always be fresh).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

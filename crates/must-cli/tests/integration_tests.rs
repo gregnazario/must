@@ -293,21 +293,40 @@ package = "hello"
         built.display()
     );
 
-    // Second run: hash cache should prevent rebuild (0 built, 1 cached)
-    let output2 = std::process::Command::new(binary)
-        .args([
-            "--file",
-            &root.join("Mustfile.toml").to_string_lossy(),
-            "build",
-        ])
-        .current_dir(root)
-        .output()
-        .unwrap();
+    let run_must = || {
+        std::process::Command::new(binary)
+            .args([
+                "--file",
+                &root.join("Mustfile.toml").to_string_lossy(),
+                "build",
+            ])
+            .current_dir(root)
+            .output()
+            .unwrap()
+    };
+
+    // Second run with no change: the tool runs again and decides nothing changed
+    let output2 = run_must();
     assert!(output2.status.success(), "second build should succeed");
-    let stdout2 = String::from_utf8_lossy(&output2.stdout);
     assert!(
-        stdout2.contains("1 cached") || stdout2.contains("0 built"),
-        "second run should use cache: {stdout2}"
+        String::from_utf8_lossy(&output2.stdout).contains("1 built"),
+        "the tool must be invoked on every run: {}",
+        String::from_utf8_lossy(&output2.stdout)
+    );
+
+    // A source edit must reach the binary
+    std::fs::write(
+        root.join("hello").join("src").join("main.rs"),
+        r#"fn main() { println!("hello from rebuilt must"); }"#,
+    )
+    .unwrap();
+    let output3 = run_must();
+    assert!(output3.status.success(), "third build should succeed");
+    let ran = std::process::Command::new(&built).output().unwrap();
+    assert!(
+        String::from_utf8_lossy(&ran.stdout).contains("hello from rebuilt must"),
+        "the binary should reflect the edited source, got: {}",
+        String::from_utf8_lossy(&ran.stdout)
     );
 }
 

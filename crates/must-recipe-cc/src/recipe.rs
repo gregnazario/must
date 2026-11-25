@@ -1,7 +1,7 @@
 use must_cache::hash::compute_hash;
 use must_config::schema::{CrossBackend, CrossConfig};
 use must_core::{
-    BuildContext, Cache, CacheKey, CacheLookup, CacheStrategy, Error, Recipe, RecipeOutput, Result,
+    BuildContext, CacheKey, CacheStrategy, Error, Recipe, RecipeOutput, Result,
     run_command as run_captured,
 };
 use must_toolchain::{
@@ -33,24 +33,6 @@ fn object_path(ctx: &BuildContext, src: &str) -> PathBuf {
     ctx.project_root
         .join("build")
         .join(Path::new(src).with_extension("o"))
-}
-
-fn check_cache(key: &CacheKey, ctx: &BuildContext) -> Option<CacheLookup> {
-    if let Some(ref cache) = ctx.cache {
-        cache.lookup(key).ok()
-    } else {
-        must_cache::store::DiskCache::open(&ctx.cache_dir)
-            .ok()
-            .and_then(|c| Cache::lookup(c.as_ref(), key).ok())
-    }
-}
-
-fn store_cache(key: &CacheKey, ctx: &BuildContext) {
-    if let Some(ref cache) = ctx.cache {
-        let _ = cache.store(key, &ctx.project_root, &[]);
-    } else if let Ok(cache) = must_cache::store::DiskCache::open(&ctx.cache_dir) {
-        let _ = Cache::store(cache.as_ref(), key, &ctx.project_root, &[]);
-    }
 }
 
 fn make_cache_key(
@@ -214,7 +196,7 @@ impl Recipe for CBinRecipe {
     }
 
     fn cache_strategy(&self) -> CacheStrategy {
-        CacheStrategy::Hash
+        CacheStrategy::Never
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
@@ -241,18 +223,6 @@ impl Recipe for CBinRecipe {
                     self.sources.join(" "),
                     self.name
                 ),
-                stderr: String::new(),
-                duration_ms: 0,
-            });
-        }
-
-        let key = self.cache_key(ctx)?;
-        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
-            return Ok(RecipeOutput {
-                recipe_name: self.name.clone(),
-                from_cache: true,
-                outputs: self.outputs(ctx)?,
-                stdout: String::new(),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -317,7 +287,6 @@ impl Recipe for CBinRecipe {
             let mut result = run_cc_command(cmd)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
-            store_cache(&key, ctx);
             Ok(result)
         } else {
             // Local execution path
@@ -365,7 +334,6 @@ impl Recipe for CBinRecipe {
             let mut result = run_cc(&compiler_path, &args, ctx, &extra_env)?;
             result.recipe_name = self.name.clone();
             result.outputs = vec![output_path];
-            store_cache(&key, ctx);
             Ok(result)
         }
     }
@@ -446,7 +414,7 @@ impl Recipe for CLibRecipe {
     }
 
     fn cache_strategy(&self) -> CacheStrategy {
-        CacheStrategy::Hash
+        CacheStrategy::Never
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
@@ -483,18 +451,6 @@ impl Recipe for CLibRecipe {
                     self.lib_filename(),
                     self.sources.join(" ")
                 ),
-                stderr: String::new(),
-                duration_ms: 0,
-            });
-        }
-
-        let key = self.cache_key(ctx)?;
-        if let Some(CacheLookup::Hit) = check_cache(&key, ctx) {
-            return Ok(RecipeOutput {
-                recipe_name: self.name.clone(),
-                from_cache: true,
-                outputs: self.outputs(ctx)?,
-                stdout: String::new(),
                 stderr: String::new(),
                 duration_ms: 0,
             });
@@ -573,7 +529,6 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
-                store_cache(&key, ctx);
                 Ok(result)
             } else {
                 // Shared library: cc -shared -fPIC sources... -o output
@@ -601,7 +556,6 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc_command(cmd)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
-                store_cache(&key, ctx);
                 Ok(result)
             }
         } else {
@@ -694,7 +648,6 @@ impl Recipe for CLibRecipe {
                         stderr: out.stderr,
                     });
                 }
-                store_cache(&key, ctx);
                 Ok(RecipeOutput {
                     recipe_name: self.name.clone(),
                     from_cache: false,
@@ -725,7 +678,6 @@ impl Recipe for CLibRecipe {
                 let mut result = run_cc(&compiler_path, &args, ctx, &extra_env)?;
                 result.recipe_name = self.name.clone();
                 result.outputs = vec![output_path];
-                store_cache(&key, ctx);
                 Ok(result)
             }
         }
@@ -757,15 +709,15 @@ mod tests {
     }
 
     #[test]
-    fn test_cbin_cache_strategy_is_hash() {
+    fn test_cbin_cache_strategy_is_never() {
         let r = CBinRecipe::new("mybin");
-        assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+        assert_eq!(r.cache_strategy(), CacheStrategy::Never);
     }
 
     #[test]
-    fn test_clib_cache_strategy_is_hash() {
+    fn test_clib_cache_strategy_is_never() {
         let r = CLibRecipe::new("mylib", true);
-        assert_eq!(r.cache_strategy(), CacheStrategy::Hash);
+        assert_eq!(r.cache_strategy(), CacheStrategy::Never);
     }
 
     #[test]
