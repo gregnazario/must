@@ -138,7 +138,7 @@ end
 
 ```bash
 must plugin list              # list discovered plugins
-must plugin check protoc      # validate a plugin
+must plugin check protoc      # check Lua syntax; nothing is run
 must plugin install <URL>     # install from URL
 must plugin remove protoc     # remove a plugin
 ```

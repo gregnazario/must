@@ -159,7 +159,7 @@ script = "echo CI passed"
 | `must diff [revision]` | Diff build manifests between runs |
 | `must foreach <command>` | Run a command in each recipe directory |
 | `must plugin list` | List discovered plugins with validation status |
-| `must plugin check <name>` | Validate a plugin without executing it |
+| `must plugin check <name>` | Check a plugin's Lua syntax without running it |
 | `must plugin install <url>` | Install a plugin from a URL |
 | `must clean [--cache]` | Remove outputs and optionally cache |
 | `must fmt` | Check code formatting |

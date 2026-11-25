@@ -152,7 +152,7 @@ Manage Lua plugins.
 
 ```bash
 must plugin list                   # list discovered plugins
-must plugin check <NAME>           # validate a plugin
+must plugin check <NAME>           # check Lua syntax; nothing is run
 must plugin install <URL>          # install from URL
 must plugin remove <NAME>          # remove a plugin
 ```

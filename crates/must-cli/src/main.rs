@@ -225,7 +225,7 @@ enum CacheAction {
 enum PluginAction {
     /// List discovered plugins
     List,
-    /// Validate a plugin without executing it
+    /// Check a plugin's Lua syntax without running it
     Check {
         /// Plugin name to check
         plugin: String,
@@ -587,12 +587,14 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             run_watch(
                 &config,
                 &mustfile_path,
-                &profile,
-                cli.parallelism,
-                cli.dry_run,
-                cli.fail_fast,
-                target_recipes,
-                &targets_owned,
+                RunOpts {
+                    profile: &profile,
+                    parallelism: cli.parallelism,
+                    dry_run: cli.dry_run,
+                    fail_fast: cli.fail_fast,
+                    target_recipes,
+                    targets: &targets_owned,
+                },
             )
             .await?;
         }
@@ -697,8 +699,14 @@ async fn run(cli: Cli) -> must_core::Result<()> {
             let base_env: HashMap<String, String> = std::env::vars().collect();
             let all_recipes: std::collections::HashSet<String> =
                 config.recipe.keys().cloned().collect();
-            let recipe_map =
-                wire_recipes(&config, &all_recipes, &cli.profile, &base_env, project_root)?;
+            let recipe_map = wire_recipes(
+                &config,
+                &all_recipes,
+                &cli.profile,
+                &base_env,
+                project_root,
+                true,
+            )?;
 
             let mut ctx = BuildContext::new(project_root.to_path_buf());
             ctx.profile = cli.profile.clone();
@@ -874,7 +882,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                                     .unwrap_or_default()
                                     .to_string_lossy()
                                     .to_string();
-                                let valid = must_plugin::LuaRecipe::load(&name, &path).is_ok();
+                                let valid = must_plugin::LuaRecipe::check_syntax(&path).is_ok();
                                 entries.push((name, valid));
                                 found = true;
                             }
@@ -899,13 +907,18 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                     }
                 }
                 PluginAction::Check { ref plugin } => {
+                    must_core::validate_name_no_traversal(plugin)?;
                     let plugin_path = plugin_dir.join(format!("{plugin}.lua"));
-                    match must_plugin::LuaRecipe::load(plugin, &plugin_path) {
-                        Ok(_) => println!("Plugin '{plugin}' is valid."),
+                    match must_plugin::LuaRecipe::check_syntax(&plugin_path) {
+                        Ok(()) => {
+                            println!(
+                                "Plugin '{plugin}' has valid Lua syntax (nothing was executed)."
+                            )
+                        }
                         Err(e) => {
                             return Err(Error::Config {
                                 path: plugin_path,
-                                message: format!("plugin '{plugin}' validation failed: {e}"),
+                                message: format!("plugin '{plugin}' failed the syntax check: {e}"),
                             });
                         }
                     }
@@ -920,16 +933,7 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                             .to_string()
                     });
 
-                    if plugin_name.contains("..")
-                        || plugin_name.contains('/')
-                        || plugin_name.contains('\\')
-                    {
-                        return Err(Error::Config {
-                            path: PathBuf::from(&plugin_name),
-                            message: "plugin name must not contain '..' or path separators"
-                                .to_string(),
-                        });
-                    }
+                    must_core::validate_name_no_traversal(&plugin_name)?;
 
                     if !plugin_dir.exists() {
                         std::fs::create_dir_all(&plugin_dir).map_err(Error::Io)?;
@@ -1006,18 +1010,17 @@ async fn run(cli: Cli) -> must_core::Result<()> {
                         std::fs::copy(&src, &dest).map_err(Error::Io)?;
                     }
 
-                    match must_plugin::LuaRecipe::load(&plugin_name, &dest) {
-                        Ok(_) => println!("Installed plugin '{plugin_name}' from {url}"),
-                        Err(e) => {
-                            let _ = std::fs::remove_file(&dest);
-                            return Err(Error::Config {
-                                path: dest,
-                                message: format!("installed plugin failed validation: {e}"),
-                            });
-                        }
+                    if let Err(e) = must_plugin::LuaRecipe::check_syntax(&dest) {
+                        let _ = std::fs::remove_file(&dest);
+                        return Err(Error::Config {
+                            path: dest,
+                            message: format!("installed plugin failed the syntax check: {e}"),
+                        });
                     }
+                    println!("Installed plugin '{plugin_name}' from {url}");
                 }
                 PluginAction::Remove { plugin } => {
+                    must_core::validate_name_no_traversal(&plugin)?;
                     let plugin_path = plugin_dir.join(format!("{plugin}.lua"));
                     if !plugin_path.exists() {
                         println!("Plugin '{plugin}' not found.");
@@ -1207,14 +1210,17 @@ phony = true
 async fn run_watch(
     config: &Config,
     mustfile_path: &Path,
-    profile: &str,
-    parallelism: Option<usize>,
-    dry_run: bool,
-    fail_fast: bool,
-    target_recipes: Vec<String>,
-    targets: &[String],
+    opts: RunOpts<'_>,
 ) -> must_core::Result<()> {
     use notify::{Config as NotifyConfig, Event, RecommendedWatcher, RecursiveMode, Watcher};
+    let RunOpts {
+        profile,
+        parallelism,
+        dry_run,
+        fail_fast,
+        target_recipes,
+        targets,
+    } = opts;
 
     let mustfile_abs = mustfile_path
         .canonicalize()
@@ -1309,6 +1315,7 @@ fn wire_recipes(
     profile: &str,
     base_env: &HashMap<String, String>,
     project_root: &Path,
+    plan_only: bool,
 ) -> must_core::Result<HashMap<String, Arc<dyn must_core::Recipe>>> {
     let mut recipe_map: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
     for (name, recipe_cfg) in &config.recipe {
@@ -1563,9 +1570,14 @@ fn wire_recipes(
             }
             RecipeType::Plugin => {
                 let plugin_name = recipe_cfg.plugin.as_deref().unwrap_or(name);
-                let plugin_dir = project_root.join(".must").join("plugins");
-                let plugin_path = plugin_dir.join(format!("{plugin_name}.lua"));
-                let lua_recipe = must_plugin::LuaRecipe::load(plugin_name, &plugin_path)?;
+                must_core::validate_name_no_traversal(plugin_name)?;
+                let lua_recipe = if plan_only {
+                    must_plugin::LuaRecipe::plan(name)
+                } else {
+                    let plugin_dir = project_root.join(".must").join("plugins");
+                    let plugin_path = plugin_dir.join(format!("{plugin_name}.lua"));
+                    must_plugin::LuaRecipe::load(plugin_name, &plugin_path)?
+                };
                 recipe_map.insert(name.clone(), Arc::new(lua_recipe));
             }
             RecipeType::JavaBin => {
@@ -1871,7 +1883,14 @@ async fn execute_recipes(
 
     // Compose env for each recipe and build recipe objects
     let base_env: HashMap<String, String> = std::env::vars().collect();
-    let recipe_map = wire_recipes(config, &reachable, profile, &base_env, &project_root)?;
+    let recipe_map = wire_recipes(
+        config,
+        &reachable,
+        profile,
+        &base_env,
+        &project_root,
+        dry_run,
+    )?;
     // Restrict DAG to the reachable subset
     let sub_dep_map: HashMap<String, Vec<String>> = config
         .recipe
@@ -2367,7 +2386,7 @@ fn explain_recipe(
     let base_env: std::collections::HashMap<String, String> = std::env::vars().collect();
     let only_this: std::collections::HashSet<String> =
         std::iter::once(recipe_name.to_string()).collect();
-    let wired = wire_recipes(config, &only_this, profile, &base_env, project_root);
+    let wired = wire_recipes(config, &only_this, profile, &base_env, project_root, true);
 
     println!("Recipe:   {recipe_name}");
     println!("Type:     {:?}", recipe.recipe_type);
@@ -4674,6 +4693,106 @@ outputs = ["out.txt"]
     }
 
     #[tokio::test]
+    async fn test_run_plugin_remove_rejects_path_traversal() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mustfile = write_shell_mustfile(tmp.path());
+        let outside = tmp.path().join(".must").join("outside.lua");
+        std::fs::create_dir_all(outside.parent().unwrap()).unwrap();
+        std::fs::write(&outside, "function execute(ctx) return {} end").unwrap();
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::Remove {
+                    plugin: "../outside".into(),
+                },
+            },
+            mustfile.clone(),
+        );
+        assert!(run(cli).await.is_err());
+        assert!(
+            outside.exists(),
+            "a plugin outside the plugins directory must survive"
+        );
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::Check {
+                    plugin: "../outside".into(),
+                },
+            },
+            mustfile,
+        );
+        assert!(run(cli).await.is_err());
+    }
+
+    fn write_marker_plugin(root: &Path) -> std::path::PathBuf {
+        let marker = root.join("executed.txt");
+        let plugin_dir = root.join(".must").join("plugins");
+        std::fs::create_dir_all(&plugin_dir).unwrap();
+        std::fs::write(
+            plugin_dir.join("spy.lua"),
+            format!(
+                "write_file('{}', 'ran')\nfunction execute(ctx) return {{}} end\n",
+                marker.display()
+            ),
+        )
+        .unwrap();
+        marker
+    }
+
+    #[tokio::test]
+    async fn test_run_plugin_check_and_list_do_not_execute_the_plugin() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let marker = write_marker_plugin(tmp.path());
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::Check {
+                    plugin: "spy".into(),
+                },
+            },
+            write_shell_mustfile(tmp.path()),
+        );
+        run(cli).await.unwrap();
+        let cli = make_cli(
+            Commands::Plugin {
+                action: PluginAction::List,
+            },
+            write_shell_mustfile(tmp.path()),
+        );
+        run(cli).await.unwrap();
+        assert!(
+            !marker.exists(),
+            "plugin check and plugin list must not run plugin code"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_run_dry_run_does_not_execute_plugins() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let marker = write_marker_plugin(tmp.path());
+        let mustfile = tmp.path().join("Mustfile.toml");
+        std::fs::write(
+            &mustfile,
+            r#"
+[project]
+name = "plugin-dry-run"
+
+[recipe.codegen]
+type   = "plugin"
+plugin = "spy"
+"#,
+        )
+        .unwrap();
+        let mut cli = make_cli(
+            Commands::Build {
+                recipes: vec!["codegen".into()],
+            },
+            mustfile,
+        );
+        cli.dry_run = true;
+        run(cli).await.unwrap();
+        assert!(!marker.exists(), "--dry-run must not run plugin code");
+    }
+
+    #[tokio::test]
     async fn test_run_init_via_run() {
         let tmp = tempfile::TempDir::new().unwrap();
         let out = tmp.path().join("Mustfile.toml");
@@ -5019,7 +5138,7 @@ script = "echo run >> runs.txt"
                 .build()
                 .unwrap()
                 .block_on(run(cli));
-            let _ = must_core::clear_output_fn();
+            must_core::clear_output_fn();
         });
         std::thread::sleep(std::time::Duration::from_millis(2500));
         let runs = std::fs::read_to_string(tmp.path().join("runs.txt")).unwrap_or_default();

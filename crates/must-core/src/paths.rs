@@ -24,13 +24,20 @@ pub fn ensure_within_root(root: &Path, path: &Path) -> crate::Result<PathBuf> {
 }
 
 pub fn validate_name_no_traversal(name: &str) -> crate::Result<()> {
-    if name.contains("..") || name.contains(std::path::MAIN_SEPARATOR) {
-        return Err(Error::Config {
+    let mut components = Path::new(name).components();
+    let is_plain = matches!(components.next(), Some(std::path::Component::Normal(_)))
+        && components.next().is_none()
+        && !name.contains("..")
+        && !name.contains('/')
+        && !name.contains('\\');
+    if is_plain {
+        Ok(())
+    } else {
+        Err(Error::Config {
             path: PathBuf::from(name),
             message: "name must not contain '..' or path separators".to_string(),
-        });
+        })
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -99,5 +106,26 @@ mod tests {
     #[test]
     fn name_with_separator_rejected() {
         assert!(validate_name_no_traversal("foo/bar").is_err());
+        assert!(validate_name_no_traversal("foo\\bar").is_err());
+        assert!(validate_name_no_traversal("foo/").is_err());
+    }
+
+    #[test]
+    fn empty_and_dot_names_rejected() {
+        assert!(validate_name_no_traversal("").is_err());
+        assert!(validate_name_no_traversal(".").is_err());
+        assert!(validate_name_no_traversal("./build").is_err());
+    }
+
+    #[test]
+    fn rooted_and_prefixed_names_rejected() {
+        assert!(validate_name_no_traversal("/tmp/evil").is_err());
+        assert!(validate_name_no_traversal("\\\\server\\share").is_err());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn drive_relative_name_rejected_on_windows() {
+        assert!(validate_name_no_traversal("C:evil").is_err());
     }
 }
