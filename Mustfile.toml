@@ -32,7 +32,7 @@ script = "cargo test"
 [recipe.lint]
 type   = "shell"
 phony  = true
-script = "cargo clippy -- -D warnings"
+script = "cargo clippy --workspace --all-targets -- -D warnings"
 
 [recipe.fmt]
 type   = "shell"
