@@ -106,6 +106,7 @@ mod tests {
             "echo '''quoted'''",
             "echo \"\"\"triple\"\"\"",
             "line one\r\nline two",
+            "echo \u{1}control\u{1F}\u{7F}",
             "echo \"café ☕\"",
         ] {
             let mut o = empty_output();

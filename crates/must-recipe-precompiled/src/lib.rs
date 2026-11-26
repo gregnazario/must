@@ -499,6 +499,31 @@ mod tests {
     }
 
     #[test]
+    fn is_cached_agrees_with_execute() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let bin_path = tmp.path().join("bin").join("tool");
+        std::fs::create_dir_all(bin_path.parent().unwrap()).unwrap();
+
+        let mut r = PrecompiledBinRecipe::new("tool", "https://example.com/tool", "bin/tool");
+        let mut ctx = test_ctx();
+        ctx.project_root = tmp.path().to_owned();
+        ctx.cache_dir = tmp.path().join(".cache");
+
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+
+        std::fs::write(&bin_path, b"binary").unwrap();
+        r.sha256 = Some(hash_file(&bin_path));
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(true));
+        assert!(r.execute(&ctx).unwrap().from_cache);
+
+        std::fs::write(&bin_path, b"replaced after the pin was set").unwrap();
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+
+        ctx.dry_run = true;
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+    }
+
+    #[test]
     fn already_present_is_cached() {
         let tmp = tempfile::TempDir::new().unwrap();
         let bin_path = tmp.path().join("bin").join("tool");
