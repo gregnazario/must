@@ -167,14 +167,6 @@ impl Recipe for GoBinRecipe {
             Triple::host()
         };
 
-        // Verify Go is installed
-        if !go_installed() {
-            return Err(Error::ToolchainNotFound {
-                target: ctx.target.clone(),
-                hint: go_install_hint(),
-            });
-        }
-
         if ctx.dry_run {
             return Ok(RecipeOutput {
                 recipe_name: self.name.clone(),
@@ -183,6 +175,14 @@ impl Recipe for GoBinRecipe {
                 stdout: format!("[dry-run] go build {}", self.package),
                 stderr: String::new(),
                 duration_ms: 0,
+            });
+        }
+
+        // Verify Go is installed
+        if !go_installed() {
+            return Err(Error::ToolchainNotFound {
+                target: ctx.target.clone(),
+                hint: go_install_hint(),
             });
         }
 
@@ -409,19 +409,12 @@ mod tests {
 
     #[test]
     fn test_go_bin_execute_dry_run() {
-        // dry_run is reached only when go is installed; otherwise we get ToolchainNotFound.
-        // Both outcomes are acceptable — we just verify no panic and correct branch behavior.
         let recipe = GoBinRecipe::new("my-bin", "./cmd/server");
         let mut ctx = make_build_context();
         ctx.dry_run = true;
-        match recipe.execute(&ctx) {
-            Ok(out) => {
-                assert!(out.stdout.contains("dry-run"));
-                assert_eq!(out.duration_ms, 0);
-            }
-            Err(Error::ToolchainNotFound { .. }) => {} // go not installed — acceptable
-            Err(e) => panic!("unexpected error: {e:?}"),
-        }
+        let out = recipe.execute(&ctx).unwrap();
+        assert!(out.stdout.contains("dry-run"));
+        assert_eq!(out.duration_ms, 0);
     }
 
     #[test]
