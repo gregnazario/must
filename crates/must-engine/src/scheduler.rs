@@ -723,6 +723,78 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_production_path_skips_dependents_and_reports_them_once() {
+        let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
+        recipes.insert(
+            "build".into(),
+            Arc::new(FailRecipe {
+                name: "build".into(),
+            }),
+        );
+        for (name, deps) in [("test", vec!["build"]), ("docs", vec![])] {
+            recipes.insert(
+                name.into(),
+                Arc::new(DependentRecipe {
+                    name: name.into(),
+                    deps: deps.iter().map(|d| d.to_string()).collect(),
+                }),
+            );
+        }
+        let dag = must_graph::Dag::new(
+            [
+                ("build".to_string(), vec![]),
+                ("test".to_string(), vec!["build".to_string()]),
+                ("docs".to_string(), vec![]),
+            ]
+            .into(),
+        );
+        let engine = Engine::new(1, false);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(16);
+        let report = engine
+            .execute_with_progress(&dag, &recipes, &test_ctx(), tx)
+            .await
+            .unwrap();
+
+        assert!(!report.success);
+        let result = |name: &str| {
+            report
+                .results
+                .iter()
+                .find(|r| r.recipe_name == name)
+                .unwrap_or_else(|| panic!("no result for {name}"))
+        };
+        assert!(result("docs").success);
+        assert!(result("test").error.as_deref().unwrap().contains("skipped"));
+
+        let mut completed = Vec::new();
+        let mut wave_done = Vec::new();
+        while let Some(event) = rx.recv().await {
+            match event {
+                ProgressEvent::Completed {
+                    recipe, success, ..
+                } => completed.push((recipe, success)),
+                ProgressEvent::WaveDone { completed, total } => wave_done.push((completed, total)),
+                ProgressEvent::Starting { .. } => {}
+            }
+        }
+        for (name, success) in [("build", false), ("test", false), ("docs", true)] {
+            assert_eq!(
+                completed
+                    .iter()
+                    .filter(|(r, s)| r == name && *s == success)
+                    .count(),
+                1,
+                "each recipe must be reported exactly once: {completed:?}"
+            );
+        }
+        assert_eq!(
+            wave_done.last(),
+            Some(&(3, 3)),
+            "the skipped recipe must count towards the total: {wave_done:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn test_engine_two_successes_report_counts() {
         let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
         recipes.insert("a".into(), Arc::new(SuccessRecipe { name: "a".into() }));
