@@ -98,7 +98,7 @@ Command:    cargo build --release -p my-app
 
 ### `must outdated`
 
-Show cache status for all recipes.
+Show which recipes would be skipped, rebuilt, or always run.
 
 ```bash
 must outdated
@@ -107,10 +107,14 @@ must outdated
 Output:
 
 ```
-✓ build     [fresh]   rust-bin    cached 4s ago
-⚠ test      [stale]   rust-test   deps changed
-✗ lint      [miss]    shell       never built
+✓ gen                 [fresh]
+✗ build               [miss]
+  lint                [always runs]
+
+1 fresh, 1 missing
 ```
+
+`fresh` means the next `must build` skips the recipe; `miss` means it would run. Recipes whose type always invokes its tool (see [Caching](caching.md)) are listed separately and not counted.
 
 ### `must diff`
 
@@ -152,7 +156,7 @@ Manage Lua plugins.
 
 ```bash
 must plugin list                   # list discovered plugins
-must plugin check <NAME>           # validate a plugin
+must plugin check <NAME>           # check Lua syntax; nothing is run
 must plugin install <URL>          # install from URL
 must plugin remove <NAME>          # remove a plugin
 ```

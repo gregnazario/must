@@ -1,7 +1,7 @@
 use must_core::{BuildContext, Error, Recipe, Result};
 use must_graph::Dag;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
@@ -147,6 +147,32 @@ fn to_execution_result(out: ExecOutput) -> ExecutionResult {
     }
 }
 
+fn first_unavailable(recipe: &dyn Recipe, unavailable: &HashSet<String>) -> Option<String> {
+    recipe
+        .deps()
+        .iter()
+        .find(|dep| unavailable.contains(*dep))
+        .cloned()
+}
+
+fn skipped_result(recipe: &str, dependency: &str) -> ExecutionResult {
+    warn!(
+        recipe,
+        dependency, "skipping recipe: dependency did not succeed"
+    );
+    ExecutionResult {
+        recipe_name: recipe.to_string(),
+        from_cache: false,
+        success: false,
+        duration_ms: 0,
+        stdout: String::new(),
+        stderr: String::new(),
+        error: Some(format!(
+            "skipped because dependency '{dependency}' did not succeed"
+        )),
+    }
+}
+
 /// Build engine that resolves dependencies and executes recipes in parallel waves.
 pub struct Engine {
     parallelism: usize,
@@ -156,7 +182,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(parallelism: usize, fail_fast: bool) -> Self {
         Self {
-            parallelism,
+            parallelism: parallelism.max(1),
             fail_fast,
         }
     }
@@ -175,6 +201,7 @@ impl Engine {
         ensure_gitignore(&ctx.log_dir);
         let mut all_results: Vec<ExecutionResult> = Vec::new();
         let mut failed = false;
+        let mut unavailable: HashSet<String> = HashSet::new();
 
         'waves: for wave in waves {
             if failed && self.fail_fast {
@@ -188,6 +215,12 @@ impl Engine {
                     Some(r) => Arc::clone(r),
                     None => return Err(Error::UnknownRecipe { name: recipe_name }),
                 };
+                if let Some(dep) = first_unavailable(recipe.as_ref(), &unavailable) {
+                    all_results.push(skipped_result(&recipe_name, &dep));
+                    unavailable.insert(recipe_name);
+                    failed = true;
+                    continue;
+                }
                 let ctx = Arc::clone(&ctx);
                 let sem = Arc::clone(&semaphore);
 
@@ -230,6 +263,7 @@ impl Engine {
                         if !result.success {
                             wave_failed = true;
                             failed = true;
+                            unavailable.insert(result.recipe_name.clone());
                         }
                         all_results.push(result);
                     }
@@ -278,6 +312,7 @@ impl Engine {
         ensure_gitignore(&ctx.log_dir);
         let mut all_results: Vec<ExecutionResult> = Vec::new();
         let mut failed = false;
+        let mut unavailable: HashSet<String> = HashSet::new();
         let total_recipes: usize = waves.iter().map(|w| w.len()).sum();
         let mut completed = 0usize;
 
@@ -293,6 +328,21 @@ impl Engine {
                     Some(r) => Arc::clone(r),
                     None => return Err(Error::UnknownRecipe { name: recipe_name }),
                 };
+                if let Some(dep) = first_unavailable(recipe.as_ref(), &unavailable) {
+                    let _ = progress_tx
+                        .send(ProgressEvent::Completed {
+                            recipe: recipe_name.clone(),
+                            success: false,
+                            from_cache: false,
+                            duration_ms: 0,
+                        })
+                        .await;
+                    all_results.push(skipped_result(&recipe_name, &dep));
+                    unavailable.insert(recipe_name);
+                    failed = true;
+                    completed += 1;
+                    continue;
+                }
                 let ctx = Arc::clone(&ctx);
                 let sem = Arc::clone(&semaphore);
                 let tx = progress_tx.clone();
@@ -339,6 +389,7 @@ impl Engine {
                                 if !result.success {
                                     wave_failed = true;
                                     failed = true;
+                                    unavailable.insert(result.recipe_name.clone());
                                 }
                                 all_results.push(result);
                             }
@@ -505,6 +556,53 @@ mod tests {
         }
     }
 
+    struct DependentRecipe {
+        name: String,
+        deps: Vec<String>,
+    }
+
+    impl must_core::Recipe for DependentRecipe {
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn deps(&self) -> &[String] {
+            &self.deps
+        }
+        fn inputs(
+            &self,
+            _: &must_core::BuildContext,
+        ) -> must_core::Result<Vec<std::path::PathBuf>> {
+            Ok(vec![])
+        }
+        fn outputs(
+            &self,
+            _: &must_core::BuildContext,
+        ) -> must_core::Result<Vec<std::path::PathBuf>> {
+            Ok(vec![])
+        }
+        fn cache_strategy(&self) -> CacheStrategy {
+            CacheStrategy::Never
+        }
+        fn cache_key(&self, _: &must_core::BuildContext) -> must_core::Result<CacheKey> {
+            Ok(CacheKey {
+                recipe: self.name.clone(),
+                target: "host".into(),
+                profile: "default".into(),
+                hash: "abc".into(),
+            })
+        }
+        fn execute(&self, _: &must_core::BuildContext) -> must_core::Result<RecipeOutput> {
+            Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: false,
+                outputs: vec![],
+                stdout: String::new(),
+                stderr: String::new(),
+                duration_ms: 1,
+            })
+        }
+    }
+
     fn test_ctx() -> BuildContext {
         BuildContext {
             project_root: std::path::PathBuf::from("/tmp"),
@@ -569,6 +667,131 @@ mod tests {
         let report = engine.execute(&dag, &recipes, &test_ctx()).await.unwrap();
         assert!(!report.success);
         assert!(!report.results.iter().any(|r| r.recipe_name == "b"));
+    }
+
+    #[tokio::test]
+    async fn test_engine_skips_dependents_of_failed_recipe() {
+        let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
+        recipes.insert(
+            "build".into(),
+            Arc::new(FailRecipe {
+                name: "build".into(),
+            }),
+        );
+        for (name, deps) in [
+            ("test", vec!["build"]),
+            ("deploy", vec!["test"]),
+            ("docs", vec![]),
+        ] {
+            recipes.insert(
+                name.into(),
+                Arc::new(DependentRecipe {
+                    name: name.into(),
+                    deps: deps.iter().map(|d| d.to_string()).collect(),
+                }),
+            );
+        }
+        let dag = must_graph::Dag::new(
+            [
+                ("build".to_string(), vec![]),
+                ("test".to_string(), vec!["build".to_string()]),
+                ("deploy".to_string(), vec!["test".to_string()]),
+                ("docs".to_string(), vec![]),
+            ]
+            .into(),
+        );
+        let engine = Engine::new(1, false);
+        let report = engine.execute(&dag, &recipes, &test_ctx()).await.unwrap();
+        assert!(!report.success);
+        let result = |name: &str| {
+            report
+                .results
+                .iter()
+                .find(|r| r.recipe_name == name)
+                .unwrap_or_else(|| panic!("no result for {name}"))
+        };
+        assert!(result("docs").success);
+        assert_eq!(
+            result("test").error.as_deref(),
+            Some("skipped because dependency 'build' did not succeed")
+        );
+        assert_eq!(
+            result("deploy").error.as_deref(),
+            Some("skipped because dependency 'test' did not succeed")
+        );
+        assert_eq!(report.failed(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_production_path_skips_dependents_and_reports_them_once() {
+        let mut recipes: HashMap<String, Arc<dyn must_core::Recipe>> = HashMap::new();
+        recipes.insert(
+            "build".into(),
+            Arc::new(FailRecipe {
+                name: "build".into(),
+            }),
+        );
+        for (name, deps) in [("test", vec!["build"]), ("docs", vec![])] {
+            recipes.insert(
+                name.into(),
+                Arc::new(DependentRecipe {
+                    name: name.into(),
+                    deps: deps.iter().map(|d| d.to_string()).collect(),
+                }),
+            );
+        }
+        let dag = must_graph::Dag::new(
+            [
+                ("build".to_string(), vec![]),
+                ("test".to_string(), vec!["build".to_string()]),
+                ("docs".to_string(), vec![]),
+            ]
+            .into(),
+        );
+        let engine = Engine::new(1, false);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(16);
+        let report = engine
+            .execute_with_progress(&dag, &recipes, &test_ctx(), tx)
+            .await
+            .unwrap();
+
+        assert!(!report.success);
+        let result = |name: &str| {
+            report
+                .results
+                .iter()
+                .find(|r| r.recipe_name == name)
+                .unwrap_or_else(|| panic!("no result for {name}"))
+        };
+        assert!(result("docs").success);
+        assert!(result("test").error.as_deref().unwrap().contains("skipped"));
+
+        let mut completed = Vec::new();
+        let mut wave_done = Vec::new();
+        while let Some(event) = rx.recv().await {
+            match event {
+                ProgressEvent::Completed {
+                    recipe, success, ..
+                } => completed.push((recipe, success)),
+                ProgressEvent::WaveDone { completed, total } => wave_done.push((completed, total)),
+                ProgressEvent::Starting { .. } => {}
+            }
+        }
+        for (name, success) in [("build", false), ("test", false), ("docs", true)] {
+            assert_eq!(
+                completed
+                    .iter()
+                    .filter(|(r, s)| r == name && *s == success)
+                    .count(),
+                1,
+                "each recipe must be reported exactly once: {completed:?}"
+            );
+        }
+        assert_eq!(
+            wave_done.last(),
+            Some(&(3, 3)),
+            "the skipped recipe must count towards the total: {wave_done:?}"
+        );
     }
 
     #[tokio::test]

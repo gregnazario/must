@@ -39,7 +39,9 @@ jobs:
           components: llvm-tools
       - uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@e5de28abeb52d916c5e5875d54b21a9e738b61ec # cargo-llvm-cov
+        uses: taiki-e/install-action@e5de28abeb52d916c5e5875d54b21a9e738b61ec # install-action
+        with:
+          tool: cargo-llvm-cov@0.9.2
 
       - name: Install Node.js tools
         run: npm install -g typescript @biomejs/biome
@@ -109,6 +111,9 @@ jobs:
           npm install -g typescript @biomejs/biome
           # Ruby
           ruby --version
+      - name: Install Elixir + Dart (Linux)
+        if: runner.os == 'Linux'
+        run: |
           # Elixir
           curl -fsSL --retry 5 --retry-all-errors https://github.com/elixir-lang/elixir/releases/download/v1.17.3/Downloads-precompiled.zip -o elixir.zip && unzip -q elixir.zip -d elixir && echo "$PWD/elixir/bin" >> $GITHUB_PATH
           # Dart

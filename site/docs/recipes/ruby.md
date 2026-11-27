@@ -75,7 +75,7 @@ $ must build
   ✓ build done (1.2s)
 
 $ must test
-● build (ruby-bin) → cache hit
+● build (ruby-bin)  ✓ done (0.3s)
 ● test  (ruby-test) → bundle exec rspec
   1 runs, 1 assertions, 0 failures, 0 errors, 0 skips
   ✓ test done (0.8s)
@@ -91,7 +91,7 @@ package = "."
 
 Runs: `bundle install` (in package directory)
 
-Cache key includes: package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: package, env vars.
 
 ## `ruby-test` — Run tests
 
@@ -114,7 +114,7 @@ Cache strategy: `never` (test results should always be fresh).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

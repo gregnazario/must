@@ -8,8 +8,8 @@
 Mustfile sits between pure task runners (Make, Just) and full build systems (Bazel, Buck2):
 
 - **Consistent verbs:** `must build`, `must test`, `must outdated` — same commands regardless of language
-- **40 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
-- **Pragmatic caching:** Content-hash caching for compiled recipes; mtime for shell; `must cache` for management
+- **41 recipe types:** First-class support for Rust, Go, C/C++, TypeScript, Python, Zig, Docker, Java, Kotlin, Swift, .NET, Ruby, Dart, Elixir, Flutter, Nim, precompiled binaries, shell, and Lua plugins
+- **Pragmatic caching:** Build tools track their own changes; shell recipes get mtime or content-hash caching; `must cache` for management
 - **Cross-compilation:** Automatic GOOS/GOARCH, cross-rs containers, and C cross-compilers
 - **Env interpolation:** `${VAR}` expansion in scripts, images, and flags from layered env config
 - **Lua plugins:** Extend must with `.lua` files — shell exec, file I/O, glob, env access
@@ -159,7 +159,7 @@ script = "echo CI passed"
 | `must diff [revision]` | Diff build manifests between runs |
 | `must foreach <command>` | Run a command in each recipe directory |
 | `must plugin list` | List discovered plugins with validation status |
-| `must plugin check <name>` | Validate a plugin without executing it |
+| `must plugin check <name>` | Check a plugin's Lua syntax without running it |
 | `must plugin install <url>` | Install a plugin from a URL |
 | `must clean [--cache]` | Remove outputs and optionally cache |
 | `must fmt` | Check code formatting |
@@ -172,13 +172,15 @@ script = "echo CI passed"
 
 ## Environment Variables
 
-Env vars are layered (highest priority wins):
+Env vars are layered; each layer overrides the ones before it:
 
 1. Process environment
 2. Global `[env]` in config
 3. Profile `[env.release]`
 4. Per-recipe `[recipe.build.env]`
 5. Toolchain env (cross-compilation)
+
+A `${NAME}` reference in a config value resolves against the layers beneath it.
 
 Use `${VAR}` in recipe fields for interpolation:
 
@@ -211,8 +213,11 @@ must build --target release
 
 ## Caching
 
+Language recipes (`rust-bin`, `go-bin`, and the rest) always invoke their tool and let it decide what to rebuild.
+Shell recipes choose a strategy:
+
+- **Mtime strategy (default):** Compare input/output timestamps — fast
 - **Hash strategy:** SHA-256 of inputs + env — branch-switch safe
-- **Mtime strategy:** Compare input/output timestamps — fast
 - **None:** Always re-run (tests, lints)
 
 ```toml
@@ -323,6 +328,7 @@ Must itself is built with must — see the root [`Mustfile.toml`](Mustfile.toml)
 
 ## Documentation
 
+- [Documentation site](https://gregnazario.github.io/must/) — getting started, guides, and the recipe reference
 - [Architecture](docs/DESIGN.md) — execution model and internals
 - [Migration](docs/MIGRATION_GUIDE.md) — migrating from Make, Just, and Taskfile
 

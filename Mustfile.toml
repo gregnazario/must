@@ -11,14 +11,14 @@ RUST_LOG = "error"
 [recipe.build]
 type    = "shell"
 cache   = "hash"
-inputs  = ["crates/*/src/**/*.rs", "crates/*/Cargo.toml", "Cargo.toml"]
+inputs  = ["crates/*/src/**/*.rs", "crates/*/Cargo.toml", "Cargo.toml", "Cargo.lock", ".cargo/config.toml"]
 outputs = ["target/debug/must"]
 script  = "cargo build"
 
 [recipe.release]
 type    = "shell"
 cache   = "hash"
-inputs  = ["crates/*/src/**/*.rs", "crates/*/Cargo.toml", "Cargo.toml"]
+inputs  = ["crates/*/src/**/*.rs", "crates/*/Cargo.toml", "Cargo.toml", "Cargo.lock", ".cargo/config.toml"]
 outputs = ["target/release/must"]
 deps    = ["build"]
 script  = "cargo build --release"
@@ -32,7 +32,7 @@ script = "cargo test"
 [recipe.lint]
 type   = "shell"
 phony  = true
-script = "cargo clippy -- -D warnings"
+script = "cargo clippy --workspace --all-targets -- -D warnings"
 
 [recipe.fmt]
 type   = "shell"

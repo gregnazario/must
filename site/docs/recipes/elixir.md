@@ -100,7 +100,7 @@ package = "."
 
 Runs: `mix deps.get && mix compile` (in package directory)
 
-Cache key includes: `elixir --version`, package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: `elixir --version`, package, env vars.
 
 ## `elixir-test` — Run tests
 
@@ -123,7 +123,7 @@ Cache strategy: `never` (test results should always be fresh).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

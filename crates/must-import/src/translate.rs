@@ -42,9 +42,31 @@ pub(crate) fn finalize_recipes(output: &mut MustfileOutput) {
             .deps
             .retain(|d| names.contains(d) && seen.insert(d.clone()));
         if recipe.script.is_empty() {
-            recipe.script = "true".to_string();
+            recipe.script = "exit 0".to_string();
             recipe.phony = true;
+        } else if recipe.script.contains('\n') {
+            recipe.script = fail_fast_script(&recipe.script);
         }
+    }
+}
+
+fn fail_fast_script(script: &str) -> String {
+    let lines: Vec<&str> = script
+        .lines()
+        .map(str::trim_end)
+        .filter(|line| {
+            let line = line.trim_start();
+            !line.is_empty() && !line.starts_with('#')
+        })
+        .collect();
+    match lines.as_slice() {
+        [] => "exit 0".to_string(),
+        [single] => single.to_string(),
+        many => many
+            .iter()
+            .map(|line| format!("( {line} )"))
+            .collect::<Vec<_>>()
+            .join(" && "),
     }
 }
 
@@ -289,6 +311,29 @@ mod tests {
     }
 
     #[test]
+    fn multi_line_recipes_stop_at_the_first_failure() {
+        let r = translate(MakefileAst {
+            nodes: vec![AstNode::Rule {
+                target: "test".into(),
+                deps: vec![],
+                recipe_lines: vec![
+                    "cargo test".into(),
+                    "# not a command".into(),
+                    "".into(),
+                    "echo done".into(),
+                ],
+                phony: false,
+            }],
+        });
+        assert!(
+            r.toml
+                .contains("script = '''\n( cargo test ) && ( echo done )\n'''"),
+            "each line must run in its own shell and stop the chain on failure, got: {}",
+            r.toml
+        );
+    }
+
+    #[test]
     fn aggregate_rule_without_recipe_lines_becomes_phony_noop() {
         let r = translate(ast(vec![
             AstNode::Rule {
@@ -306,7 +351,7 @@ mod tests {
         ]));
         assert!(
             r.toml
-                .contains("[recipe.\"all\"]\ntype = \"shell\"\ndeps = [\"build\"]\nphony = true\nscript = \"\"\"\ntrue\n\"\"\""),
+                .contains("[recipe.\"all\"]\ntype = \"shell\"\ndeps = [\"build\"]\nphony = true\nscript = '''\nexit 0\n'''"),
             "aggregate target must be a valid phony no-op, got: {}",
             r.toml
         );

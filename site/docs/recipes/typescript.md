@@ -82,9 +82,6 @@ name = "myapp"
 [recipe.build]
 type    = "ts-bin"
 package = "tsconfig.json"
-cache   = "hash"
-inputs  = ["src/**/*.ts"]
-outputs = ["dist/**/*.js"]
 
 [recipe.check]
 type    = "ts-check"
@@ -121,7 +118,7 @@ package = "tsconfig.json"
 
 Runs: `tsc --project tsconfig.json`
 
-Cache key includes: package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: package, env vars.
 
 ## `ts-check` — Type-check only
 
@@ -170,7 +167,7 @@ Cache strategy: `never` (npm scripts are not cached).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

@@ -1607,3 +1607,44 @@ type = "shell"
     let err = validate(&cfg, Path::new("Mustfile.toml")).unwrap_err();
     assert!(err.to_string().contains("missing required field 'script'"));
 }
+
+#[test]
+fn test_shell_recipe_with_only_foreign_platform_script_fails() {
+    let foreign = if cfg!(windows) { "unix" } else { "win" };
+    let cfg = parse(&format!(
+        r#"
+[project]
+name = "test"
+
+[recipe.deploy]
+type = "shell"
+scripts = {{ {foreign} = "echo deploying" }}
+"#
+    ));
+    let err = validate(&cfg, Path::new("Mustfile.toml")).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("recipe 'deploy' has no script for this platform"),
+        "{err}"
+    );
+}
+
+#[test]
+fn test_shell_recipe_with_whitespace_script_fails() {
+    let cfg = parse(
+        r#"
+[project]
+name = "test"
+
+[recipe.deploy]
+type = "shell"
+script = "   "
+"#,
+    );
+    let err = validate(&cfg, Path::new("Mustfile.toml")).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("recipe 'deploy' has no script for this platform"),
+        "{err}"
+    );
+}

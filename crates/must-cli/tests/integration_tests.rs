@@ -293,21 +293,170 @@ package = "hello"
         built.display()
     );
 
-    // Second run: hash cache should prevent rebuild (0 built, 1 cached)
-    let output2 = std::process::Command::new(binary)
-        .args([
-            "--file",
-            &root.join("Mustfile.toml").to_string_lossy(),
-            "build",
-        ])
+    let run_must = || {
+        std::process::Command::new(binary)
+            .args([
+                "--file",
+                &root.join("Mustfile.toml").to_string_lossy(),
+                "build",
+            ])
+            .current_dir(root)
+            .output()
+            .unwrap()
+    };
+
+    // Second run with no change: the tool runs again and decides nothing changed
+    let output2 = run_must();
+    assert!(output2.status.success(), "second build should succeed");
+    assert!(
+        String::from_utf8_lossy(&output2.stdout).contains("1 built"),
+        "the tool must be invoked on every run: {}",
+        String::from_utf8_lossy(&output2.stdout)
+    );
+
+    // A source edit must reach the binary
+    std::fs::write(
+        root.join("hello").join("src").join("main.rs"),
+        r#"fn main() { println!("hello from rebuilt must"); }"#,
+    )
+    .unwrap();
+    let output3 = run_must();
+    assert!(output3.status.success(), "third build should succeed");
+    let ran = std::process::Command::new(&built).output().unwrap();
+    assert!(
+        String::from_utf8_lossy(&ran.stdout).contains("hello from rebuilt must"),
+        "the binary should reflect the edited source, got: {}",
+        String::from_utf8_lossy(&ran.stdout)
+    );
+}
+
+#[test]
+fn test_parallelism_zero_is_rejected_instead_of_hanging() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        "[project]\nname = \"j0\"\n\n[recipe.build]\ntype = \"shell\"\nphony = true\nscript = \"touch ran.txt\"\n",
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["-j", "0", "build"])
         .current_dir(root)
         .output()
         .unwrap();
-    assert!(output2.status.success(), "second build should succeed");
-    let stdout2 = String::from_utf8_lossy(&output2.stdout);
     assert!(
-        stdout2.contains("1 cached") || stdout2.contains("0 built"),
-        "second run should use cache: {stdout2}"
+        !output.status.success(),
+        "-j 0 used to hang forever; it must be rejected"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid value '0'"));
+    assert!(!root.join("ran.txt").exists());
+}
+
+#[test]
+fn test_dry_run_foreach_runs_nothing() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    for name in ["a", "b"] {
+        let sub = root.join(name);
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(
+            sub.join("Mustfile.toml"),
+            format!(
+                "[project]\nname = \"sub-{name}\"\n\n[recipe.build]\ntype = \"shell\"\nphony = true\nscript = \"touch built.txt\"\n"
+            ),
+        )
+        .unwrap();
+    }
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_must"))
+        .args(["--dry-run", "foreach", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    for name in ["a", "b"] {
+        assert!(
+            !root.join(name).join("built.txt").exists(),
+            "--dry-run must reach the sub-projects"
+        );
+    }
+}
+
+#[test]
+fn test_dry_run_records_no_build_history() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Mustfile.toml"),
+        "[project]\nname = \"history\"\n\n[recipe.build]\ntype = \"shell\"\nphony = true\nscript = \"true\"\n",
+    )
+    .unwrap();
+    let binary = env!("CARGO_BIN_EXE_must");
+    let output = std::process::Command::new(binary)
+        .args(["--dry-run", "build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("would run"),
+        "a plan is not a build: {stdout}"
+    );
+    let history = root.join(".must/history");
+    let recorded = std::fs::read_dir(&history)
+        .map(|entries| entries.filter_map(Result::ok).count())
+        .unwrap_or(0);
+    assert_eq!(recorded, 0, "a dry run must not be recorded as a build");
+
+    let output = std::process::Command::new(binary)
+        .args(["build"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let recorded = std::fs::read_dir(&history)
+        .unwrap()
+        .filter_map(Result::ok)
+        .count();
+    assert_eq!(recorded, 1, "a real build is recorded");
+}
+
+#[test]
+fn test_imported_recipe_stops_at_first_failing_line() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("Makefile"),
+        "deploy:\n\tgrep '\\.rs$' Makefile > /dev/null\n\texit 1\n\ttouch should-not-exist\n",
+    )
+    .unwrap();
+    let binary = env!("CARGO_BIN_EXE_must");
+    let out = std::process::Command::new(binary)
+        .args(["import", "--makefile", "Makefile", "--out", "Mustfile.toml"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "import should succeed");
+
+    let out = std::process::Command::new(binary)
+        .args(["--file", "Mustfile.toml", "run", "deploy"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "a failing line must fail the recipe\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !root.join("should-not-exist").exists(),
+        "lines after the failing one must not run"
     );
 }
 
@@ -572,6 +721,12 @@ sources = ["hello.c"]
 
 #[test]
 fn test_c_bin_recipe_container() {
+    if std::env::var("MUST_TEST_DOCKER").as_deref() != Ok("1") {
+        eprintln!(
+            "skipping test_c_bin_recipe_container: set MUST_TEST_DOCKER=1 to run (pulls a toolchain image)"
+        );
+        return;
+    }
     // Skip if docker/podman not available
     let docker_available = std::process::Command::new("docker")
         .arg("info")
@@ -1187,6 +1342,12 @@ script = "echo building"
 
 #[test]
 fn test_py_bin_recipe() {
+    if std::env::var("MUST_TEST_NETWORK").as_deref() != Ok("1") {
+        eprintln!(
+            "skipping test_py_bin_recipe: set MUST_TEST_NETWORK=1 to run (installs from the package index)"
+        );
+        return;
+    }
     let python3_available = std::process::Command::new("python3")
         .arg("--version")
         .status()
@@ -1390,6 +1551,12 @@ package = "install"
 
 #[test]
 fn test_docker_build_recipe() {
+    if std::env::var("MUST_TEST_DOCKER").as_deref() != Ok("1") {
+        eprintln!(
+            "skipping test_docker_build_recipe: set MUST_TEST_DOCKER=1 to run (pulls a base image)"
+        );
+        return;
+    }
     let docker_available = std::process::Command::new("docker")
         .arg("version")
         .output()

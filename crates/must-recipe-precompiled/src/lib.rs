@@ -333,6 +333,16 @@ impl Recipe for PrecompiledBinRecipe {
         })
     }
 
+    fn is_cached(&self, ctx: &BuildContext) -> Result<Option<bool>> {
+        if ctx.dry_run {
+            return Ok(Some(false));
+        }
+        let dest = self.dest_path(ctx)?;
+        Ok(Some(
+            dest.exists() && installed_matches_pin(&self.url, self.sha256.as_deref(), &dest),
+        ))
+    }
+
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
         let start = std::time::Instant::now();
         let dest = self.dest_path(ctx)?;
@@ -486,6 +496,31 @@ mod tests {
         assert!(out.stdout.contains("https://example.com/tool"));
         assert!(out.stdout.contains("bin/tool"));
         assert!(!out.from_cache);
+    }
+
+    #[test]
+    fn is_cached_agrees_with_execute() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let bin_path = tmp.path().join("bin").join("tool");
+        std::fs::create_dir_all(bin_path.parent().unwrap()).unwrap();
+
+        let mut r = PrecompiledBinRecipe::new("tool", "https://example.com/tool", "bin/tool");
+        let mut ctx = test_ctx();
+        ctx.project_root = tmp.path().to_owned();
+        ctx.cache_dir = tmp.path().join(".cache");
+
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+
+        std::fs::write(&bin_path, b"binary").unwrap();
+        r.sha256 = Some(hash_file(&bin_path));
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(true));
+        assert!(r.execute(&ctx).unwrap().from_cache);
+
+        std::fs::write(&bin_path, b"replaced after the pin was set").unwrap();
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
+
+        ctx.dry_run = true;
+        assert_eq!(r.is_cached(&ctx).unwrap(), Some(false));
     }
 
     #[test]

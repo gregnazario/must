@@ -3,11 +3,11 @@ name = "must-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 must-core = { path = "../must-core" }
 must-graph = { path = "../must-graph" }
-must-cache = { path = "../must-cache" }
 must-config = { path = "../must-config" }
 tokio.workspace = true
 tracing.workspace = true

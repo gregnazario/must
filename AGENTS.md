@@ -62,8 +62,8 @@ crates/
 Each recipe crate implements `Recipe` trait from `must-core`:
 1. Struct with `name`, `deps`, `env` fields
 2. Helper function (e.g., `run_cargo`, `run_go`) that creates `Command`, sets `.current_dir(&ctx.project_root)`, calls `run_command()`
-3. `execute()` handles dry_run, cache lookup, command execution, cache store
-4. `cache_key()` computes hash for cache hits
+3. `execute()` handles dry_run, then command execution. Tool-backed recipes never skip on a cache entry: their key carries no source inputs, so only `shell` and `precompiled-bin` recipes consult the cache
+4. `cache_key()` computes the hash shown by `must explain`
 5. `inputs()`/`outputs()` expand glob patterns
 
 ### Testing
@@ -140,6 +140,7 @@ win     = "nmake"
 - Bridge recipes always use `cache = "none"` — the delegate tool manages caching
 - Multi-tool projects: first tool gets standard verbs, others get prefixed (e.g. `npm-build`)
 - `compute_hash()` does NOT include `ctx.target` in hash — only struct fields
+- Plugin code runs only when a plugin recipe is built for real: `list`, `explain`, `outdated`, `--dry-run` and `plugin check`/`list` never load it
 - `CacheMode::None` serializes as `"none"` (kebab-case), NOT "never"
 - All GitHub Actions pinned to commit SHAs
 - `must.ai` is not and will never be this project's domain — do not reference it or add a CNAME; the doc site lives at GitHub Pages (`gregnazario.github.io/must`)

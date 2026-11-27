@@ -3,5 +3,5 @@
 pub mod env;
 pub mod scheduler;
 
-pub use env::{compose_env, compose_env_with_base};
+pub use env::{compose_env, compose_env_with_base, expand_env_vars};
 pub use scheduler::{Engine, ExecutionReport, ExecutionResult, ProgressEvent};

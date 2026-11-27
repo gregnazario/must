@@ -68,7 +68,6 @@ type       = "c-lib"
 sources    = ["src/util.c"]
 includes   = ["include"]
 static_lib = true
-cache      = "hash"
 
 [recipe.greeter]
 type       = "c-bin"
@@ -76,7 +75,6 @@ sources    = ["src/main.c"]
 includes   = ["include"]
 link_libs  = ["m"]
 deps       = ["greeter-lib"]
-cache      = "hash"
 
 [recipe.test]
 type   = "shell"
@@ -89,8 +87,8 @@ cache  = "none"
 
 ```
 $ must build
-✔ greeter-lib  cached
-✔ greeter       cached
+✔ greeter-lib  built
+✔ greeter       built
 
 $ must test
 ✔ test  OK
@@ -109,7 +107,7 @@ link_libs = ["m"]
 
 Runs: `cc src/main.c src/util.c -Iinclude -lm -O2 -Wall -o build/<name>`
 
-Cache key includes: `cc --version`, sources, includes, link_libs, cflags, target, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: `cc --version`, sources, includes, link_libs, cflags, target, env vars.
 
 ## `c-lib` — Build a library
 
@@ -125,7 +123,7 @@ Runs (static): `cc -fPIC -c src/lib.c -o build/lib.o && ar rcs build/libmylib.a 
 
 Runs (shared): `cc -shared -fPIC src/lib.c -o build/libmylib.so`
 
-Cache key includes: `cc --version`, sources, includes, link_libs, cflags, lib type, target, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: `cc --version`, sources, includes, link_libs, cflags, lib type, target, env vars.
 
 ## Fields
 
@@ -139,7 +137,7 @@ Cache key includes: `cc --version`, sources, includes, link_libs, cflags, lib ty
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Cross-compilation
 

@@ -35,13 +35,34 @@ pub(crate) fn write_toml(output: &MustfileOutput) -> String {
             out.push_str("phony = true\n");
         }
         if !recipe.script.is_empty() {
-            // escape any """ in script content
-            let safe_script = recipe.script.replace("\"\"\"", "\\\"\\\"\\\"");
-            out.push_str(&format!("script = \"\"\"\n{safe_script}\n\"\"\"\n"));
+            let script = toml_multiline_string(&recipe.script);
+            out.push_str(&format!("script = {script}\n"));
         }
     }
 
     out
+}
+
+fn toml_multiline_string(script: &str) -> String {
+    let script = script.replace("\r\n", "\n").replace('\r', "\n");
+    let needs_escape = script.contains("'''")
+        || script
+            .chars()
+            .any(|c| c.is_control() && c != '\n' && c != '\t');
+    if !needs_escape {
+        return format!("'''\n{script}\n'''");
+    }
+    let mut escaped = String::with_capacity(script.len());
+    for c in script.chars() {
+        match c {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' | '\t' => escaped.push(c),
+            c if c.is_control() => escaped.push_str(&format!("\\u{:04X}", c as u32)),
+            c => escaped.push(c),
+        }
+    }
+    format!("\"\"\"\n{escaped}\n\"\"\"")
 }
 
 fn toml_key(key: &str) -> String {
@@ -73,6 +94,37 @@ mod tests {
             recipes: vec![],
             todos: vec![],
             skipped: vec![],
+        }
+    }
+
+    #[test]
+    fn scripts_round_trip_through_toml() {
+        for script in [
+            r"grep '\.rs$' src/main.rs",
+            r#"find . -name "*.o" -exec rm {} \;"#,
+            "echo -e \"a\\tb\"",
+            "echo '''quoted'''",
+            "echo \"\"\"triple\"\"\"",
+            "line one\r\nline two",
+            "echo \u{1}control\u{1F}\u{7F}",
+            "echo \"café ☕\"",
+        ] {
+            let mut o = empty_output();
+            o.recipes.push(OutputRecipe {
+                name: "build".into(),
+                deps: vec![],
+                script: script.to_string(),
+                phony: false,
+            });
+            let toml = write_toml(&o);
+            let parsed: toml::Value = toml::from_str(&toml)
+                .unwrap_or_else(|e| panic!("{script:?} produced invalid TOML: {e}\n{toml}"));
+            let expected = format!("{}\n", script.replace("\r\n", "\n"));
+            assert_eq!(
+                parsed["recipe"]["build"]["script"].as_str(),
+                Some(expected.as_str()),
+                "script was altered:\n{toml}"
+            );
         }
     }
 

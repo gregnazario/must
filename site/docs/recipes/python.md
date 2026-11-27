@@ -90,11 +90,11 @@ $ must build
 ● build  py-bin  myapp  done (1.2s)
 
 $ must test
-● build  py-bin    myapp  cached
+● build  py-bin    myapp  done (0.2s)
 ● test   py-test   myapp  done (0.8s)
 
 $ must lint
-● build  py-bin    myapp  cached
+● build  py-bin    myapp  done (0.2s)
 ● lint   py-lint   myapp  done (1.5s)
 ```
 
@@ -108,7 +108,7 @@ package = "."
 
 Runs: `uv pip install .` (or `pip install .` if uv is not available)
 
-Cache key includes: package, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: package, env vars.
 
 ## `py-test` — Run tests
 
@@ -143,7 +143,7 @@ Cache strategy: `never` (lint results should always be fresh).
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

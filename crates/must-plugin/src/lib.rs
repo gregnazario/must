@@ -36,7 +36,10 @@ impl LuaRecipe {
             message: format!("failed to inject stdlib: {e}"),
         })?;
 
-        let script = std::fs::read_to_string(path).map_err(must_core::Error::Io)?;
+        let script = std::fs::read_to_string(path).map_err(|e| must_core::Error::Config {
+            path: path.to_path_buf(),
+            message: format!("cannot read plugin: {e}"),
+        })?;
 
         lua.load(&script)
             .exec()
@@ -79,6 +82,33 @@ impl LuaRecipe {
             script,
             workdir,
         })
+    }
+
+    pub fn plan(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            deps: Vec::new(),
+            lua: Mutex::new(Lua::new()),
+            script: String::new(),
+            workdir: std::sync::Arc::new(std::sync::Mutex::new(
+                std::env::current_dir().unwrap_or_default(),
+            )),
+        }
+    }
+
+    pub fn check_syntax(path: &Path) -> Result<()> {
+        let script = std::fs::read_to_string(path).map_err(|e| must_core::Error::Config {
+            path: path.to_path_buf(),
+            message: format!("cannot read plugin: {e}"),
+        })?;
+        Lua::new()
+            .load(&script)
+            .into_function()
+            .map(|_| ())
+            .map_err(|e| must_core::Error::Config {
+                path: path.to_path_buf(),
+                message: format!("lua syntax error in {}: {e}", path.display()),
+            })
     }
 
     fn set_workdir(&self, ctx: &BuildContext) {
@@ -171,7 +201,7 @@ impl Recipe for LuaRecipe {
     }
 
     fn cache_strategy(&self) -> CacheStrategy {
-        CacheStrategy::Mtime
+        CacheStrategy::Never
     }
 
     fn cache_key(&self, ctx: &BuildContext) -> Result<CacheKey> {
@@ -194,6 +224,16 @@ impl Recipe for LuaRecipe {
     }
 
     fn execute(&self, ctx: &BuildContext) -> Result<RecipeOutput> {
+        if ctx.dry_run {
+            return Ok(RecipeOutput {
+                recipe_name: self.name.clone(),
+                from_cache: false,
+                outputs: Vec::new(),
+                stdout: format!("[dry-run] would run plugin {}", self.name),
+                stderr: String::new(),
+                duration_ms: 0,
+            });
+        }
         self.set_workdir(ctx);
         self.with_lua(|lua| {
             let globals = lua.globals();

@@ -86,14 +86,11 @@ version = "1.0.0"
 [recipe.build]
 type    = "flutter-build"
 package = "."
-inputs  = ["lib/**/*.dart", "pubspec.yaml"]
-outputs = ["build/**/*"]
 
 [recipe.test]
 type    = "flutter-test"
 package = "."
 deps    = ["build"]
-cache   = "none"
 ```
 
 Build the app:
@@ -125,7 +122,7 @@ package = "."
 
 Runs: `flutter build <platform>` (platform is derived from target: `apk`, `ios`, `web`, `macos`, `windows`, `linux`)
 
-Cache key includes: `flutter --version`, package, target, env vars.
+Always runs; the tool decides what to rebuild. The key shown by `must explain` includes: `flutter --version`, package, target, env vars.
 
 ## `flutter-test` — Run tests
 
@@ -161,7 +158,7 @@ The build platform is determined by the target:
 | `deps` | string[] | all | Dependencies |
 | `env` | map | all | Environment variables |
 
-All recipes also support these common fields: `deps`, `env`, `cache` (`"hash"` / `"mtime"` / `"none"`), `phony` (always re-run).
+All recipes also support `deps` and `env`. The `cache` and `phony` fields apply to `shell` recipes only; every other recipe type invokes its tool on each run and lets the tool decide what to rebuild.
 
 ## Examples
 

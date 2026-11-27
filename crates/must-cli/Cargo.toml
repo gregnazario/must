@@ -3,6 +3,7 @@ name = "must-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 authors.workspace = true
 
 [[bin]]
@@ -45,7 +46,6 @@ tracing-subscriber = { workspace = true }
 glob = { workspace = true }
 serde = { workspace = true }
 notify = "8"
-num_cpus = "1"
 serde_json = "1"
 indicatif = "0.18"
 reqwest = { version = "0.13", features = ["rustls"], default-features = false }

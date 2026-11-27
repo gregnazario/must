@@ -12,6 +12,6 @@ pub use command::{
 };
 pub use error::{Error, Result};
 pub use output::{clear_output_fn, print_error, print_output, set_output_fn};
-pub use paths::ensure_within_root;
+pub use paths::{ensure_within_root, validate_name_no_traversal};
 pub use traits::{Cache, Recipe, Toolchain};
 pub use types::{BuildContext, CacheKey, CacheLookup, CacheStrategy, RecipeOutput};

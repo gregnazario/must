@@ -125,7 +125,7 @@ fn duplicate_rules_dedupe_and_deps_filter_end_to_end() {
         "last rule with recipe lines must win the script"
     );
     assert!(
-        result.toml.contains("[recipe.\"all\"]\ntype = \"shell\"\ndeps = [\"build\"]\nphony = true\nscript = \"\"\"\ntrue\n\"\"\""),
+        result.toml.contains("[recipe.\"all\"]\ntype = \"shell\"\ndeps = [\"build\"]\nphony = true\nscript = '''\nexit 0\n'''"),
         "aggregate 'all' target must become a phony no-op, got: {}",
         result.toml
     );
@@ -136,7 +136,9 @@ fn blank_line_inside_recipe_kept_end_to_end() {
     let input = "build:\n\techo first\n\n\techo second\n";
     let result = import(input);
     assert!(
-        result.toml.contains("echo first\necho second"),
+        result
+            .toml
+            .contains("script = '''\n( echo first ) && ( echo second )\n'''"),
         "script lines separated by a blank line must both be kept, got: {}",
         result.toml
     );
@@ -174,4 +176,17 @@ fn make_recipe_prefixes_stripped_end_to_end() {
         "`+` prefix must be stripped from make recipe lines, got: {}",
         result.toml
     );
+}
+
+#[test]
+fn generated_toml_parses_and_keeps_backslashes() {
+    let input = "build:\n\tgrep '\\.rs$' src/main.rs\n\tfind . -name \"*.o\" -exec rm {} \\;\n\nall: build\n";
+    let result = import(input);
+    let parsed: toml::Value = toml::from_str(&result.toml)
+        .unwrap_or_else(|e| panic!("generated TOML is invalid: {e}\n{}", result.toml));
+    assert_eq!(
+        parsed["recipe"]["build"]["script"].as_str(),
+        Some("( grep '\\.rs$' src/main.rs ) && ( find . -name \"*.o\" -exec rm {} \\; )\n")
+    );
+    assert_eq!(parsed["recipe"]["all"]["script"].as_str(), Some("exit 0\n"));
 }

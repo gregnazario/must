@@ -3,11 +3,8 @@ name = "must-import"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-
-[dependencies]
-thiserror.workspace = true
-serde.workspace = true
-toml.workspace = true
+repository.workspace = true
 
 [dev-dependencies]
+toml.workspace = true
 tempfile.workspace = true
